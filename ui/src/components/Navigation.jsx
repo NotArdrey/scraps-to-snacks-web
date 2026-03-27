@@ -1,18 +1,8 @@
-import React, { useContext } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { ChefHat, List, Scan, Book, LogOut } from 'lucide-react';
-import { AppContext } from '../AppContext';
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { ChefHat, List, Scan, Book, User } from 'lucide-react';
 
-export default function Navigation({ setIsAuthenticated }) {
-  const { setIsSubscribed } = useContext(AppContext);
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setIsSubscribed(false);
-    navigate('/login');
-  };
-
+export default function Navigation() {
   return (
     <nav className="nav-bar">
       <div className="nav-brand">
@@ -21,7 +11,7 @@ export default function Navigation({ setIsAuthenticated }) {
         </div>
         Scraps to Snacks
       </div>
-      
+
       <div className="nav-links">
         <NavLink to="/pantry" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
           <List size={18}/> Pantry
@@ -32,11 +22,10 @@ export default function Navigation({ setIsAuthenticated }) {
         <NavLink to="/cookbook" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
           <Book size={18}/> Cookbook
         </NavLink>
+        <NavLink to="/account" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
+          <User size={18}/> Account
+        </NavLink>
       </div>
-
-      <button onClick={handleLogout} className="btn-secondary" style={{ padding: '0.5rem 1rem' }}>
-        <LogOut size={16} /> Logout
-      </button>
     </nav>
   );
 }

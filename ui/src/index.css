@@ -2,15 +2,15 @@
 
 :root {
   /* Dynamic Background Colors */
-  --bg-gradient-start: #f8fafc;
-  --bg-gradient-end: #cffafe;
+  --bg-gradient-start: #fff1f2;
+  --bg-gradient-end: #ffedd5;
   
   /* Brand Colors */
-  --primary-color: #06b6d4;
-  --primary-hover: #0891b2;
-  --secondary-color: #3b82f6;
-  --secondary-hover: #2563eb;
-  --accent-color: #14b8a6;
+  --primary-color: #f97316;
+  --primary-hover: #ea580c;
+  --secondary-color: #f43f5e;
+  --secondary-hover: #e11d48;
+  --accent-color: #84cc16;
   
   /* Surface Colors (Glassmorphism) */
   --surface-color: rgba(255, 255, 255, 0.7);

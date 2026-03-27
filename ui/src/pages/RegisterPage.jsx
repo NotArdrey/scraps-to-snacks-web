@@ -1,50 +1,64 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+﻿import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChefHat } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { modernStyles } from '../styles';
 
-export default function RegisterPage({ setIsAuthenticated }) {
-  const navigate = useNavigate();
+export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    // registration logic here, direct user to onboarding/subscription
-    setIsAuthenticated(true);
-    navigate('/subscription');
+    setError(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="glass-card" style={{ width: '100%', maxWidth: '450px' }}>
+    <div style={modernStyles.container}>
+      <div style={modernStyles.card}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ display: 'inline-flex', background: 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))', padding: '1rem', borderRadius: '50%', marginBottom: '1rem', boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)' }}>
+          <div style={{ display: 'inline-flex', background: 'linear-gradient(135deg, #f97316, #f43f5e)', padding: '1rem', borderRadius: '50%', marginBottom: '1rem', boxShadow: '0 4px 15px rgba(249, 115, 22, 0.4)' }}>
             <ChefHat size={32} color="white" />
           </div>
-          <h2 className="page-title" style={{ fontSize: '2rem' }}>Create Account</h2>
-          <p className="page-subtitle">Join Scraps to Snacks and reduce food waste!</p>
+          <h2 style={{ ...modernStyles.title, fontSize: '2rem' }}>Create Account</h2>
+          <p style={modernStyles.subtitle}>Join Scraps to Snacks and reduce food waste!</p>
         </div>
 
-        <form onSubmit={handleRegister}>
-          <div className="input-container">
-            <label htmlFor="reg-email" className="input-label">Email Address</label>
-            <input type="email" id="reg-email" className="input-field" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+        {error && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.5rem', color: '#ef4444', fontSize: '0.9rem' }}>
+            {error}
           </div>
-          
-          <div className="input-container" style={{ marginTop: '1.5rem' }}>
-            <label htmlFor="reg-password" className="input-label">Password</label>
-            <input type="password" id="reg-password" className="input-field" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+        )}
+
+        <form onSubmit={handleRegister}>
+          <div style={modernStyles.inputContainer}>
+            <label htmlFor="reg-email" style={modernStyles.label}>Email Address</label>
+            <input type="email" id="reg-email" style={modernStyles.input} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', fontSize: '1.1rem' }}>
-            Register
+          <div style={{ ...modernStyles.inputContainer, marginTop: '1.5rem' }}>
+            <label htmlFor="reg-password" style={modernStyles.label}>Password</label>
+            <input type="password" id="reg-password" style={modernStyles.input} placeholder="" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+          </div>
+
+          <button type="submit" disabled={loading} style={{ ...modernStyles.buttonPrimary, opacity: loading ? 0.7 : 1, marginTop: '1.5rem' }}>
+            {loading ? 'Creating account...' : 'Register'}
           </button>
         </form>
 
-        <div style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-          Already have an account? <Link to="/login" style={{ color: 'var(--primary-color)', fontWeight: '600' }}>Log in</Link>
+        <div style={{ marginTop: '2rem', textAlign: 'center', color: '#cbd5e1' }}>
+          Already have an account? <Link to="/login" style={modernStyles.link}>Log in</Link>
         </div>
       </div>
     </div>
   );
 }
+
