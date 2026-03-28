@@ -1,8 +1,9 @@
 import React, { useContext, useState } from 'react';
-import { Book, Star, Calendar, Trash2, Edit2, Save, X, ChefHat, Flame, Plus, Minus } from 'lucide-react';
+import { Book, Star, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus } from 'lucide-react';
 import { AppContext } from '../AppContext';
 import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
+import BrandIcon from '../components/BrandIcon';
 
 export default function Cookbook() {
   const { user } = useContext(AppContext);
@@ -103,8 +104,31 @@ export default function Cookbook() {
 
   if (recipesLoading) {
     return (
-      <div className="hero-container" style={{ textAlign: 'center', padding: '4rem' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading cookbook...</p>
+      <div className="hero-container">
+        <div className="skeleton skeleton-hero" />
+        <div className="grid-container">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="skeleton-card">
+              <div className="skeleton skeleton-line-lg" style={{ width: '60%' }} />
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '1rem' }}>
+                {Array.from({ length: 5 }).map((_, j) => (
+                  <div key={j} className="skeleton" style={{ width: 20, height: 20, borderRadius: 4 }} />
+                ))}
+              </div>
+              <div className="skeleton skeleton-line" style={{ width: '40%' }} />
+              <div style={{ marginTop: '1.25rem' }}>
+                <div className="skeleton skeleton-line" style={{ width: '90%' }} />
+                <div className="skeleton skeleton-line" style={{ width: '75%' }} />
+                <div className="skeleton skeleton-line" style={{ width: '60%' }} />
+              </div>
+              <div style={{ marginTop: '1.25rem' }}>
+                <div className="skeleton skeleton-line" style={{ width: '100%' }} />
+                <div className="skeleton skeleton-line" style={{ width: '95%' }} />
+                <div className="skeleton skeleton-line" style={{ width: '80%' }} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -141,7 +165,9 @@ export default function Cookbook() {
 
       {recipes.length === 0 ? (
         <div className="glass-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-          <ChefHat size={48} color="var(--text-tertiary)" style={{ marginBottom: '1rem', opacity: 0.5 }} />
+          <div style={{ marginBottom: '1rem', opacity: 0.5 }}>
+            <BrandIcon size={56} />
+          </div>
           <h3 style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>Your cookbook is empty</h3>
           <p style={{ color: 'var(--text-tertiary)' }}>Go to your Pantry to select ingredients and generate your first custom recipe!</p>
         </div>

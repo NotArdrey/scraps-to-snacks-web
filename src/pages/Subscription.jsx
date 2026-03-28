@@ -1,9 +1,15 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import BrandIcon from '../components/BrandIcon';
 import { AppContext } from '../AppContext';
 import { fetchActivePlans, createSubscription, formatPlanPrice } from '../services/subscription';
-import { modernStyles } from '../styles';
+
+const CAROUSEL_IMAGES = [
+  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1466637574441-749b8f19452f?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1543362906-acfc16c67564?q=80&w=2000&auto=format&fit=crop'
+];
 
 export default function Subscription() {
   const navigate = useNavigate();
@@ -12,6 +18,14 @@ export default function Subscription() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -38,55 +52,101 @@ export default function Subscription() {
 
   if (fetching) {
     return (
-      <div style={{ maxWidth: '800px', margin: '3rem auto', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading plans...</p>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', zIndex: 50 }}>
+        <p style={{ color: 'var(--theme-text-muted)' }}>Loading plans...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ ...modernStyles.container, alignItems: 'flex-start', paddingTop: '4rem' }}>
-      <div style={{ ...modernStyles.card, maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ display: 'inline-flex', background: 'rgba(249, 115, 22, 0.2)', padding: '0.75rem', borderRadius: '50%', marginBottom: '1rem' }}>
-          <Sparkles size={28} color="#f97316" />
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      {/* Left Side - Image Background */}
+      <div style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'space-between', 
+        padding: '3rem', 
+        backgroundImage: `linear-gradient(to bottom, rgba(var(--bg-rgb), 0.4), rgba(var(--bg-rgb), 0.9)), url("${CAROUSEL_IMAGES[currentImageIndex]}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        borderTopRightRadius: '2rem',
+        borderBottomRightRadius: '2rem',
+        transition: 'background-image 1s ease-in-out'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <BrandIcon size={32} color="#ffffff" />
+            <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>
+              Scraps<span style={{ color: '#7a5ed3' }}>2</span>Snacks
+            </span>
+          </div>
         </div>
-        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 1rem 0', color: '#1f2937', background: 'linear-gradient(135deg, #f97316, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Choose Your Plan</h2>
-        <p style={{ fontSize: '1.125rem', color: '#6b7280', margin: '0 0 2rem 0' }}>Unlock AI magic parsing and unrestricted recipes.</p>
 
-        <div style={{ display: 'grid', gap: '2rem', marginTop: '3rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          {plans.map(plan => (
-            <div
-              key={plan.id}
-              style={{
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(10px)',
-                cursor: 'pointer',
-                borderRadius: '24px',
-                border: selectedPlan === plan.plan_code ? '2px solid #f97316' : '1px solid rgba(255, 255, 255, 0.5)',
-                transform: selectedPlan === plan.plan_code ? 'translateY(-5px)' : 'none',
-                boxShadow: selectedPlan === plan.plan_code ? '0 10px 25px rgba(249, 115, 22, 0.3)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '2rem 1.5rem'
-              }}
-              onClick={() => setSelectedPlan(plan.plan_code)}
-            >
-              {selectedPlan === plan.plan_code && (
-                <div style={{ position: 'absolute', top: '-12px', right: '-12px', background: '#f97316', borderRadius: '50%', padding: '0.25rem', display: 'flex' }}>
-                  <Check size={16} color="white" />
+        <div>
+          <h1 style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
+            Unlock Culinary<br />Excellence
+          </h1>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem' }}>
+            {CAROUSEL_IMAGES.map((_, idx) => (
+              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'rgba(255,255,255,0.3)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Form */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ width: '100%', maxWidth: '500px' }}>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Choose Your Plan</h2>
+          <p style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
+            Get started with AI magic parsing and unrestricted recipes.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {plans.map(plan => (
+              <div
+                key={plan.id}
+                style={{
+                  background: selectedPlan === plan.plan_code ? 'rgba(122, 94, 211, 0.1)' : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  borderRadius: '12px',
+                  border: selectedPlan === plan.plan_code ? '2px solid #7a5ed3' : '1px solid var(--border-color)',
+                  padding: '1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => setSelectedPlan(plan.plan_code)}
+              >
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', margin: '0 0 0.5rem 0', fontWeight: '600' }}>{plan.display_name}</h3>
+                  <p style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem', margin: 0 }}>{plan.description}</p>
                 </div>
-              )}
-              <h3 style={{ fontSize: '1.25rem', margin: '0 0 0.5rem 0', color: '#1f2937' }}>{plan.display_name}</h3>
-              <div style={{ fontSize: '2rem', fontWeight: '800', color: '#f97316', margin: '1rem 0' }}>{formatPlanPrice(plan)}</div>
-              <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: 0 }}>{plan.description}</p>
-            </div>
-          ))}
-        </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{formatPlanPrice(plan)}</div>
+                  <div style={{ 
+                    width: '24px', 
+                    height: '24px', 
+                    borderRadius: '50%', 
+                    border: selectedPlan === plan.plan_code ? 'none' : '2px solid var(--border-color)',
+                    background: selectedPlan === plan.plan_code ? '#7a5ed3' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {selectedPlan === plan.plan_code && <Check size={14} color="#ffffff" />}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-        <button onClick={handleSelect} disabled={loading || !selectedPlan} style={{ marginTop: '3rem', padding: '1rem 3rem', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', borderRadius: '9999px', background: 'linear-gradient(135deg, #f97316, #f43f5e)', color: '#ffffff', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(249, 115, 22, 0.4)', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Processing...' : 'Continue'}
-        </button>
+          <button onClick={handleSelect} disabled={loading || !selectedPlan} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: 'var(--theme-text-main)', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '2rem', opacity: loading || !selectedPlan ? 0.7 : 1 }}>
+            {loading ? 'Processing...' : 'Continue to Onboarding'}
+          </button>
+        </div>
       </div>
     </div>
   );

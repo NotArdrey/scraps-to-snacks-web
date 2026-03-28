@@ -92,11 +92,11 @@ export default function Account() {
 
   // Shared styles
   const panelStyle = {
-    background: 'rgba(255, 255, 255, 0.75)',
-    backdropFilter: 'blur(12px)',
+    background: 'var(--bg-card)',
     borderRadius: '24px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
     overflow: 'hidden',
+    border: '1px solid var(--border-color)'
   };
 
   const rowStyle = {
@@ -110,7 +110,7 @@ export default function Account() {
 
   const dividerStyle = {
     height: '1px',
-    background: 'rgba(0, 0, 0, 0.06)',
+    background: 'var(--border-color)',
     margin: '0 1.75rem',
   };
 
@@ -120,27 +120,27 @@ export default function Account() {
   });
 
   const editLinkStyle = {
-    color: '#f97316', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer',
+    color: '#7a5ed3', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer',
     background: 'none', border: 'none', padding: 0, transition: 'color 0.15s',
   };
 
   const inputStyle = {
     width: '100%', padding: '0.8rem 1rem', borderRadius: '12px',
-    border: '2px solid rgba(226, 232, 240, 0.8)', background: 'rgba(255, 255, 255, 0.9)',
-    fontSize: '0.95rem', color: '#1a202c', outline: 'none', transition: 'border-color 0.2s',
+    border: '1px solid var(--border-color)', background: 'var(--bg-main)',
+    fontSize: '0.95rem', color: 'var(--theme-text-main)', outline: 'none', transition: 'border-color 0.2s',
   };
 
   const saveBtnStyle = {
     padding: '0.7rem 1.75rem',
-    background: 'linear-gradient(135deg, #f97316, #f43f5e)',
+    background: '#7a5ed3',
     color: '#fff', border: 'none', borderRadius: '9999px',
     fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem',
   };
 
   const cancelBtnStyle = {
     padding: '0.7rem 1.75rem',
-    background: 'transparent', border: '1px solid #cbd5e1',
-    color: '#64748b', borderRadius: '9999px',
+    background: 'transparent', border: '1px solid var(--border-color)',
+    color: 'var(--theme-text-muted)', borderRadius: '9999px',
     fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem',
   };
 
@@ -163,7 +163,7 @@ export default function Account() {
           </div>
           <div>
             <h2 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 0.25rem 0', color: 'white' }}>My Account</h2>
-            <p style={{ fontSize: '1.1rem', color: '#e2e8f0', margin: 0 }}>Manage your profile and settings</p>
+            <p style={{ fontSize: '1.1rem', color: 'var(--theme-text-muted)', margin: 0 }}>Manage your profile and settings</p>
           </div>
         </div>
       </div>
@@ -175,16 +175,16 @@ export default function Account() {
         <div
           style={rowStyle}
           onClick={() => editingField !== 'email' && openEdit('email')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-            <div style={rowIconWrap('rgba(249, 115, 22, 0.1)')}>
-              <Mail size={20} color="#f97316" />
+            <div style={rowIconWrap('rgba(122, 94, 211, 0.15)')}>
+              <Mail size={20} color="#7a5ed3" />
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Email Address</div>
-              <div style={{ fontSize: '1rem', color: '#1f2937', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email || 'Loading...'}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Email Address</div>
+              <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email || 'Loading...'}</div>
             </div>
           </div>
           <button style={editLinkStyle} onClick={(e) => { e.stopPropagation(); openEdit('email'); }}>Edit</button>
@@ -196,7 +196,7 @@ export default function Account() {
             {emailMsg && <div style={msgStyle(emailMsg.type)}>{emailMsg.text}</div>}
             <form onSubmit={handleChangeEmail}>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: '600', marginBottom: '0.4rem' }}>New Email</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Email</label>
                 <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter new email address" style={inputStyle} required autoFocus />
               </div>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -215,16 +215,16 @@ export default function Account() {
         <div
           style={rowStyle}
           onClick={() => editingField !== 'password' && openEdit('password')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <div style={rowIconWrap('rgba(244, 63, 94, 0.1)')}>
-              <Lock size={20} color="#f43f5e" />
+            <div style={rowIconWrap('rgba(157, 132, 232, 0.15)')}>
+              <Lock size={20} color="#9d84e8" />
             </div>
             <div>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Password</div>
-              <div style={{ fontSize: '1rem', color: '#1f2937', fontWeight: '500' }}>••••••••</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Password</div>
+              <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>••••••••</div>
             </div>
           </div>
           <button style={editLinkStyle} onClick={(e) => { e.stopPropagation(); openEdit('password'); }}>Edit</button>
@@ -236,7 +236,7 @@ export default function Account() {
             {passwordMsg && <div style={msgStyle(passwordMsg.type)}>{passwordMsg.text}</div>}
             <form onSubmit={handleChangePassword}>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: '600', marginBottom: '0.4rem' }}>New Password</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -246,13 +246,13 @@ export default function Account() {
                     style={{ ...inputStyle, paddingRight: '3rem' }}
                     required minLength={6} autoFocus
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '0.25rem' }}>
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: '600', marginBottom: '0.4rem' }}>Confirm New Password</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>Confirm New Password</label>
                 <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" style={inputStyle} required minLength={6} />
               </div>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -271,7 +271,7 @@ export default function Account() {
         <div
           style={rowStyle}
           onClick={() => navigate('/subscription')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
@@ -279,20 +279,20 @@ export default function Account() {
               <CreditCard size={20} color="#84cc16" />
             </div>
             <div>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Subscription</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Subscription</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1rem', color: '#1f2937', fontWeight: '500' }}>{planName}</span>
+                <span style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>{planName}</span>
                 <span style={{
                   padding: '0.1rem 0.5rem', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase',
                   background: planStatus === 'active' ? 'rgba(16, 185, 129, 0.1)' : planStatus === 'trialing' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(100, 116, 139, 0.1)',
-                  color: planStatus === 'active' ? '#10b981' : planStatus === 'trialing' ? '#f59e0b' : '#64748b',
+                  color: planStatus === 'active' ? '#10b981' : planStatus === 'trialing' ? '#f59e0b' : '#8b8a96',
                 }}>
                   {planStatus === 'active' ? 'Active' : planStatus === 'trialing' ? 'Trial' : 'None'}
                 </span>
               </div>
             </div>
           </div>
-          <ChevronRight size={20} color="#94a3b8" />
+          <ChevronRight size={20} color="#6b7280" />
         </div>
 
         <div style={dividerStyle} />
@@ -301,19 +301,19 @@ export default function Account() {
         <div
           style={rowStyle}
           onClick={() => navigate('/onboarding')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <div style={rowIconWrap('rgba(99, 102, 241, 0.1)')}>
-              <Settings size={20} color="#6366f1" />
+            <div style={rowIconWrap('rgba(122, 94, 211, 0.15)')}>
+              <Settings size={20} color="#7a5ed3" />
             </div>
             <div>
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Diet & Allergies</div>
-              <div style={{ fontSize: '1rem', color: '#1f2937', fontWeight: '500' }}>Manage preferences</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Diet & Allergies</div>
+              <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>Manage preferences</div>
             </div>
           </div>
-          <ChevronRight size={20} color="#94a3b8" />
+          <ChevronRight size={20} color="#6b7280" />
         </div>
 
         <div style={dividerStyle} />

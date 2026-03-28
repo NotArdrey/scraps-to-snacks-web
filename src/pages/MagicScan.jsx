@@ -126,7 +126,7 @@ export default function MagicScan() {
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
-          background: 'linear-gradient(to right, rgba(249,115,22,0.8), rgba(244,63,94,0.3))', // using our new brand gradients with transparency
+          background: 'linear-gradient(to right, rgba(122, 94, 211, 0.8), rgba(var(--bg-rgb), 0.6))', // using our new brand gradients with transparency
           zIndex: 2
         }} />
         <div className="hero-content">

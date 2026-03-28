@@ -1,15 +1,29 @@
-﻿import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChefHat } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import BrandIcon from '../components/BrandIcon';
 import { supabase } from '../lib/supabase';
-import { modernStyles } from '../styles';
+
+const CAROUSEL_IMAGES = [
+  'https://images.unsplash.com/photo-1543362906-acfc16c67564?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1466637574441-749b8f19452f?q=80&w=2000&auto=format&fit=crop'
+];
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -22,43 +36,96 @@ export default function Login() {
   };
 
   return (
-    <div style={modernStyles.container}>
-      <div style={modernStyles.card}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ display: 'inline-flex', background: 'linear-gradient(135deg, #f97316, #f43f5e)', padding: '1rem', borderRadius: '50%', marginBottom: '1rem', boxShadow: '0 4px 15px rgba(249, 115, 22, 0.4)' }}>
-            <ChefHat size={32} color="white" />
-          </div>
-          <h2 style={{ ...modernStyles.title, fontSize: '2rem' }}>Welcome Back</h2>
-          <p style={modernStyles.subtitle}>Log in to manage your smart pantry</p>
-        </div>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      
+      {/* Left Side - Form */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ width: '100%', maxWidth: '440px' }}>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Log in to your account</h2>
+          <p style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
+            Don't have an account? <Link to="/register" style={{ color: '#7a5ed3', textDecoration: 'none' }}>Create one</Link>
+          </p>
 
-        {error && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.5rem', color: '#ef4444', fontSize: '0.9rem' }}>
-            {error}
-          </div>
-        )}
+          {error && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+              <AlertCircle size={18} />
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleLogin}>
-          <div style={modernStyles.inputContainer}>
-            <label htmlFor="email" style={modernStyles.label}>Email Address</label>
-            <input type="email" id="email" style={modernStyles.input} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
-          </div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                style={{ width: '100%', padding: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--theme-text-main)', outline: 'none' }}
+              />
+            </div>
 
-          <div style={{ ...modernStyles.inputContainer, marginTop: '1.5rem' }}>
-            <label htmlFor="password" style={modernStyles.label}>Password</label>
-            <input type="password" id="password" style={modernStyles.input} placeholder="" value={password} onChange={e => setPassword(e.target.value)} required />
-          </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                style={{ width: '100%', padding: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--theme-text-main)', outline: 'none' }}
+              />
+            </div>
 
-          <button type="submit" disabled={loading} style={{ ...modernStyles.buttonPrimary, opacity: loading ? 0.7 : 1, marginTop: '1.5rem' }}>
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-        </form>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input type="checkbox" id="remember" style={{ accentColor: '#7a5ed3', width: '16px', height: '16px' }} />
+                <label htmlFor="remember" style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>Remember me</label>
+              </div>
+              <a href="#" style={{ color: '#7a5ed3', fontSize: '0.9rem', textDecoration: 'none' }}>Forgot password?</a>
+            </div>
 
-        <div style={{ marginTop: '2rem', textAlign: 'center', color: '#cbd5e1' }}>
-          Don't have an account? <Link to="/register" style={modernStyles.link}>Register here</Link>
+            <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: 'var(--theme-text-main)', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '1rem', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Signing in...' : 'Log in'}
+            </button>
+          </form>
         </div>
       </div>
+
+      {/* Right Side - Image Background */}
+      <div style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'space-between', 
+        padding: '3rem', 
+        backgroundImage: `linear-gradient(to bottom, rgba(var(--bg-rgb), 0.4), rgba(var(--bg-rgb), 0.9)), url("${CAROUSEL_IMAGES[currentImageIndex]}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        borderTopLeftRadius: '2rem',
+        borderBottomLeftRadius: '2rem',
+        transition: 'background-image 1s ease-in-out'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>
+              Scraps<span style={{ color: '#7a5ed3' }}>2</span>Snacks
+            </span>
+            <BrandIcon size={32} color="#ffffff" />
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'right' }}>
+          <h1 style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
+            Welcome Back,<br />Chef!
+          </h1>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem', justifyContent: 'flex-end' }}>
+            {CAROUSEL_IMAGES.map((_, idx) => (
+              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'rgba(255,255,255,0.3)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
+            ))}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
-

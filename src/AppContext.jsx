@@ -1,4 +1,4 @@
-import React, { createContext } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useProfile } from './hooks/useProfile';
 import { useSubscription } from './hooks/useSubscription';
@@ -12,6 +12,17 @@ export const AppProvider = ({ children }) => {
 
   const isOnboarded = !!profile?.onboarding_completed_at;
 
+  const [theme, setTheme] = useState(() => localStorage.getItem('app-theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
   return (
     <AppContext.Provider value={{
       ...auth,
@@ -24,6 +35,8 @@ export const AppProvider = ({ children }) => {
       hasActiveSubscription,
       subLoading,
       refreshSubscription,
+      theme,
+      toggleTheme,
     }}>
       {children}
     </AppContext.Provider>
