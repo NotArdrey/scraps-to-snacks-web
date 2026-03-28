@@ -11,6 +11,7 @@ export const AppProvider = ({ children }) => {
   const { subscription, hasActiveSubscription, loading: subLoading, refreshSubscription } = useSubscription(auth.user);
 
   const isOnboarded = !!profile?.onboarding_completed_at;
+  const isAdmin = profile?.role === 'admin';
 
   const [theme, setTheme] = useState(() => localStorage.getItem('app-theme') || 'dark');
 
@@ -31,6 +32,7 @@ export const AppProvider = ({ children }) => {
       profileLoading,
       refreshProfile,
       isOnboarded,
+      isAdmin,
       subscription,
       hasActiveSubscription,
       subLoading,

@@ -28,7 +28,7 @@ async function callGroq(messages, model = 'llama-3.3-70b-versatile') {
 
 export async function generateRecipe(ingredientList, dietPreference, allergyList = []) {
   const dietNote = dietPreference && dietPreference !== 'None'
-    ? `The recipe MUST be ${dietPreference}-friendly.`
+    ? `The recipe MUST be compatible with ALL of these diets: ${dietPreference}.`
     : '';
 
   const allergyNote = allergyList && allergyList.length > 0
@@ -88,7 +88,7 @@ Only include food items. Be specific (e.g., "Red Bell Pepper" not just "Pepper")
 
 export async function validateIngredient(name, dietPreference, allergyList = []) {
   const dietNote = dietPreference && dietPreference !== 'None'
-    ? `\nThe user follows a "${dietPreference}" diet.`
+    ? `\nThe user follows these diets: ${dietPreference}.`
     : '';
 
   const allergyNote = allergyList.length > 0

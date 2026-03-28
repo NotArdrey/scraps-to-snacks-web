@@ -63,18 +63,16 @@ export function usePreferences(user) {
     await fetchPreferences();
   }, [user, fetchPreferences]);
 
-  const activeDietName = (() => {
-    if (userDiets.length === 0) return 'None';
-    const matched = dietTypes.find(dt => dt.id === userDiets[0]);
-    return matched ? matched.name : 'None';
-  })();
+  const activeDietNames = dietTypes
+    .filter(dt => userDiets.includes(dt.id))
+    .map(dt => dt.name);
 
   return {
     dietTypes,
     allergyTypes,
     userDiets,
     userAllergies,
-    activeDietName,
+    activeDietNames,
     loading,
     savePreferences,
     refreshPreferences: fetchPreferences,

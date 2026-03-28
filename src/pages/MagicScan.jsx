@@ -13,7 +13,7 @@ export default function MagicScan() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
   const { addPantryItem } = usePantry(user, householdId);
-  const { activeDietName, allergyTypes, userAllergies } = usePreferences(user);
+  const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
   const fileInputRef = useRef(null);
 
   const activeAllergyNames = allergyTypes
@@ -31,7 +31,7 @@ export default function MagicScan() {
     const enriched = await Promise.all(
       rawItems.map(async (d) => {
         try {
-          const v = await validateIngredient(d.name, activeDietName, activeAllergyNames);
+          const v = await validateIngredient(d.name, activeDietNames.join(', ') || 'None', activeAllergyNames);
           if (!v.isFood) return null;
           return {
             ...d,
@@ -137,9 +137,9 @@ export default function MagicScan() {
             <h2 className="hero-title">Magic Scan</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
               <p className="hero-subtitle">Instantly organize your fridge or grocery haul using Groq Vision AI.</p>
-              {activeDietName && activeDietName !== 'None' && (
+              {activeDietNames.length > 0 && (
                 <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  Diet: {activeDietName}
+                  Diet: {activeDietNames.join(', ')}
                 </span>
               )}
               {activeAllergyNames.length > 0 && (

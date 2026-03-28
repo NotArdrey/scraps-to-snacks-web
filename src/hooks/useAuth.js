@@ -21,10 +21,15 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   return {
     session,
     user: session?.user ?? null,
     loading,
     isAuthenticated: !!session,
+    signOut,
   };
 }

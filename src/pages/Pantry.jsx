@@ -13,7 +13,7 @@ export default function Pantry() {
   const { user, householdId } = useContext(AppContext);
   const { pantryItems: items, loading: pantryLoading, addPantryItem, removePantryItem, removePantryItems } = usePantry(user, householdId);
   const { saveRecipe } = useRecipes(user);
-  const { activeDietName, allergyTypes, userAllergies } = usePreferences(user);
+  const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
 
   const activeAllergyNames = allergyTypes
     .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
@@ -44,10 +44,10 @@ export default function Pantry() {
     const cat = (item.category || '').toLowerCase();
     const name = (item.name || '').toLowerCase();
 
-    if (activeDietName && activeDietName !== 'None') {
-      const restricted = DIET_RESTRICTED_CATEGORIES[activeDietName.toLowerCase()] || [];
+    for (const dietName of activeDietNames) {
+      const restricted = DIET_RESTRICTED_CATEGORIES[dietName.toLowerCase()] || [];
       if (restricted.includes(cat)) {
-        conflicts.push(`Not ${activeDietName}-friendly`);
+        conflicts.push(`Not ${dietName}-friendly`);
       }
     }
 
@@ -88,7 +88,7 @@ export default function Pantry() {
     setAddWarning(null);
 
     try {
-      const validation = await validateIngredient(newItemName, activeDietName, activeAllergyNames);
+      const validation = await validateIngredient(newItemName, activeDietNames.join(', ') || 'None', activeAllergyNames);
 
       if (!validation.isFood) {
         setAddError(validation.reason || `"${newItemName}" is not a valid food ingredient.`);
@@ -161,7 +161,7 @@ export default function Pantry() {
     try {
       const selectedItemsData = items.filter(i => selectedItems.includes(i.id));
       const ingredientList = selectedItemsData.map(i => `${i.quantity} ${i.unit} ${i.name}`);
-      const recipe = await generateRecipe(ingredientList, activeDietName, activeAllergyNames);
+      const recipe = await generateRecipe(ingredientList, activeDietNames.join(', ') || 'None', activeAllergyNames);
       setGeneratedRecipe(recipe);
     } catch (err) {
       setGenError(err.message);
@@ -272,9 +272,9 @@ export default function Pantry() {
             <h2 className="hero-title">Household Pantry</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
               <p className="hero-subtitle">Manage your ingredients and generate recipes.</p>
-              {activeDietName && activeDietName !== 'None' && (
+              {activeDietNames.length > 0 && (
                 <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  Diet: {activeDietName}
+                  Diet: {activeDietNames.join(', ')}
                 </span>
               )}
               {activeAllergyNames.length > 0 && (
