@@ -3,8 +3,9 @@ import { User, LogOut, Mail, Lock, Eye, EyeOff, ChevronRight, CreditCard, Settin
 import { AppContext } from '../AppContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import ConfirmModal from '../components/ConfirmModal';
 
-export default function AccountPage() {
+export default function Account() {
   const { user, subscription } = useContext(AppContext);
   const navigate = useNavigate();
 
@@ -18,8 +19,14 @@ export default function AccountPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutConfirm(false);
     await supabase.auth.signOut();
     navigate('/login');
   };
@@ -328,6 +335,16 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={showLogoutConfirm}
+        title="Sign Out"
+        message="Are you sure you want to sign out of your account?"
+        confirmText="Sign Out"
+        variant="logout"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 }

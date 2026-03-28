@@ -31,6 +31,25 @@ export function useSubscription(user) {
     fetchSubscription();
   }, [fetchSubscription]);
 
+  // Supabase Realtime: re-fetch when subscription status changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`subscription-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${user.id}` }, () => {
+        fetchSubscription();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchSubscription]);
+
+  // Re-fetch when the tab regains focus
+  useEffect(() => {
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchSubscription(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [fetchSubscription]);
+
   return {
     subscription,
     hasActiveSubscription: !!subscription,

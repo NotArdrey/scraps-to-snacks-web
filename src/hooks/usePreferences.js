@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchDietTypes, fetchAllergyTypes, fetchUserDietIds, fetchUserAllergies, saveUserPreferences } from '../services/preferencesService';
+import { supabase } from '../lib/supabase';
+import { fetchDietTypes, fetchAllergyTypes, fetchUserDietIds, fetchUserAllergies, saveUserPreferences } from '../services/preferences';
 
 export function usePreferences(user) {
   const [dietTypes, setDietTypes] = useState([]);
@@ -32,6 +33,28 @@ export function usePreferences(user) {
 
   useEffect(() => {
     fetchPreferences();
+  }, [fetchPreferences]);
+
+  // Supabase Realtime: re-fetch when user diet/allergy prefs change
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`prefs-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_diet_preferences', filter: `user_id=eq.${user.id}` }, () => {
+        fetchPreferences();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_allergy_preferences', filter: `user_id=eq.${user.id}` }, () => {
+        fetchPreferences();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchPreferences]);
+
+  // Re-fetch when the tab regains focus
+  useEffect(() => {
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchPreferences(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [fetchPreferences]);
 
   const savePreferences = useCallback(async (selectedDietIds, selectedAllergyIds) => {

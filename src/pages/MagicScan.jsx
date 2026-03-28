@@ -1,21 +1,55 @@
 import React, { useState, useContext, useRef } from 'react';
-import { Camera, Upload, Check, AlertTriangle, FileImage } from 'lucide-react';
+import { Camera, Check, AlertTriangle, FileImage, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContext';
 import { usePantry } from '../hooks/usePantry';
-import { scanIngredientsFromImage, scanIngredientsFromText } from '../services/groqService';
+import { usePreferences } from '../hooks/usePreferences';
+import { scanIngredientsFromImage, validateIngredient } from '../services/groq';
+import ConfirmModal from '../components/ConfirmModal';
 
-export default function MagicScanPage() {
+const UNITS = ['pcs', 'kg', 'g', 'lbs', 'oz', 'L', 'mL', 'cups', 'tbsp', 'tsp'];
+
+export default function MagicScan() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
   const { addPantryItem } = usePantry(user, householdId);
+  const { activeDietName, allergyTypes, userAllergies } = usePreferences(user);
   const fileInputRef = useRef(null);
+
+  const activeAllergyNames = allergyTypes
+    .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
+    .map(a => a.name);
 
   const [status, setStatus] = useState('idle');
   const [detections, setDetections] = useState([]);
   const [saving, setSaving] = useState(false);
   const [scanError, setScanError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
+  const enrichDetections = async (rawItems) => {
+    const enriched = await Promise.all(
+      rawItems.map(async (d) => {
+        try {
+          const v = await validateIngredient(d.name, activeDietName, activeAllergyNames);
+          if (!v.isFood) return null;
+          return {
+            ...d,
+            name: v.correctedName || d.name,
+            category: v.category || null,
+            expiresAt: v.estimatedExpiryDate || null,
+            dietConflict: v.dietConflict || false,
+            allergyConflict: v.allergyConflict || false,
+            warning: v.warning || null,
+            unit: 'pcs',
+          };
+        } catch {
+          return { ...d, category: null, expiresAt: null, dietConflict: false, allergyConflict: false, warning: null, unit: 'pcs' };
+        }
+      })
+    );
+    return enriched.filter(Boolean);
+  };
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -30,12 +64,13 @@ export default function MagicScanPage() {
     try {
       const base64 = await fileToBase64(file);
       const result = await scanIngredientsFromImage(base64);
-      const items = (result.detections || []).map((d, i) => ({
+      const rawItems = (result.detections || []).map((d, i) => ({
         id: i + 1,
         name: d.name,
         confidence: d.confidence,
         qty: d.qty || 1,
       }));
+      const items = await enrichDetections(rawItems);
       setDetections(items);
       setStatus('results');
     } catch (err) {
@@ -44,38 +79,20 @@ export default function MagicScanPage() {
     }
   };
 
-  const handleTextScan = async () => {
-    const description = prompt('Describe what ingredients you have:');
-    if (!description) return;
-
-    setStatus('scanning');
-    setScanError(null);
-    setPreviewUrl(null);
-
-    try {
-      const result = await scanIngredientsFromText(description);
-      const items = (result.detections || []).map((d, i) => ({
-        id: i + 1,
-        name: d.name,
-        confidence: d.confidence,
-        qty: d.qty || 1,
-      }));
-      setDetections(items);
-      setStatus('results');
-    } catch (err) {
-      setScanError(err.message);
-      setStatus('idle');
-    }
+  const handleSaveToPantry = () => {
+    setShowSaveConfirm(true);
   };
 
-  const handleSaveToPantry = async () => {
+  const confirmSaveToPantry = async () => {
+    setShowSaveConfirm(false);
     setSaving(true);
     for (const d of detections) {
       await addPantryItem({
         name: d.name,
         quantity: d.qty,
-        unit: 'pcs',
-        expiresAt: null,
+        unit: d.unit || 'pcs',
+        category: d.category || null,
+        expiresAt: d.expiresAt || null,
         source: 'scan',
       });
     }
@@ -83,6 +100,14 @@ export default function MagicScanPage() {
     setStatus('idle');
     setPreviewUrl(null);
     navigate('/pantry');
+  };
+
+  const updateDetection = (id, field, value) => {
+    setDetections(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
+  };
+
+  const removeDetection = (id) => {
+    setDetections(prev => prev.filter(d => d.id !== id));
   };
 
   return (
@@ -98,7 +123,7 @@ export default function MagicScanPage() {
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
-          backgroundImage: 'url("https://images.unsplash.com/photo-1495195129352-aeb325a55b65?q=80&w=2076&auto=format&fit=crop")',
+          backgroundImage: 'url("https://images.unsplash.com/photo-1654683413645-d8d15189384c?q=80&w=2076&auto=format&fit=crop")',
           backgroundPosition: 'center',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
@@ -142,9 +167,6 @@ export default function MagicScanPage() {
             <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="btn-primary">
               <FileImage size={18} /> Upload Image
             </button>
-            <button onClick={(e) => { e.stopPropagation(); handleTextScan(); }} className="btn-secondary">
-              <Upload size={18} /> Describe Instead
-            </button>
           </div>
         </div>
       )}
@@ -181,14 +203,45 @@ export default function MagicScanPage() {
           <div style={{ background: 'var(--surface-active)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '2rem' }}>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {detections.map((d, index) => (
-                <li key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', borderBottom: index < detections.length - 1 ? '1px solid var(--surface-border)' : 'none' }}>
-                  <span style={{ fontWeight: '500', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ display: 'inline-block', width: '24px', height: '24px', background: 'var(--surface-color)', borderRadius: '4px', textAlign: 'center', lineHeight: '24px', fontSize: '0.85rem' }}>{d.qty}x</span>
-                    {d.name}
-                  </span>
-                  <span className="badge badge-success">
-                    {(d.confidence * 100).toFixed(0)}% Match
-                  </span>
+                <li key={d.id} style={{ padding: '1rem', borderBottom: index < detections.length - 1 ? '1px solid var(--surface-border)' : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: '600', fontSize: '1.05rem' }}>{d.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="badge badge-success">
+                        {(d.confidence * 100).toFixed(0)}% Match
+                      </span>
+                      <button onClick={() => removeDetection(d.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }} title="Remove">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <label style={{ color: 'var(--text-tertiary)' }}>Qty:</label>
+                      <input type="number" min="0.1" step="0.1" value={d.qty} onChange={e => updateDetection(d.id, 'qty', Number(e.target.value))} className="input-field" style={{ width: '60px', padding: '0.3rem 0.4rem', fontSize: '0.85rem' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <label style={{ color: 'var(--text-tertiary)' }}>Unit:</label>
+                      <select value={d.unit || 'pcs'} onChange={e => updateDetection(d.id, 'unit', e.target.value)} className="input-field" style={{ width: '70px', padding: '0.3rem 0.4rem', fontSize: '0.85rem' }}>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    {d.category && (
+                      <span style={{ color: 'var(--text-tertiary)' }}>
+                        Category: <strong style={{ color: 'var(--text-secondary)' }}>{d.category}</strong>
+                      </span>
+                    )}
+                    {d.expiresAt && (
+                      <span style={{ color: 'var(--text-tertiary)' }}>
+                        Expires: <strong style={{ color: 'var(--text-secondary)' }}>{d.expiresAt}</strong>
+                      </span>
+                    )}
+                  </div>
+                  {(d.dietConflict || d.allergyConflict) && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#d97706', fontSize: '0.85rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
+                      <AlertTriangle size={14} /> {d.warning || 'Conflicts with your diet or allergies'}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -205,6 +258,16 @@ export default function MagicScanPage() {
         </div>
       )}
       </div>
+
+      <ConfirmModal
+        open={showSaveConfirm}
+        title="Save to Pantry"
+        message={`Add ${detections.length} scanned item${detections.length !== 1 ? 's' : ''} to your pantry?`}
+        confirmText="Save All"
+        variant="success"
+        onConfirm={confirmSaveToPantry}
+        onCancel={() => setShowSaveConfirm(false)}
+      />
     </div>
   );
 }

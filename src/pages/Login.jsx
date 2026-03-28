@@ -4,12 +4,12 @@ import { ChefHat } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { modernStyles } from '../styles';
 
-export default function LoginPage() {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
+  
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);

@@ -2,10 +2,10 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Check } from 'lucide-react';
 import { AppContext } from '../AppContext';
-import { fetchActivePlans, createSubscription, formatPlanPrice } from '../services/subscriptionService';
+import { fetchActivePlans, createSubscription, formatPlanPrice } from '../services/subscription';
 import { modernStyles } from '../styles';
 
-export default function SubscriptionPage() {
+export default function Subscription() {
   const navigate = useNavigate();
   const { user, refreshSubscription } = useContext(AppContext);
   const [selectedPlan, setSelectedPlan] = useState(null);

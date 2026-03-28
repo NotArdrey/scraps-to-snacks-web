@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { findOrCreateIngredient } from './pantryService';
+import { findOrCreateIngredient } from './pantry';
 
 export async function fetchSavedRecipes(userId) {
   const { data, error } = await supabase
@@ -89,6 +89,30 @@ export async function removeSavedRecipe(savedRecipeId, userId) {
 
 export async function updateRecipeTitle(recipeId, title) {
   await supabase.from('recipes').update({ title }).eq('id', recipeId);
+}
+
+export async function updateRecipeDetails(recipeId, { instructions, ingredientNames }) {
+  if (instructions !== undefined) {
+    await supabase.from('recipes').update({ instructions_json: instructions }).eq('id', recipeId);
+  }
+
+  if (ingredientNames !== undefined) {
+    await supabase.from('recipe_ingredients').delete().eq('recipe_id', recipeId);
+
+    const ingredientRows = [];
+    for (const name of ingredientNames) {
+      const ingredient = await findOrCreateIngredient(name);
+      if (ingredient) {
+        ingredientRows.push({
+          recipe_id: recipeId,
+          ingredient_id: ingredient.id,
+        });
+      }
+    }
+    if (ingredientRows.length > 0) {
+      await supabase.from('recipe_ingredients').insert(ingredientRows);
+    }
+  }
 }
 
 export async function upsertRating(userId, recipeId, ratingValue) {

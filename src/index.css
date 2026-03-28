@@ -60,6 +60,12 @@ body {
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
 
 a {
@@ -141,6 +147,12 @@ input, button, select, textarea {
   transform: translateY(-5px);
   box-shadow: var(--shadow-lg);
   background: var(--surface-hover);
+}
+
+.glass-card.editing,
+.glass-card.editing:hover {
+  transform: none;
+  cursor: default;
 }
 
 .btn-primary {

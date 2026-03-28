@@ -86,6 +86,43 @@ Only include food items. Be specific (e.g., "Red Bell Pepper" not just "Pepper")
   ], 'llama-3.2-90b-vision-preview');
 }
 
+export async function validateIngredient(name, dietPreference, allergyList = []) {
+  const dietNote = dietPreference && dietPreference !== 'None'
+    ? `\nThe user follows a "${dietPreference}" diet.`
+    : '';
+
+  const allergyNote = allergyList.length > 0
+    ? `\nThe user has these allergies: ${allergyList.join(', ')}.`
+    : '';
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const prompt = `The user wants to add "${name}" to their food pantry. Today's date is ${today}.
+
+Determine if this is a valid food ingredient or grocery item. Be reasonable — accept actual foods, beverages, condiments, spices, cooking ingredients, etc. Reject things that are clearly not food (e.g., "laptop", "soap", "chair", random gibberish).
+${dietNote}${allergyNote}
+Also check if this ingredient conflicts with the user's diet or allergies. For example, meat conflicts with a Vegetarian/Vegan diet, dairy conflicts with a Vegan diet or Lactose allergy, peanuts conflict with a Peanut allergy, shellfish with a Shellfish allergy, etc.
+
+Also estimate a typical expiration date for this ingredient based on average shelf life when stored properly. Use today's date (${today}) as the purchase date. For example: fresh meat ~3-5 days, milk ~7-10 days, eggs ~3-4 weeks, canned goods ~1-2 years, fresh fruits/vegetables ~5-10 days, spices ~6 months, etc.
+
+Return a JSON object:
+{
+  "isFood": true or false,
+  "correctedName": "Properly capitalized ingredient name (or null if not food)",
+  "category": "one of: Fruits, Vegetables, Meat, Seafood, Dairy, Grains, Spices, Beverages, Snacks, Condiments, Baking, Frozen, Canned, Other (or null if not food)",
+  "estimatedExpiryDate": "YYYY-MM-DD format estimated expiration date based on typical shelf life (or null if not food)",
+  "dietConflict": true or false (whether it conflicts with the user's diet),
+  "allergyConflict": true or false (whether it matches any of the user's allergies),
+  "warning": "Brief warning message if there is a diet or allergy conflict (or null if no conflict)",
+  "reason": "Brief reason if rejected as not food"
+}`;
+
+  return await callGroq([
+    { role: 'system', content: 'You are a food ingredient validation assistant. Always respond with valid JSON.' },
+    { role: 'user', content: prompt },
+  ]);
+}
+
 export async function scanIngredientsFromText(description) {
   const prompt = `The user described what they have in their fridge/pantry: "${description}"
 

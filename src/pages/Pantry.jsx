@@ -1,16 +1,17 @@
 import React, { useState, useContext } from 'react';
-import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContext';
 import { usePantry } from '../hooks/usePantry';
 import { useRecipes } from '../hooks/useRecipes';
 import { usePreferences } from '../hooks/usePreferences';
-import { generateRecipe } from '../services/groqService';
+import { generateRecipe, validateIngredient } from '../services/groq';
+import ConfirmModal from '../components/ConfirmModal';
 
-export default function PantryPage() {
+export default function Pantry() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
-  const { pantryItems: items, loading: pantryLoading, addPantryItem, removePantryItem } = usePantry(user, householdId);
+  const { pantryItems: items, loading: pantryLoading, addPantryItem, removePantryItem, removePantryItems } = usePantry(user, householdId);
   const { saveRecipe } = useRecipes(user);
   const { activeDietName, allergyTypes, userAllergies } = usePreferences(user);
 
@@ -18,27 +19,88 @@ export default function PantryPage() {
     .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
     .map(a => a.name);
 
+  const CATEGORIES = ['Fruits', 'Vegetables', 'Meat', 'Seafood', 'Dairy', 'Grains', 'Spices', 'Beverages', 'Snacks', 'Condiments', 'Baking', 'Frozen', 'Canned', 'Other'];
+  const UNITS = ['pcs', 'kg', 'g', 'lbs', 'oz', 'L', 'mL', 'cups', 'tbsp', 'tsp'];
+
   const [newItemName, setNewItemName] = useState('');
+  const [newItemQuantity, setNewItemQuantity] = useState(1);
+  const [newItemUnit, setNewItemUnit] = useState('pcs');
+  const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemExpires, setNewItemExpires] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState(null);
+  const [addWarning, setAddWarning] = useState(null);
+  const [pendingItem, setPendingItem] = useState(null);
   const [generatedRecipe, setGeneratedRecipe] = useState(null);
   const [genError, setGenError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
 
   const handleAddItem = async (e) => {
     e.preventDefault();
     if (!newItemName) return;
     setAdding(true);
-    await addPantryItem({
-      name: newItemName,
-      quantity: 1,
-      unit: 'pcs',
-      expiresAt: newItemExpires || null,
-    });
-    setNewItemName('');
-    setNewItemExpires('');
+    setAddError(null);
+    setAddWarning(null);
+
+    try {
+      const validation = await validateIngredient(newItemName, activeDietName, activeAllergyNames);
+
+      if (!validation.isFood) {
+        setAddError(validation.reason || `"${newItemName}" is not a valid food ingredient.`);
+        setAdding(false);
+        return;
+      }
+
+      const finalName = validation.correctedName || newItemName;
+      const finalCategory = newItemCategory || validation.category || null;
+      const finalExpiry = newItemExpires || validation.estimatedExpiryDate || null;
+      const itemData = {
+        name: finalName,
+        quantity: newItemQuantity,
+        unit: newItemUnit,
+        category: finalCategory,
+        expiresAt: finalExpiry,
+      };
+
+      if (validation.dietConflict || validation.allergyConflict) {
+        setPendingItem(itemData);
+        setAddWarning(validation.warning || 'This ingredient may conflict with your diet or allergies.');
+        setAdding(false);
+        return;
+      }
+
+      await addPantryItem(itemData);
+      resetForm();
+    } catch {
+      setAddError('Failed to validate ingredient. Please try again.');
+    }
     setAdding(false);
+  };
+
+  const confirmAddItem = async () => {
+    if (!pendingItem) return;
+    setAdding(true);
+    await addPantryItem(pendingItem);
+    setPendingItem(null);
+    setAddWarning(null);
+    resetForm();
+    setAdding(false);
+  };
+
+  const cancelPendingItem = () => {
+    setPendingItem(null);
+    setAddWarning(null);
+  };
+
+  const resetForm = () => {
+    setNewItemName('');
+    setNewItemQuantity(1);
+    setNewItemUnit('pcs');
+    setNewItemCategory('');
+    setNewItemExpires('');
   };
 
   const handleToggleSelect = (id) => {
@@ -73,9 +135,35 @@ export default function PantryPage() {
     navigate('/cookbook');
   };
 
-  const handleDeleteItem = async (itemId) => {
-    await removePantryItem(itemId);
-    setSelectedItems(prev => prev.filter(id => id !== itemId));
+  const handleDeleteItem = (itemId) => {
+    const item = items.find(i => i.id === itemId);
+    setConfirmDelete({ id: itemId, name: item?.name || 'this item' });
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!confirmDelete) return;
+    await removePantryItem(confirmDelete.id);
+    setSelectedItems(prev => prev.filter(id => id !== confirmDelete.id));
+    setConfirmDelete(null);
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedItems.length === 0) return;
+    setConfirmBatchDelete(true);
+  };
+
+  const confirmBatchDeleteItems = async () => {
+    setConfirmBatchDelete(false);
+    await removePantryItems(selectedItems);
+    setSelectedItems([]);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItems.length === items.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(items.map(i => i.id));
+    }
   };
 
   if (pantryLoading) {
@@ -130,18 +218,59 @@ export default function PantryPage() {
       </div>
 
       <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
-        <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-          <div className="input-container" style={{ flex: 2, margin: 0 }}>
-            <label htmlFor="add-item" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Ingredient Name</label>
-            <input type="text" id="add-item" className="input-field" placeholder="E.g., Apples..." value={newItemName} onChange={e => setNewItemName(e.target.value)} />
+        <form onSubmit={handleAddItem}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="input-container" style={{ flex: 2, minWidth: '180px', margin: 0 }}>
+              <label htmlFor="add-item" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Ingredient Name</label>
+              <input type="text" id="add-item" className="input-field" placeholder="E.g., Apples..." value={newItemName} onChange={e => { setNewItemName(e.target.value); setAddError(null); }} />
+            </div>
+            <div className="input-container" style={{ flex: 0, minWidth: '80px', margin: 0 }}>
+              <label htmlFor="add-qty" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Qty</label>
+              <input type="number" id="add-qty" className="input-field" min="0.1" step="0.1" value={newItemQuantity} onChange={e => setNewItemQuantity(Number(e.target.value))} style={{ width: '80px' }} />
+            </div>
+            <div className="input-container" style={{ flex: 0, minWidth: '90px', margin: 0 }}>
+              <label htmlFor="add-unit" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Unit</label>
+              <select id="add-unit" className="input-field" value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)} style={{ width: '90px' }}>
+                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div className="input-container" style={{ flex: 1, minWidth: '140px', margin: 0 }}>
+              <label htmlFor="add-category" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Category (opt)</label>
+              <select id="add-category" className="input-field" value={newItemCategory} onChange={e => setNewItemCategory(e.target.value)}>
+                <option value="">Auto-detect</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="input-container" style={{ flex: 1, minWidth: '140px', margin: 0 }}>
+              <label htmlFor="add-expires" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Expiration (opt)</label>
+              <input type="date" id="add-expires" className="input-field" value={newItemExpires} onChange={e => setNewItemExpires(e.target.value)} />
+            </div>
+            <button type="submit" disabled={adding} className="btn-primary" style={{ padding: '0 1.5rem', height: '44px', whiteSpace: 'nowrap', opacity: adding ? 0.7 : 1 }}>
+              {adding ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ShieldCheck size={16} style={{ animation: 'spin 2s linear infinite' }} /> Validating...
+                </span>
+              ) : (
+                <><Plus size={18} /> Add</>
+              )}
+            </button>
           </div>
-          <div className="input-container" style={{ flex: 1, margin: 0 }}>
-            <label htmlFor="add-expires" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Expiration (opt)</label>
-            <input type="date" id="add-expires" className="input-field" value={newItemExpires} onChange={e => setNewItemExpires(e.target.value)} />
-          </div>
-          <button type="submit" disabled={adding} className="btn-primary" style={{ padding: '0 1.5rem', height: '44px', whiteSpace: 'nowrap', opacity: adding ? 0.7 : 1 }}>
-            {adding ? 'Adding...' : <><Plus size={18} /> Add</>}
-          </button>
+          {addError && (
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem', background: 'rgba(239,68,68,0.08)', padding: '0.6rem 1rem', borderRadius: 'var(--radius-md)' }}>
+              <AlertTriangle size={16} /> {addError}
+            </div>
+          )}
+          {addWarning && (
+            <div style={{ marginTop: '0.75rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#d97706', fontSize: '0.9rem', flex: 1 }}>
+                <AlertTriangle size={16} /> {addWarning}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button type="button" onClick={cancelPendingItem} className="btn-secondary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Cancel</button>
+                <button type="button" onClick={confirmAddItem} className="btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Add Anyway</button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
 
@@ -149,7 +278,17 @@ export default function PantryPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--surface-active)' }}>
-              <th style={{ padding: '1.25rem', width: '40px' }}></th>
+              <th style={{ padding: '1.25rem', width: '40px' }}>
+                {items.length > 0 && (
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && selectedItems.length === items.length}
+                    onChange={handleSelectAll}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
+                    title="Select all"
+                  />
+                )}
+              </th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Item Name</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Amount</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Category</th>
@@ -210,6 +349,14 @@ export default function PantryPage() {
               </div>
             )}
             <button
+              onClick={handleBatchDelete}
+              disabled={selectedItems.length === 0}
+              className="btn-danger"
+              style={{ padding: '0.9rem 1.5rem', opacity: selectedItems.length === 0 ? 0.6 : 1, cursor: selectedItems.length === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              <Trash2 size={18} /> Delete Selected ({selectedItems.length})
+            </button>
+            <button
               onClick={handleGenerateRecipe}
               disabled={loading || selectedItems.length === 0}
               className="btn-primary"
@@ -228,6 +375,26 @@ export default function PantryPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={!!confirmDelete}
+        title="Remove Pantry Item"
+        message={`Are you sure you want to remove "${confirmDelete?.name}" from your pantry?`}
+        confirmText="Remove"
+        variant="danger"
+        onConfirm={confirmDeleteItem}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmModal
+        open={confirmBatchDelete}
+        title="Remove Selected Items"
+        message={`Are you sure you want to remove ${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''} from your pantry?`}
+        confirmText="Remove All"
+        variant="danger"
+        onConfirm={confirmBatchDeleteItems}
+        onCancel={() => setConfirmBatchDelete(false)}
+      />
 
       {generatedRecipe && (
         <div style={{

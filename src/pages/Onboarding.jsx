@@ -4,7 +4,7 @@ import { AppContext } from '../AppContext';
 import { usePreferences } from '../hooks/usePreferences';
 import { modernStyles } from '../styles';
 
-export default function OnboardingPage() {
+export default function Onboarding() {
   const navigate = useNavigate();
   const { user, isOnboarded, refreshProfile } = useContext(AppContext);
   const { dietTypes, allergyTypes, userDiets, userAllergies, loading: prefsLoading, savePreferences } = usePreferences(user);

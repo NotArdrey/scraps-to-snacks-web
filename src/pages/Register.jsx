@@ -4,7 +4,7 @@ import { ChefHat } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { modernStyles } from '../styles';
 
-export default function RegisterPage() {
+export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);

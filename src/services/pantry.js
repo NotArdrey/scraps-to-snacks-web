@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-export async function findOrCreateIngredient(name, unit) {
+export async function findOrCreateIngredient(name, unit, category) {
   let { data: ingredient } = await supabase
     .from('ingredients')
     .select('id')
@@ -8,9 +8,11 @@ export async function findOrCreateIngredient(name, unit) {
     .maybeSingle();
 
   if (!ingredient) {
+    const insertData = { canonical_name: name, default_unit: unit || 'pcs' };
+    if (category) insertData.category = category;
     const { data: newIng } = await supabase
       .from('ingredients')
-      .insert({ canonical_name: name, default_unit: unit || 'pcs' })
+      .insert(insertData)
       .select('id')
       .single();
     ingredient = newIng;
@@ -41,8 +43,8 @@ export async function fetchPantryItems(householdId) {
   }));
 }
 
-export async function insertPantryItem(householdId, userId, { name, quantity, unit, expiresAt, source }) {
-  const ingredient = await findOrCreateIngredient(name, unit);
+export async function insertPantryItem(householdId, userId, { name, quantity, unit, expiresAt, source, category }) {
+  const ingredient = await findOrCreateIngredient(name, unit, category);
   if (!ingredient) return null;
 
   const { data: pantryItem } = await supabase

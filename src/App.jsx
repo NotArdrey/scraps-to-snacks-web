@@ -1,14 +1,14 @@
 import React, { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import RegisterPage from './pages/RegisterPage';
-import LoginPage from './pages/LoginPage';
-import SubscriptionPage from './pages/SubscriptionPage';
-import OnboardingPage from './pages/OnboardingPage';
-import PantryPage from './pages/PantryPage';
-import MagicScanPage from './pages/MagicScanPage';
-import CookbookPage from './pages/CookbookPage';
-import AccountPage from './pages/AccountPage';
+import Register from './pages/Register';
+import Login from './pages/Login';
+import Subscription from './pages/Subscription';
+import Onboarding from './pages/Onboarding';
+import Pantry from './pages/Pantry';
+import MagicScan from './pages/MagicScan';
+import Cookbook from './pages/Cookbook';
+import Account from './pages/Account';
 import { AppContext } from './AppContext';
 import './index.css';
 
@@ -47,45 +47,45 @@ function App() {
             } />
 
             <Route path="/login" element={
-              isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <LoginPage />
+              isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <Login />
             } />
             <Route path="/register" element={
-              isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <RegisterPage />
+              isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <Register />
             } />
 
             <Route path="/subscription" element={
               !isAuthenticated ? <Navigate to="/login" /> :
-              <SubscriptionPage />
+              <Subscription />
             } />
             <Route path="/onboarding" element={
               !isAuthenticated ? <Navigate to="/login" /> :
               !isSubscribed ? <Navigate to="/subscription" /> :
-              <OnboardingPage />
+              <Onboarding />
             } />
 
             <Route path="/pantry" element={
               !isAuthenticated ? <Navigate to="/login" /> :
               !isSubscribed ? <Navigate to="/subscription" /> :
               !isFullyOnboarded ? <Navigate to="/onboarding" /> :
-              <PantryPage />
+              <Pantry />
             } />
             <Route path="/scan" element={
               !isAuthenticated ? <Navigate to="/login" /> :
               !isSubscribed ? <Navigate to="/subscription" /> :
               !isFullyOnboarded ? <Navigate to="/onboarding" /> :
-              <MagicScanPage />
+              <MagicScan />
             } />
             <Route path="/cookbook" element={
               !isAuthenticated ? <Navigate to="/login" /> :
               !isSubscribed ? <Navigate to="/subscription" /> :
               !isFullyOnboarded ? <Navigate to="/onboarding" /> :
-              <CookbookPage />
+              <Cookbook />
             } />
             <Route path="/account" element={
               !isAuthenticated ? <Navigate to="/login" /> :
               !isSubscribed ? <Navigate to="/subscription" /> :
               !isFullyOnboarded ? <Navigate to="/onboarding" /> :
-              <AccountPage />
+              <Account />
             } />
           </Routes>
         </main>
