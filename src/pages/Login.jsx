@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
+import ThemeToggle from '../components/ThemeToggle';
 import { supabase } from '../lib/supabase';
 
 const CAROUSEL_IMAGES = [
@@ -37,7 +38,8 @@ export default function Login() {
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
-      
+      <ThemeToggle style={{ right: 'auto', left: '1.5rem' }} />
+
       {/* Left Side - Form */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ width: '100%', maxWidth: '440px' }}>
@@ -47,7 +49,7 @@ export default function Login() {
           </p>
 
           {error && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--danger-color)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
               <AlertCircle size={18} />
               {error}
             </div>
@@ -84,7 +86,7 @@ export default function Login() {
               <a href="#" style={{ color: '#7a5ed3', fontSize: '0.9rem', textDecoration: 'none' }}>Forgot password?</a>
             </div>
 
-            <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: 'var(--theme-text-main)', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '1rem', opacity: loading ? 0.7 : 1 }}>
+            <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '1rem', opacity: loading ? 0.7 : 1 }}>
               {loading ? 'Signing in...' : 'Log in'}
             </button>
           </form>
@@ -120,7 +122,7 @@ export default function Login() {
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem', justifyContent: 'flex-end' }}>
             {CAROUSEL_IMAGES.map((_, idx) => (
-              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'rgba(255,255,255,0.3)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
+              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'var(--surface-border)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
             ))}
           </div>
         </div>

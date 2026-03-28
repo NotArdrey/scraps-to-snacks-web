@@ -19,6 +19,48 @@ export default function Pantry() {
     .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
     .map(a => a.name);
 
+  // Client-side conflict detection for existing pantry items
+  const DIET_RESTRICTED_CATEGORIES = {
+    vegetarian: ['meat', 'seafood'],
+    vegan: ['meat', 'seafood', 'dairy'],
+    pescatarian: ['meat'],
+  };
+
+  const ALLERGEN_KEYWORDS = {
+    peanut: ['peanut', 'groundnut'],
+    'tree nut': ['almond', 'walnut', 'cashew', 'pecan', 'pistachio', 'hazelnut', 'macadamia'],
+    dairy: ['milk', 'cheese', 'butter', 'cream', 'yogurt', 'whey', 'ice cream'],
+    lactose: ['milk', 'cheese', 'butter', 'cream', 'yogurt', 'whey', 'dairy', 'ice cream'],
+    gluten: ['wheat', 'bread', 'pasta', 'flour', 'barley', 'rye', 'cereal'],
+    shellfish: ['shrimp', 'crab', 'lobster', 'prawn', 'mussel', 'clam', 'oyster', 'scallop'],
+    egg: ['egg'],
+    soy: ['soy', 'tofu', 'edamame', 'tempeh', 'miso'],
+    fish: ['salmon', 'tuna', 'cod', 'tilapia', 'bass', 'trout', 'sardine', 'anchovy', 'fish'],
+    sesame: ['sesame', 'tahini'],
+  };
+
+  const getItemConflicts = (item) => {
+    const conflicts = [];
+    const cat = (item.category || '').toLowerCase();
+    const name = (item.name || '').toLowerCase();
+
+    if (activeDietName && activeDietName !== 'None') {
+      const restricted = DIET_RESTRICTED_CATEGORIES[activeDietName.toLowerCase()] || [];
+      if (restricted.includes(cat)) {
+        conflicts.push(`Not ${activeDietName}-friendly`);
+      }
+    }
+
+    for (const allergyName of activeAllergyNames) {
+      const keywords = ALLERGEN_KEYWORDS[allergyName.toLowerCase()] || [allergyName.toLowerCase()];
+      if (keywords.some(kw => name.includes(kw))) {
+        conflicts.push(`May contain ${allergyName}`);
+      }
+    }
+
+    return conflicts;
+  };
+
   const CATEGORIES = ['Fruits', 'Vegetables', 'Meat', 'Seafood', 'Dairy', 'Grains', 'Spices', 'Beverages', 'Snacks', 'Condiments', 'Baking', 'Frozen', 'Canned', 'Other'];
   const UNITS = ['pcs', 'kg', 'g', 'lbs', 'oz', 'L', 'mL', 'cups', 'tbsp', 'tsp'];
 
@@ -327,8 +369,9 @@ export default function Pantry() {
           <tbody>
             {items.map(item => {
               const isExpiredSoon = item.expires && new Date(item.expires) < new Date(Date.now() + 86400*3*1000);
+              const conflicts = getItemConflicts(item);
               return (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: conflicts.length > 0 ? 'rgba(245,158,11,0.05)' : 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = conflicts.length > 0 ? 'rgba(245,158,11,0.1)' : 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = conflicts.length > 0 ? 'rgba(245,158,11,0.05)' : 'transparent'}>
                   <td style={{ padding: '1.25rem' }}>
                     <input
                       type="checkbox"
@@ -337,7 +380,18 @@ export default function Pantry() {
                       style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                     />
                   </td>
-                  <td style={{ padding: '1.25rem', fontWeight: '500' }}>{item.name}</td>
+                  <td style={{ padding: '1.25rem', fontWeight: '500' }}>
+                    {item.name}
+                    {conflicts.length > 0 && (
+                      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                        {conflicts.map((c, i) => (
+                          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#d97706', background: 'rgba(245,158,11,0.1)', padding: '0.15rem 0.5rem', borderRadius: '9999px', border: '1px solid rgba(245,158,11,0.25)' }}>
+                            <AlertTriangle size={11} /> {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ padding: '1.25rem', color: 'var(--text-secondary)' }}>{item.quantity} {item.unit}</td>
                   <td style={{ padding: '1.25rem', color: 'var(--text-tertiary)' }}>
                     {item.category || '--'}

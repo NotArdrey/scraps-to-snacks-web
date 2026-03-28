@@ -40,6 +40,7 @@ function App() {
     <Router>
       <div className="app-container">
         {isAuthenticated && isSubscribed && isFullyOnboarded && <Navigation />}
+
         <main className="main-content">
           <Routes>
             <Route path="/" element={

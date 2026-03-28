@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContext';
 import { usePreferences } from '../hooks/usePreferences';
 import BrandIcon from '../components/BrandIcon';
+import ThemeToggle from '../components/ThemeToggle';
+import { ArrowLeft } from 'lucide-react';
 
 const CAROUSEL_IMAGES = [
   'https://images.unsplash.com/photo-1543362906-acfc16c67564?q=80&w=2000&auto=format&fit=crop',
@@ -69,9 +71,23 @@ export default function Onboarding() {
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      <ThemeToggle style={{ right: 'auto', left: '1.5rem' }} />
       {/* Left Side - Form */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3rem 4rem', overflowY: 'auto' }}>
         <div style={{ maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+          {isOnboarded && (
+            <button onClick={() => navigate('/account')} style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: 'none', border: 'none', color: 'var(--theme-text-muted)',
+              cursor: 'pointer', fontSize: '0.95rem', padding: 0, marginBottom: '1.5rem',
+              transition: 'color 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--theme-text-main)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--theme-text-muted)'}
+            >
+              <ArrowLeft size={18} /> Back to Account
+            </button>
+          )}
           <h2 style={{ fontSize: '2.5rem', fontWeight: '600', margin: '0 0 0.5rem 0' }}>Diet & Allergies</h2>
           <p style={{ color: 'var(--theme-text-muted)', margin: '0 0 3rem 0', fontSize: '1rem' }}>
             Tell us about your preferences to personalize your recipes.
@@ -131,11 +147,11 @@ export default function Onboarding() {
             </div>
           </div>
 
-          <button onClick={handleComplete} disabled={saving} style={{ 
-            width: '100%', 
-            padding: '1rem', 
-            background: '#7a5ed3', 
-            color: 'var(--theme-text-main)', 
+          <button onClick={handleComplete} disabled={saving} style={{
+            width: '100%',
+            padding: '1rem',
+            background: '#7a5ed3',
+            color: '#ffffff',
             border: 'none', 
             borderRadius: '8px', 
             fontSize: '1rem', 
@@ -177,7 +193,7 @@ export default function Onboarding() {
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem', justifyContent: 'flex-end' }}>
             {CAROUSEL_IMAGES.map((_, idx) => (
-              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'rgba(255,255,255,0.3)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
+              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'var(--surface-border)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
             ))}
           </div>
         </div>

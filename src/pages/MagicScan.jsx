@@ -135,7 +135,19 @@ export default function MagicScan() {
           </div>
           <div>
             <h2 className="hero-title">Magic Scan</h2>
-            <p className="hero-subtitle">Instantly organize your fridge or grocery haul using Groq Vision AI.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
+              <p className="hero-subtitle">Instantly organize your fridge or grocery haul using Groq Vision AI.</p>
+              {activeDietName && activeDietName !== 'None' && (
+                <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Diet: {activeDietName}
+                </span>
+              )}
+              {activeAllergyNames.length > 0 && (
+                <span style={{ background: '#f43f5e', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Allergies: {activeAllergyNames.join(', ')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

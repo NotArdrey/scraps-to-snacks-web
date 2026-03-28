@@ -1,7 +1,8 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check, ArrowLeft } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
+import ThemeToggle from '../components/ThemeToggle';
 import { AppContext } from '../AppContext';
 import { fetchActivePlans, createSubscription, formatPlanPrice } from '../services/subscription';
 
@@ -13,7 +14,7 @@ const CAROUSEL_IMAGES = [
 
 export default function Subscription() {
   const navigate = useNavigate();
-  const { user, refreshSubscription } = useContext(AppContext);
+  const { user, refreshSubscription, hasActiveSubscription } = useContext(AppContext);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,7 @@ export default function Subscription() {
     await createSubscription(user.id, plan);
     await refreshSubscription();
     setLoading(false);
-    navigate('/onboarding');
+    navigate(hasActiveSubscription ? '/account' : '/onboarding');
   };
 
   if (fetching) {
@@ -60,6 +61,7 @@ export default function Subscription() {
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      <ThemeToggle />
       {/* Left Side - Image Background */}
       <div style={{ 
         flex: 1, 
@@ -89,7 +91,7 @@ export default function Subscription() {
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem' }}>
             {CAROUSEL_IMAGES.map((_, idx) => (
-              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'rgba(255,255,255,0.3)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
+              <div key={idx} style={{ height: '4px', width: '24px', backgroundColor: currentImageIndex === idx ? 'var(--theme-text-main)' : 'var(--surface-border)', borderRadius: '2px', transition: 'background-color 0.5s ease' }}></div>
             ))}
           </div>
         </div>
@@ -98,6 +100,19 @@ export default function Subscription() {
       {/* Right Side - Form */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ width: '100%', maxWidth: '500px' }}>
+          {hasActiveSubscription && (
+            <button onClick={() => navigate('/account')} style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: 'none', border: 'none', color: 'var(--theme-text-muted)',
+              cursor: 'pointer', fontSize: '0.95rem', padding: 0, marginBottom: '1.5rem',
+              transition: 'color 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--theme-text-main)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--theme-text-muted)'}
+            >
+              <ArrowLeft size={18} /> Back to Account
+            </button>
+          )}
           <h2 style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Choose Your Plan</h2>
           <p style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
             Get started with AI magic parsing and unrestricted recipes.
@@ -143,8 +158,8 @@ export default function Subscription() {
             ))}
           </div>
 
-          <button onClick={handleSelect} disabled={loading || !selectedPlan} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: 'var(--theme-text-main)', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '2rem', opacity: loading || !selectedPlan ? 0.7 : 1 }}>
-            {loading ? 'Processing...' : 'Continue to Onboarding'}
+          <button onClick={handleSelect} disabled={loading || !selectedPlan} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '2rem', opacity: loading || !selectedPlan ? 0.7 : 1 }}>
+            {loading ? 'Processing...' : hasActiveSubscription ? 'Update Plan' : 'Continue to Onboarding'}
           </button>
         </div>
       </div>
