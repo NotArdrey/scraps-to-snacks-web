@@ -103,22 +103,16 @@ export default function Cookbook() {
 
   if (recipesLoading) {
     return (
-      <div style={{ maxWidth: '1000px', margin: '3rem auto', textAlign: 'center', padding: '4rem' }}>
+      <div className="hero-container" style={{ textAlign: 'center', padding: '4rem' }}>
         <p style={{ color: 'var(--text-secondary)' }}>Loading cookbook...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '3rem auto' }}>
+    <div className="hero-container">
       
-      <div style={{ 
-        position: 'relative', 
-        borderRadius: '24px', 
-        overflow: 'hidden', 
-        marginBottom: '3rem',
-        boxShadow: 'var(--shadow-md)'
-      }}>
+      <div className="hero-banner">
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
@@ -134,13 +128,13 @@ export default function Cookbook() {
           background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.2))',
           zIndex: 2
         }} />
-        <div style={{ position: 'relative', zIndex: 3, padding: '4rem 3rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.25rem', borderRadius: '50%', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+        <div className="hero-content">
+          <div className="hero-icon-box">
             <Book size={40} color="white" />
           </div>
           <div>
-            <h2 style={{ fontSize: '3rem', fontWeight: '800', margin: '0 0 0.5rem 0', color: 'white' }}>My Cookbook</h2>
-            <p style={{ fontSize: '1.2rem', color: '#e2e8f0', margin: 0 }}>Your saved AI recipes and cooking history.</p>
+            <h2 className="hero-title">My Cookbook</h2>
+            <p className="hero-subtitle">Your saved AI recipes and cooking history.</p>
           </div>
         </div>
       </div>

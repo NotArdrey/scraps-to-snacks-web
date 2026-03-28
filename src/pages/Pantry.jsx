@@ -168,22 +168,16 @@ export default function Pantry() {
 
   if (pantryLoading) {
     return (
-      <div style={{ maxWidth: '1000px', margin: '2rem auto', textAlign: 'center', padding: '4rem' }}>
+      <div className="hero-container" style={{ textAlign: 'center', padding: '4rem' }}>
         <p style={{ color: 'var(--text-secondary)' }}>Loading pantry...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '2rem auto' }}>
+    <div className="hero-container">
       
-      <div style={{ 
-        position: 'relative', 
-        borderRadius: '24px', 
-        overflow: 'hidden', 
-        marginBottom: '2.5rem',
-        boxShadow: 'var(--shadow-md)'
-      }}>
+      <div className="hero-banner">
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
@@ -199,20 +193,25 @@ export default function Pantry() {
           background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.2))',
           zIndex: 2
         }} />
-        <div style={{ position: 'relative', zIndex: 3, padding: '4rem 3rem', color: 'white' }}>
-          <h2 style={{ fontSize: '3rem', fontWeight: '800', margin: '0 0 0.5rem 0', color: 'white' }}>Household Pantry</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <p style={{ fontSize: '1.2rem', color: '#e2e8f0', margin: 0 }}>Manage your ingredients and generate recipes.</p>
-            {activeDietName && activeDietName !== 'None' && (
-              <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                Diet: {activeDietName}
-              </span>
-            )}
-            {activeAllergyNames.length > 0 && (
-              <span style={{ background: '#f43f5e', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                Allergies: {activeAllergyNames.join(', ')}
-              </span>
-            )}
+        <div className="hero-content">
+          <div className="hero-icon-box">
+            <Plus size={40} color="white" />
+          </div>
+          <div>
+            <h2 className="hero-title">Household Pantry</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
+              <p className="hero-subtitle">Manage your ingredients and generate recipes.</p>
+              {activeDietName && activeDietName !== 'None' && (
+                <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Diet: {activeDietName}
+                </span>
+              )}
+              {activeAllergyNames.length > 0 && (
+                <span style={{ background: '#f43f5e', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  Allergies: {activeAllergyNames.join(', ')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

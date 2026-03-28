@@ -111,15 +111,9 @@ export default function MagicScan() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
+    <div className="hero-container">
       
-      <div style={{ 
-        position: 'relative', 
-        borderRadius: '24px', 
-        overflow: 'hidden', 
-        marginBottom: '2.5rem',
-        boxShadow: 'var(--shadow-md)'
-      }}>
+      <div className="hero-banner">
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
@@ -135,13 +129,18 @@ export default function MagicScan() {
           background: 'linear-gradient(to right, rgba(249,115,22,0.8), rgba(244,63,94,0.3))', // using our new brand gradients with transparency
           zIndex: 2
         }} />
-        <div style={{ position: 'relative', zIndex: 3, padding: '4rem 3rem', color: 'white', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '3rem', fontWeight: '800', margin: '0 0 0.5rem 0', color: 'white' }}>Magic Scan</h2>
-          <p style={{ fontSize: '1.2rem', color: '#fff1f2', margin: 0 }}>Instantly organize your fridge or grocery haul using Groq Vision AI.</p>
+        <div className="hero-content">
+          <div className="hero-icon-box">
+            <Camera size={40} color="white" />
+          </div>
+          <div>
+            <h2 className="hero-title">Magic Scan</h2>
+            <p className="hero-subtitle">Instantly organize your fridge or grocery haul using Groq Vision AI.</p>
+          </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ width: '100%', margin: '0 auto', textAlign: 'center' }}>
       {scanError && (
         <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginTop: '2rem', color: '#ef4444', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
           <AlertTriangle size={16} /> {scanError}

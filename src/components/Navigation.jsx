@@ -14,16 +14,16 @@ export default function Navigation() {
 
       <div className="nav-links">
         <NavLink to="/pantry" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <List size={18}/> Pantry
+          <List size={18}/> <span>Pantry</span>
         </NavLink>
         <NavLink to="/scan" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <Scan size={18}/> Magic Scan
+          <Scan size={18}/> <span>Magic Scan</span>
         </NavLink>
         <NavLink to="/cookbook" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <Book size={18}/> Cookbook
+          <Book size={18}/> <span>Cookbook</span>
         </NavLink>
         <NavLink to="/account" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <User size={18}/> Account
+          <User size={18}/> <span>Account</span>
         </NavLink>
       </div>
     </nav>
