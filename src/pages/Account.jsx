@@ -4,6 +4,7 @@ import { AppContext } from '../AppContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
+import { HERO_IMAGES } from '../constants/images';
 
 export default function Account() {
   const { user, subscription } = useContext(AppContext);
@@ -155,7 +156,7 @@ export default function Account() {
     <div style={{ maxWidth: '680px', margin: '3rem auto' }}>
       {/* Hero Banner */}
       <div style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1543362906-acfc16c67564?q=80&w=2070&auto=format&fit=crop")', backgroundPosition: 'center', backgroundSize: 'cover', zIndex: 1 }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url("${HERO_IMAGES.account}")`, backgroundPosition: 'center', backgroundSize: 'cover', zIndex: 1 }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.3))', zIndex: 2 }} />
         <div style={{ position: 'relative', zIndex: 3, padding: '3.5rem 2.5rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.25rem', borderRadius: '50%', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>

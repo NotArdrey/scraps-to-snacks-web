@@ -5,12 +5,7 @@ import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import { AppContext } from '../AppContext';
 import { fetchActivePlans, createSubscription, formatPlanPrice } from '../services/subscription';
-
-const CAROUSEL_IMAGES = [
-  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1466637574441-749b8f19452f?q=80&w=2000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1543362906-acfc16c67564?q=80&w=2000&auto=format&fit=crop'
-];
+import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
 export default function Subscription() {
   const navigate = useNavigate();
@@ -24,7 +19,7 @@ export default function Subscription() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
-    }, 5000);
+    }, CAROUSEL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
 

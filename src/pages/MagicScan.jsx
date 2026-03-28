@@ -6,8 +6,8 @@ import { usePantry } from '../hooks/usePantry';
 import { usePreferences } from '../hooks/usePreferences';
 import { scanIngredientsFromImage, validateIngredient } from '../services/groq';
 import ConfirmModal from '../components/ConfirmModal';
-
-const UNITS = ['pcs', 'kg', 'g', 'lbs', 'oz', 'L', 'mL', 'cups', 'tbsp', 'tsp'];
+import { UNITS } from '../constants/categories';
+import { HERO_IMAGES } from '../constants/images';
 
 export default function MagicScan() {
   const navigate = useNavigate();
@@ -15,6 +15,7 @@ export default function MagicScan() {
   const { addPantryItem } = usePantry(user, householdId);
   const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
   const fileInputRef = useRef(null);
+  const prevPreviewRef = useRef(null);
 
   const activeAllergyNames = allergyTypes
     .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
@@ -26,6 +27,21 @@ export default function MagicScan() {
   const [scanError, setScanError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [filteredCount, setFilteredCount] = useState(0);
+
+  if (!user || !householdId) {
+    return (
+      <div className="hero-container">
+        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginTop: '3rem' }}>
+          <AlertTriangle size={48} color="var(--text-tertiary)" style={{ marginBottom: '1rem' }} />
+          <h3 style={{ margin: '0 0 0.5rem 0' }}>Sign in Required</h3>
+          <p style={{ color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>You need to be signed in with a household to use Magic Scan.</p>
+          <button onClick={() => navigate('/login')} className="btn-primary">Sign In</button>
+        </div>
+      </div>
+    );
+  }
 
   const enrichDetections = async (rawItems) => {
     const enriched = await Promise.all(
@@ -48,7 +64,16 @@ export default function MagicScan() {
         }
       })
     );
-    return enriched.filter(Boolean);
+    const valid = enriched.filter(Boolean);
+    setFilteredCount(rawItems.length - valid.length);
+    return valid;
+  };
+
+  const revokePreview = () => {
+    if (prevPreviewRef.current) {
+      URL.revokeObjectURL(prevPreviewRef.current);
+      prevPreviewRef.current = null;
+    }
   };
 
   const handleFileSelect = async (e) => {
@@ -57,9 +82,17 @@ export default function MagicScan() {
 
     setStatus('scanning');
     setScanError(null);
+    setDetections([]);
+    setFilteredCount(0);
+    setSaveError(null);
 
+    revokePreview();
     const preview = URL.createObjectURL(file);
     setPreviewUrl(preview);
+    prevPreviewRef.current = preview;
+
+    // Reset input so selecting the same file triggers onChange again
+    e.target.value = '';
 
     try {
       const base64 = await fileToBase64(file);
@@ -86,23 +119,35 @@ export default function MagicScan() {
   const confirmSaveToPantry = async () => {
     setShowSaveConfirm(false);
     setSaving(true);
+    setSaveError(null);
+    const failed = [];
     for (const d of detections) {
-      await addPantryItem({
-        name: d.name,
-        quantity: d.qty,
-        unit: d.unit || 'pcs',
-        category: d.category || null,
-        expiresAt: d.expiresAt || null,
-        source: 'scan',
-      });
+      try {
+        await addPantryItem({
+          name: d.name,
+          quantity: Math.max(0.1, d.qty),
+          unit: d.unit || 'pcs',
+          category: d.category || null,
+          expiresAt: d.expiresAt || null,
+          source: 'scan',
+        });
+      } catch {
+        failed.push(d.name);
+      }
     }
     setSaving(false);
-    setStatus('idle');
-    setPreviewUrl(null);
-    navigate('/pantry');
+    if (failed.length > 0) {
+      setSaveError(`Failed to save: ${failed.join(', ')}. The rest were saved.`);
+    } else {
+      revokePreview();
+      setStatus('idle');
+      setPreviewUrl(null);
+      navigate('/pantry');
+    }
   };
 
   const updateDetection = (id, field, value) => {
+    if (field === 'qty') value = Math.max(0.1, Number(value) || 0.1);
     setDetections(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
   };
 
@@ -117,7 +162,7 @@ export default function MagicScan() {
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
-          backgroundImage: 'url("https://images.unsplash.com/photo-1654683413645-d8d15189384c?q=80&w=2076&auto=format&fit=crop")',
+          backgroundImage: `url("${HERO_IMAGES.magicScan}")`,
           backgroundPosition: 'center',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
@@ -212,6 +257,16 @@ export default function MagicScan() {
           )}
 
           <div style={{ background: 'var(--surface-active)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '2rem' }}>
+            {detections.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                <AlertTriangle size={32} color="var(--text-tertiary)" style={{ marginBottom: '0.75rem' }} />
+                <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                  {filteredCount > 0
+                    ? `${filteredCount} detected item${filteredCount !== 1 ? 's were' : ' was'} filtered out as non-food. Try scanning a different image.`
+                    : 'No food ingredients were detected. Try scanning a different image.'}
+                </p>
+              </div>
+            ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {detections.map((d, index) => (
                 <li key={d.id} style={{ padding: '1rem', borderBottom: index < detections.length - 1 ? '1px solid var(--surface-border)' : 'none' }}>
@@ -256,13 +311,20 @@ export default function MagicScan() {
                 </li>
               ))}
             </ul>
+            )}
           </div>
 
+          {saveError && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#ef4444', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertTriangle size={16} /> {saveError}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '1rem' }}>
-            <button onClick={() => { setStatus('idle'); setPreviewUrl(null); setScanError(null); }} className="btn-secondary" style={{ flex: 1 }}>
+            <button onClick={() => { setStatus('idle'); revokePreview(); setPreviewUrl(null); setScanError(null); setSaveError(null); setFilteredCount(0); }} className="btn-secondary" style={{ flex: 1 }}>
               Rescan
             </button>
-            <button onClick={handleSaveToPantry} disabled={saving} className="btn-primary" style={{ flex: 2, opacity: saving ? 0.7 : 1 }}>
+            <button onClick={handleSaveToPantry} disabled={saving || detections.length === 0} className="btn-primary" style={{ flex: 2, opacity: (saving || detections.length === 0) ? 0.7 : 1, cursor: detections.length === 0 ? 'not-allowed' : 'pointer' }}>
               {saving ? 'Saving...' : <><Check size={18} /> Confirm & Save to Pantry</>}
             </button>
           </div>

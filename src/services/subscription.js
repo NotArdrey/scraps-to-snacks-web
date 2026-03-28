@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { DEFAULT_BILLING_PERIOD_DAYS } from '../constants/ai';
 
 export async function fetchActivePlans() {
   const { data } = await supabase
@@ -10,7 +11,7 @@ export async function fetchActivePlans() {
 }
 
 export async function createSubscription(userId, plan) {
-  const endsAt = new Date(Date.now() + (plan.billing_period_days || 7) * 86400000).toISOString();
+  const endsAt = new Date(Date.now() + (plan.billing_period_days || DEFAULT_BILLING_PERIOD_DAYS) * 86400000).toISOString();
 
   const { data, error } = await supabase.from('user_subscriptions').insert({
     user_id: userId,

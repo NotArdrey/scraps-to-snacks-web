@@ -4,6 +4,7 @@ import { AppContext } from '../AppContext';
 import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
 import BrandIcon from '../components/BrandIcon';
+import { HERO_IMAGES } from '../constants/images';
 
 export default function Cookbook() {
   const { user } = useContext(AppContext);
@@ -140,7 +141,7 @@ export default function Cookbook() {
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
-          backgroundImage: 'url("https://images.unsplash.com/photo-1504630083234-14187a9df0f5?q=80&w=2070&auto=format&fit=crop")',
+          backgroundImage: `url("${HERO_IMAGES.cookbook}")`,
           backgroundPosition: 'center',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',

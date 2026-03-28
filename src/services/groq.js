@@ -1,7 +1,9 @@
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+import { GROQ_API_URL, GROQ_DEFAULT_MODEL, GROQ_VISION_MODEL, GROQ_TEMPERATURE, GROQ_MAX_TOKENS } from '../constants/ai';
+import { CATEGORIES } from '../constants/categories';
 
-async function callGroq(messages, model = 'llama-3.3-70b-versatile') {
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+
+async function callGroq(messages, model = GROQ_DEFAULT_MODEL) {
   const res = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
@@ -11,8 +13,8 @@ async function callGroq(messages, model = 'llama-3.3-70b-versatile') {
     body: JSON.stringify({
       model,
       messages,
-      temperature: 0.7,
-      max_tokens: 1024,
+      temperature: GROQ_TEMPERATURE,
+      max_tokens: GROQ_MAX_TOKENS,
       response_format: { type: 'json_object' },
     }),
   });
@@ -83,7 +85,7 @@ Only include food items. Be specific (e.g., "Red Bell Pepper" not just "Pepper")
         { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
       ],
     },
-  ], 'llama-3.2-90b-vision-preview');
+  ], GROQ_VISION_MODEL);
 }
 
 export async function validateIngredient(name, dietPreference, allergyList = []) {
@@ -109,7 +111,7 @@ Return a JSON object:
 {
   "isFood": true or false,
   "correctedName": "Properly capitalized ingredient name (or null if not food)",
-  "category": "one of: Fruits, Vegetables, Meat, Seafood, Dairy, Grains, Spices, Beverages, Snacks, Condiments, Baking, Frozen, Canned, Other (or null if not food)",
+  "category": "one of: ${CATEGORIES.join(', ')} (or null if not food)",
   "estimatedExpiryDate": "YYYY-MM-DD format estimated expiration date based on typical shelf life (or null if not food)",
   "dietConflict": true or false (whether it conflicts with the user's diet),
   "allergyConflict": true or false (whether it matches any of the user's allergies),

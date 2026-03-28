@@ -7,11 +7,12 @@ import {
   createPlan, updatePlan, deletePlan,
   adminCreatePantryItem, updatePantryItem, deletePantryItem,
   updateRecipeTitle, deleteRecipe,
-} from '../services/admin';
-import { AppContext } from '../AppContext';
-import BrandIcon from '../components/BrandIcon';
-import ConfirmModal from '../components/ConfirmModal';
-import AdminFormModal from '../components/AdminFormModal';
+} from '../../services/admin';
+import { AppContext } from '../../AppContext';
+import BrandIcon from '../../components/BrandIcon';
+import ConfirmModal from '../../components/ConfirmModal';
+import AdminFormModal from '../../components/AdminFormModal';
+import { CATEGORIES, UNITS } from '../../constants/categories';
 
 const TABS = [
   { key: 'stats', label: 'Dashboard', icon: BarChart3 },
@@ -487,13 +488,10 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
 
 /* ─── Pantry Tab ────────────────────────────────────────────────── */
 
-const UNITS = ['pcs', 'kg', 'g', 'lbs', 'oz', 'L', 'mL', 'cups', 'tbsp', 'tsp'];
-const CATEGORIES = ['Produce', 'Dairy', 'Meat', 'Seafood', 'Grains', 'Bakery', 'Canned', 'Frozen', 'Snacks', 'Beverages', 'Condiments', 'Spices', 'Other'];
-
 function PantryTab({ items, setItems, households, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm }) {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ ingredientName: '', quantity: 1, unit: 'pcs', category: 'Produce', expiresAt: '', householdId: '' });
+  const [formData, setFormData] = useState({ ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: '' });
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -503,7 +501,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
 
   const openCreate = () => {
     setEditingItem(null);
-    setFormData({ ingredientName: '', quantity: 1, unit: 'pcs', category: 'Produce', expiresAt: '', householdId: households[0]?.household_id || '' });
+    setFormData({ ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: households[0]?.household_id || '' });
     setFormError('');
     setShowForm(true);
   };

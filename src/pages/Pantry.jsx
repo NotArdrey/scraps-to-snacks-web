@@ -7,6 +7,9 @@ import { useRecipes } from '../hooks/useRecipes';
 import { usePreferences } from '../hooks/usePreferences';
 import { generateRecipe, validateIngredient } from '../services/groq';
 import ConfirmModal from '../components/ConfirmModal';
+import { CATEGORIES, UNITS } from '../constants/categories';
+import { DIET_RESTRICTED_CATEGORIES, ALLERGEN_KEYWORDS, EXPIRY_WARNING_MS } from '../constants/dietary';
+import { HERO_IMAGES } from '../constants/images';
 
 export default function Pantry() {
   const navigate = useNavigate();
@@ -18,26 +21,6 @@ export default function Pantry() {
   const activeAllergyNames = allergyTypes
     .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
     .map(a => a.name);
-
-  // Client-side conflict detection for existing pantry items
-  const DIET_RESTRICTED_CATEGORIES = {
-    vegetarian: ['meat', 'seafood'],
-    vegan: ['meat', 'seafood', 'dairy'],
-    pescatarian: ['meat'],
-  };
-
-  const ALLERGEN_KEYWORDS = {
-    peanut: ['peanut', 'groundnut'],
-    'tree nut': ['almond', 'walnut', 'cashew', 'pecan', 'pistachio', 'hazelnut', 'macadamia'],
-    dairy: ['milk', 'cheese', 'butter', 'cream', 'yogurt', 'whey', 'ice cream'],
-    lactose: ['milk', 'cheese', 'butter', 'cream', 'yogurt', 'whey', 'dairy', 'ice cream'],
-    gluten: ['wheat', 'bread', 'pasta', 'flour', 'barley', 'rye', 'cereal'],
-    shellfish: ['shrimp', 'crab', 'lobster', 'prawn', 'mussel', 'clam', 'oyster', 'scallop'],
-    egg: ['egg'],
-    soy: ['soy', 'tofu', 'edamame', 'tempeh', 'miso'],
-    fish: ['salmon', 'tuna', 'cod', 'tilapia', 'bass', 'trout', 'sardine', 'anchovy', 'fish'],
-    sesame: ['sesame', 'tahini'],
-  };
 
   const getItemConflicts = (item) => {
     const conflicts = [];
@@ -60,9 +43,6 @@ export default function Pantry() {
 
     return conflicts;
   };
-
-  const CATEGORIES = ['Fruits', 'Vegetables', 'Meat', 'Seafood', 'Dairy', 'Grains', 'Spices', 'Beverages', 'Snacks', 'Condiments', 'Baking', 'Frozen', 'Canned', 'Other'];
-  const UNITS = ['pcs', 'kg', 'g', 'lbs', 'oz', 'L', 'mL', 'cups', 'tbsp', 'tsp'];
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
@@ -252,7 +232,7 @@ export default function Pantry() {
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
-          backgroundImage: 'url("https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974&auto=format&fit=crop")',
+          backgroundImage: `url("${HERO_IMAGES.pantry}")`,
           backgroundPosition: 'center',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
@@ -368,7 +348,7 @@ export default function Pantry() {
           </thead>
           <tbody>
             {items.map(item => {
-              const isExpiredSoon = item.expires && new Date(item.expires) < new Date(Date.now() + 86400*3*1000);
+              const isExpiredSoon = item.expires && new Date(item.expires) < new Date(Date.now() + EXPIRY_WARNING_MS);
               const conflicts = getItemConflicts(item);
               return (
                 <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: conflicts.length > 0 ? 'rgba(245,158,11,0.05)' : 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = conflicts.length > 0 ? 'rgba(245,158,11,0.1)' : 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = conflicts.length > 0 ? 'rgba(245,158,11,0.05)' : 'transparent'}>
