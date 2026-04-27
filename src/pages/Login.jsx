@@ -69,14 +69,18 @@ export default function Login() {
   };
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
-      <ThemeToggle style={{ right: 'auto', left: '1.5rem' }} />
+    <div className="split-auth-page split-auth-login" style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      <ThemeToggle className="split-auth-theme-toggle" style={{ right: 'auto', left: '1.5rem' }} />
 
       {/* Left Side - Form */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-        <div style={{ width: '100%', maxWidth: '440px' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Log in to your account</h2>
-          <p style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
+      <div className="split-auth-form-panel" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div className="split-auth-form-card" style={{ width: '100%', maxWidth: '440px' }}>
+          <div className="split-auth-mobile-brand" aria-label="Scraps2Snacks">
+            <BrandIcon size={30} color="var(--primary-color)" />
+            <span>Scraps<span>2</span>Snacks</span>
+          </div>
+          <h2 className="split-auth-heading" style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Log in to your account</h2>
+          <p className="split-auth-subtitle" style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
             Don't have an account? <Link to="/register" style={{ color: '#7a5ed3', textDecoration: 'none' }}>Create one</Link>
           </p>
 
@@ -117,7 +121,7 @@ export default function Login() {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+            <div className="split-auth-form-options" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input type="checkbox" id="remember" style={{ accentColor: '#7a5ed3', width: '16px', height: '16px' }} />
                 <label htmlFor="remember" style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>Remember me</label>
@@ -140,7 +144,7 @@ export default function Login() {
       </div>
 
       {/* Right Side - Image Background */}
-      <div style={{ 
+      <div className="split-auth-media-panel" style={{ 
         flex: 1, 
         display: 'flex', 
         flexDirection: 'column', 
@@ -153,7 +157,7 @@ export default function Login() {
         borderBottomLeftRadius: '2rem',
         transition: 'background-image 1s ease-in-out'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <div className="split-auth-media-brand" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>
               Scraps<span style={{ color: '#7a5ed3' }}>2</span>Snacks
@@ -162,8 +166,8 @@ export default function Login() {
           </div>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
+        <div className="split-auth-media-copy" style={{ textAlign: 'right' }}>
+          <h1 className="split-auth-media-heading" style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
             Welcome Back,<br />Chef!
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem', justifyContent: 'flex-end' }}>

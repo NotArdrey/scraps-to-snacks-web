@@ -2,11 +2,12 @@ import React, { useContext } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { AppContext } from '../AppContextValue';
 
-export default function ThemeToggle({ style: overrideStyle } = {}) {
+export default function ThemeToggle({ className, style: overrideStyle } = {}) {
   const { theme, toggleTheme } = useContext(AppContext);
 
   return (
     <button
+      className={className}
       onClick={toggleTheme}
       style={{
         position: 'fixed',

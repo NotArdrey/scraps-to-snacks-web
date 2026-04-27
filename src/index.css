@@ -1159,6 +1159,23 @@ input[type="date"].input-field {
 }
 
 /* Auth Pages */
+.split-auth-page {
+  overflow-x: hidden;
+}
+
+.split-auth-form-card {
+  min-width: 0;
+}
+
+.split-auth-form-card input,
+.split-auth-form-card button {
+  min-width: 0;
+}
+
+.split-auth-mobile-brand {
+  display: none;
+}
+
 .auth-page {
   min-height: 100vh;
   display: flex;
@@ -1398,6 +1415,68 @@ input[type="date"].input-field {
 }
 
 /* Responsive Styles */
+@media (max-width: 900px) {
+  .split-auth-page {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    min-height: 100svh !important;
+    display: block !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .split-auth-media-panel {
+    display: none !important;
+  }
+
+  .split-auth-form-panel {
+    min-height: 100svh !important;
+    align-items: flex-start !important;
+    padding: 5.25rem 1rem 2rem !important;
+  }
+
+  .split-auth-form-card {
+    max-width: 480px !important;
+    margin: 0 auto;
+    padding: 1.5rem;
+    background: var(--surface-color);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+  }
+
+  .split-auth-mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 1.5rem;
+    color: var(--theme-text-main);
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .split-auth-mobile-brand > span > span {
+    color: var(--primary-color);
+  }
+
+  .split-auth-heading {
+    font-size: 2rem !important;
+    line-height: 1.12 !important;
+  }
+
+  .split-auth-subtitle {
+    margin-bottom: 1.6rem !important;
+  }
+
+  .split-auth-theme-toggle {
+    top: 1rem !important;
+    right: 1rem !important;
+    left: auto !important;
+  }
+}
+
 @media (max-width: 768px) {
   .auth-card {
     padding: 2rem 1.5rem;
@@ -1452,6 +1531,46 @@ input[type="date"].input-field {
 }
 
 @media (max-width: 480px) {
+  .split-auth-form-panel {
+    padding: 4.75rem 0.85rem 1.25rem !important;
+  }
+
+  .split-auth-form-card {
+    padding: 1.1rem;
+    border-radius: 0.85rem;
+  }
+
+  .split-auth-heading {
+    font-size: 1.75rem !important;
+  }
+
+  .split-auth-name-row,
+  .split-auth-form-options {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.8rem !important;
+  }
+
+  .split-auth-form-options > div {
+    width: 100%;
+  }
+
+  .split-auth-form-options > button {
+    align-self: flex-start;
+    min-height: 32px;
+  }
+
+  .split-auth-plan-option {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .split-auth-plan-option > span:last-child {
+    justify-content: space-between;
+    width: 100%;
+  }
+
   .cookbook-card {
     padding: 1.25rem;
   }

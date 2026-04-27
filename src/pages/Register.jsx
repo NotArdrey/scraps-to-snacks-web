@@ -94,10 +94,10 @@ export default function Register() {
   };
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
-      <ThemeToggle />
+    <div className="split-auth-page split-auth-register" style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      <ThemeToggle className="split-auth-theme-toggle" />
       {/* Left Side - Image Background */}
-      <div style={{ 
+      <div className="split-auth-media-panel" style={{ 
         flex: 1, 
         display: 'flex', 
         flexDirection: 'column', 
@@ -110,7 +110,7 @@ export default function Register() {
         borderBottomRightRadius: '2rem',
         transition: 'background-image 1s ease-in-out'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+        <div className="split-auth-media-brand" style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <BrandIcon size={32} color="#ffffff" />
             <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>
@@ -119,8 +119,8 @@ export default function Register() {
           </div>
         </div>
 
-        <div>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
+        <div className="split-auth-media-copy">
+          <h1 className="split-auth-media-heading" style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
             Savor the Flavor,<br />Stop the Waste
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem' }}>
@@ -132,10 +132,14 @@ export default function Register() {
       </div>
 
       {/* Right Side - Form */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-        <div style={{ width: '100%', maxWidth: '440px' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Create an account</h2>
-          <p style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
+      <div className="split-auth-form-panel" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div className="split-auth-form-card" style={{ width: '100%', maxWidth: '440px' }}>
+          <div className="split-auth-mobile-brand" aria-label="Scraps2Snacks">
+            <BrandIcon size={30} color="var(--primary-color)" />
+            <span>Scraps<span>2</span>Snacks</span>
+          </div>
+          <h2 className="split-auth-heading" style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Create an account</h2>
+          <p className="split-auth-subtitle" style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
             Already have an account? <Link to="/login" style={{ color: '#7a5ed3', textDecoration: 'none' }}>Log in</Link>
           </p>
 
@@ -147,7 +151,7 @@ export default function Register() {
           )}
 
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div className="split-auth-name-row" style={{ display: 'flex', gap: '1rem' }}>
               <div style={{ flex: 1, position: 'relative' }}>
                 <input
                   type="text"
@@ -204,6 +208,7 @@ export default function Register() {
               ) : (
                 plans.map(plan => (
                   <button
+                    className="split-auth-plan-option"
                     key={plan.id}
                     type="button"
                     onClick={() => setSelectedPlan(plan.plan_code)}
