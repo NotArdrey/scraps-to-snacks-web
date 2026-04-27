@@ -5,6 +5,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
 import BrandIcon from '../components/BrandIcon';
 import CookbookChatbot from '../components/CookbookChatbot';
+import LoadingAlert from '../components/LoadingAlert';
 import { HERO_IMAGES } from '../constants/images';
 
 export default function Cookbook() {
@@ -112,29 +113,7 @@ export default function Cookbook() {
   };
 
   if (recipesLoading) {
-    return (
-      <div className="hero-container">
-        <div className="skeleton skeleton-hero" />
-        <div className="grid-container">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="skeleton-card">
-              <div className="skeleton skeleton-line-lg" style={{ width: '60%' }} />
-              <div className="skeleton skeleton-line" style={{ width: '40%' }} />
-              <div style={{ marginTop: '1.25rem' }}>
-                <div className="skeleton skeleton-line" style={{ width: '90%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '75%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '60%' }} />
-              </div>
-              <div style={{ marginTop: '1.25rem' }}>
-                <div className="skeleton skeleton-line" style={{ width: '100%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '95%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '80%' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingAlert title="Loading cookbook" message="Fetching your saved recipes." />;
   }
 
   return (

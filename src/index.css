@@ -278,6 +278,10 @@ select:not([multiple]) {
   color: #fef2f2;
 }
 
+.pantry-table-actions {
+  background: linear-gradient(135deg, rgba(122, 94, 211, 0.08), rgba(132, 204, 22, 0.05));
+}
+
 .input-container {
   display: flex;
   flex-direction: column;
@@ -2252,6 +2256,10 @@ input[type="date"].input-field {
 
 [data-theme='light'] .btn-danger:hover {
   color: #b91c1c;
+}
+
+[data-theme='light'] .pantry-table-actions {
+  background: linear-gradient(135deg, rgba(122, 94, 211, 0.07), rgba(132, 204, 22, 0.08));
 }
 
 [data-theme='light'] .cookbook-toolbar,

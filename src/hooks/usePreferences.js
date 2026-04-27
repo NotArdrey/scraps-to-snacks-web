@@ -58,10 +58,11 @@ export function usePreferences(user) {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [fetchPreferences]);
 
-  const savePreferences = useCallback(async (selectedDietIds, selectedAllergyIds) => {
+  const savePreferences = useCallback(async (selectedDietIds, selectedAllergyIds, options = {}) => {
     if (!user) return;
-    await saveUserPreferences(user.id, selectedDietIds, selectedAllergyIds);
-    await fetchPreferences();
+    const { refresh = true, markOnboarded = true } = options;
+    await saveUserPreferences(user.id, selectedDietIds, selectedAllergyIds, { markOnboarded });
+    if (refresh) await fetchPreferences();
   }, [user, fetchPreferences]);
 
   const activeDietNames = dietTypes

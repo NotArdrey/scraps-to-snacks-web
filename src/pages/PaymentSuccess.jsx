@@ -1,8 +1,9 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle, Clock, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
+import LoadingAlert from '../components/LoadingAlert';
 import { AppContext } from '../AppContextValue';
 import { fetchPaymentAttempt, formatPlanPrice, verifyPaymongoCheckout } from '../services/subscription';
 
@@ -88,6 +89,10 @@ export default function PaymentSuccess() {
   const isPaid = attempt?.status === 'paid' && attempt?.subscription_id;
   const isPending = !isPaid && attempt?.status !== 'failed';
 
+  if (loading) {
+    return <LoadingAlert title="Checking payment" message="Confirming your PayMongo checkout status." />;
+  }
+
   return (
     <div className="payment-page" style={{ position: 'absolute', inset: 0, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', padding: '2rem', zIndex: 50 }}>
       <ThemeToggle />
@@ -99,14 +104,7 @@ export default function PaymentSuccess() {
           </span>
         </div>
 
-        {loading ? (
-          <>
-            <RefreshCw size={38} style={{ animation: 'spin 1s linear infinite', color: '#7a5ed3', marginBottom: '1rem' }} />
-            <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-            <h1 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem' }}>Checking payment</h1>
-            <p style={{ color: 'var(--theme-text-muted)', margin: 0 }}>Hang tight while we confirm your checkout.</p>
-          </>
-        ) : error ? (
+        {error ? (
           <>
             <AlertCircle size={38} color="var(--danger-color)" style={{ marginBottom: '1rem' }} />
             <h1 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem' }}>Payment status unavailable</h1>

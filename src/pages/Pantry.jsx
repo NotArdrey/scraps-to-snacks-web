@@ -7,6 +7,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import { usePreferences } from '../hooks/usePreferences';
 import { generateRecipe, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
+import LoadingAlert from '../components/LoadingAlert';
 import { CATEGORIES, UNITS } from '../constants/categories';
 import { EXPIRY_WARNING_MS } from '../constants/dietary';
 import { HERO_IMAGES } from '../constants/images';
@@ -272,40 +273,7 @@ export default function Pantry() {
   };
 
   if (pantryLoading) {
-    return (
-      <div className="hero-container">
-        <div className="skeleton skeleton-hero" />
-        <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <div className="skeleton" style={{ height: 44, flex: '2 1 180px', borderRadius: 'var(--radius-md)' }} />
-            <div className="skeleton" style={{ height: 44, width: 80, borderRadius: 'var(--radius-md)' }} />
-            <div className="skeleton" style={{ height: 44, width: 90, borderRadius: 'var(--radius-md)' }} />
-            <div className="skeleton" style={{ height: 44, flex: '1 1 140px', borderRadius: 'var(--radius-md)' }} />
-            <div className="skeleton" style={{ height: 44, width: 80, borderRadius: 'var(--radius-full)' }} />
-          </div>
-        </div>
-        <div className="glass-panel pantry-table-panel" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-          <div className="skeleton-row" style={{ background: 'rgba(255,255,255,0.02)' }}>
-            <div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4 }} />
-            <div className="skeleton skeleton-line" style={{ width: '15%', margin: 0 }} />
-            <div className="skeleton skeleton-line" style={{ width: '10%', margin: 0 }} />
-            <div className="skeleton skeleton-line" style={{ width: '12%', margin: 0 }} />
-            <div className="skeleton skeleton-line" style={{ width: '12%', margin: 0 }} />
-            <div style={{ flex: 1 }} />
-          </div>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="skeleton-row">
-              <div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4 }} />
-              <div className="skeleton skeleton-line" style={{ width: `${15 + Math.random() * 10}%`, margin: 0 }} />
-              <div className="skeleton skeleton-line" style={{ width: '8%', margin: 0 }} />
-              <div className="skeleton skeleton-line" style={{ width: '10%', margin: 0 }} />
-              <div className="skeleton skeleton-line" style={{ width: '10%', margin: 0 }} />
-              <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', marginLeft: 'auto' }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingAlert title="Loading pantry" message="Fetching your household ingredients." />;
   }
 
   return (
@@ -580,7 +548,7 @@ export default function Pantry() {
         </table>
 
         {items.length > 0 && (
-          <div className="pantry-actions-bar" style={{ padding: '1.5rem', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)' }}>
+          <div className="pantry-table-actions pantry-actions-bar" style={{ padding: '1.5rem', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
             {genError && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem', flex: 1 }}>
                 <AlertTriangle size={16} /> {genError}
