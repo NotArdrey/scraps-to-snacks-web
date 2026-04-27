@@ -1972,9 +1972,13 @@ input[type="date"].input-field {
 
   .cookbook-chatbot {
     right: 1rem;
-    bottom: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
     left: 1rem;
     align-items: flex-end;
+  }
+
+  .cookbook-chatbot:not(.open) {
+    align-items: flex-start;
   }
 
   .cookbook-chat-panel {
