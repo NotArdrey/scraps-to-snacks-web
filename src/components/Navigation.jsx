@@ -27,20 +27,9 @@ export default function Navigation() {
         <NavLink to="/account" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
           <User size={18}/> <span>Account</span>
         </NavLink>
-        <button 
-          onClick={toggleTheme} 
-          style={{ 
-            background: 'var(--surface-color)', 
-            border: '1px solid var(--surface-border)', 
-            color: 'var(--text-primary)',
-            borderRadius: 'var(--radius-full)',
-            padding: '0.4rem',
-            marginLeft: '0.5rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
+        <button
+          onClick={toggleTheme}
+          className="nav-theme-toggle"
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}

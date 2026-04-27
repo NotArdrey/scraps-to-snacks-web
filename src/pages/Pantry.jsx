@@ -284,7 +284,7 @@ export default function Pantry() {
             <div className="skeleton" style={{ height: 44, width: 80, borderRadius: 'var(--radius-full)' }} />
           </div>
         </div>
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
+        <div className="glass-panel pantry-table-panel" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           <div className="skeleton-row" style={{ background: 'rgba(255,255,255,0.02)' }}>
             <div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4 }} />
             <div className="skeleton skeleton-line" style={{ width: '15%', margin: 0 }} />
@@ -407,7 +407,7 @@ export default function Pantry() {
         </form>
       </div>
 
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
+      <div className="glass-panel pantry-table-panel" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--surface-active)' }}>
@@ -580,7 +580,7 @@ export default function Pantry() {
         </table>
 
         {items.length > 0 && (
-          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)' }}>
+          <div className="pantry-actions-bar" style={{ padding: '1.5rem', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)' }}>
             {genError && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem', flex: 1 }}>
                 <AlertTriangle size={16} /> {genError}
@@ -635,7 +635,7 @@ export default function Pantry() {
       />
 
       {generatedRecipe && (
-        <div style={{
+        <div className="recipe-modal-backdrop" style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.2)',
@@ -646,7 +646,7 @@ export default function Pantry() {
           justifyContent: 'center',
           padding: '2rem'
         }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', animation: 'slideUpFade 0.3s ease-out', padding: '2.5rem' }}>
+          <div className="glass-card recipe-modal-card" style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', animation: 'slideUpFade 0.3s ease-out', padding: '2.5rem' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '6px', background: 'linear-gradient(to right, var(--primary-color), var(--secondary-color))' }}></div>
 
             <button
@@ -656,7 +656,7 @@ export default function Pantry() {
               <X size={24} />
             </button>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', paddingRight: '3rem' }}>
+            <div className="recipe-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', paddingRight: '3rem' }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)' }}>{generatedRecipe.title}</h2>
                 {generatedRecipe.nutrition && generatedRecipe.nutrition.cals && (
@@ -671,7 +671,7 @@ export default function Pantry() {
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+            <div className="recipe-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
               <div style={{ background: 'var(--surface-active)', padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
                 <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)', fontSize: '1.2rem' }}>Ingredients</h4>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

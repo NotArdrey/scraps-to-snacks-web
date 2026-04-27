@@ -473,7 +473,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
           <label style={labelStyle}>Plan Code</label>
           <input style={inputStyle} value={formData.plan_code} onChange={e => set('plan_code', e.target.value)} placeholder="e.g. monthly_pro" required />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 1fr', gap: '1rem' }}>
+        <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 1fr', gap: '1rem' }}>
           <div>
             <label style={labelStyle}>Price ({formData.currency || 'PHP'})</label>
             <input style={inputStyle} type="number" step="0.01" min="0" value={formData.price} onChange={e => set('price', e.target.value)} placeholder="9.99" required />
@@ -647,7 +647,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
             </select>
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <div>
             <label style={labelStyle}>Quantity</label>
             <input style={inputStyle} type="number" min="0" step="0.1" value={formData.quantity} onChange={e => set('quantity', e.target.value)} required />

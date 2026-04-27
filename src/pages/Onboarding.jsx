@@ -69,11 +69,15 @@ export default function Onboarding() {
   }
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
-      <ThemeToggle style={{ right: 'auto', left: '1.5rem' }} />
+    <div className="split-auth-page split-auth-onboarding" style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
+      <ThemeToggle className="split-auth-theme-toggle" style={{ right: 'auto', left: '1.5rem' }} />
       {/* Left Side - Form */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3rem 4rem', overflowY: 'auto' }}>
-        <div style={{ maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+      <div className="split-auth-form-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3rem 4rem', overflowY: 'auto' }}>
+        <div className="split-auth-form-card" style={{ maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+          <div className="split-auth-mobile-brand" aria-label="Scraps2Snacks">
+            <BrandIcon size={30} color="var(--primary-color)" />
+            <span>Scraps<span>2</span>Snacks</span>
+          </div>
           {isOnboarded && (
             <button onClick={() => navigate('/account')} style={{
               display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -87,8 +91,8 @@ export default function Onboarding() {
               <ArrowLeft size={18} /> Back to Account
             </button>
           )}
-          <h2 style={{ fontSize: '2.5rem', fontWeight: '600', margin: '0 0 0.5rem 0' }}>Diet & Allergies</h2>
-          <p style={{ color: 'var(--theme-text-muted)', margin: '0 0 3rem 0', fontSize: '1rem' }}>
+          <h2 className="split-auth-heading" style={{ fontSize: '2.5rem', fontWeight: '600', margin: '0 0 0.5rem 0' }}>Diet & Allergies</h2>
+          <p className="split-auth-subtitle" style={{ color: 'var(--theme-text-muted)', margin: '0 0 3rem 0', fontSize: '1rem' }}>
             Tell us about your preferences to personalize your recipes.
           </p>
 
@@ -164,7 +168,7 @@ export default function Onboarding() {
       </div>
 
       {/* Right Side - Image Background */}
-      <div style={{ 
+      <div className="split-auth-media-panel" style={{ 
         flex: 1, 
         display: 'flex', 
         flexDirection: 'column', 
@@ -177,7 +181,7 @@ export default function Onboarding() {
         borderBottomLeftRadius: '2rem',
         transition: 'background-image 1s ease-in-out'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <div className="split-auth-media-brand" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>
               Scraps<span style={{ color: '#7a5ed3' }}>2</span>Snacks
@@ -186,8 +190,8 @@ export default function Onboarding() {
           </div>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
+        <div className="split-auth-media-copy" style={{ textAlign: 'right' }}>
+          <h1 className="split-auth-media-heading" style={{ fontSize: '3.5rem', fontWeight: 'bold', margin: '0 0 1rem 0', lineHeight: 1.2 }}>
             Curate Your<br />Experience
           </h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '2rem', justifyContent: 'flex-end' }}>

@@ -253,7 +253,7 @@ export default function MagicScan() {
       )}
 
       {status === 'results' && (
-        <div className="glass-card" style={{ marginTop: '3rem', textAlign: 'left', animation: 'slideUpFade var(--transition-slow) ease-out' }}>
+        <div className="glass-card magic-scan-results-card" style={{ marginTop: '3rem', textAlign: 'left', animation: 'slideUpFade var(--transition-slow) ease-out' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
             <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '0.5rem', borderRadius: '50%', display: 'flex' }}>
               <Check size={20} color="var(--success-color)" />
@@ -279,9 +279,9 @@ export default function MagicScan() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {detections.map((d, index) => (
                 <li key={d.id} style={{ padding: '1rem', borderBottom: index < detections.length - 1 ? '1px solid var(--surface-border)' : 'none' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div className="magic-scan-detection-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <span style={{ fontWeight: '600', fontSize: '1.05rem' }}>{d.name}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="magic-scan-detection-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span className="badge badge-success">
                         {(d.confidence * 100).toFixed(0)}% Match
                       </span>
@@ -312,7 +312,7 @@ export default function MagicScan() {
                       </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+                  <div className="magic-scan-detection-fields" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.85rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <label style={{ color: 'var(--text-tertiary)' }}>Qty:</label>
                       <input type="number" min="0.1" step="0.1" value={d.qty} onChange={e => updateDetection(d.id, 'qty', Number(e.target.value))} className="input-field" style={{ width: '60px', padding: '0.3rem 0.4rem', fontSize: '0.85rem' }} />
@@ -368,7 +368,7 @@ export default function MagicScan() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div className="magic-scan-actions" style={{ display: 'flex', gap: '1rem' }}>
             <button onClick={() => { setStatus('idle'); revokePreview(); setPreviewUrl(null); setScanError(null); setSaveError(null); setFilteredCount(0); }} className="btn-secondary" style={{ flex: 1 }}>
               Rescan
             </button>

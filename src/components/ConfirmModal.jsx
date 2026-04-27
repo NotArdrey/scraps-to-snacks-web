@@ -35,7 +35,7 @@ export default function ConfirmModal({ open, title, message, confirmText = 'Conf
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glass-card"
+        className="glass-card confirm-modal-card"
         style={{
           width: '100%',
           maxWidth: '420px',
@@ -70,7 +70,7 @@ export default function ConfirmModal({ open, title, message, confirmText = 'Conf
         </p>
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+        <div className="confirm-modal-actions" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button
             onClick={onCancel}
             className="btn-secondary"

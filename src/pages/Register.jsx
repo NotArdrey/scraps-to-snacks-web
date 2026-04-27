@@ -320,6 +320,7 @@ export default function Register() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            className="auth-dialog-card"
             style={{ width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--theme-text-main)', boxShadow: 'var(--shadow-lg)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.25rem 0.75rem', borderBottom: '1px solid var(--border-color)' }}>
@@ -341,7 +342,7 @@ export default function Register() {
               <p style={{ marginBottom: 0 }}>You also agree not to misuse the service, attempt unauthorized access, or submit content that violates applicable laws or the rights of others.</p>
             </div>
 
-            <div style={{ padding: '0 1.25rem 1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
+            <div className="auth-dialog-actions" style={{ padding: '0 1.25rem 1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 onClick={() => setShowTerms(false)}

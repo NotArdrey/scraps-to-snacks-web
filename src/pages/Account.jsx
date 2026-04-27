@@ -161,12 +161,12 @@ export default function Account() {
   });
 
   return (
-    <div style={{ maxWidth: '680px', margin: '3rem auto' }}>
+    <div className="account-page" style={{ maxWidth: '680px', margin: '3rem auto' }}>
       {/* Hero Banner */}
-      <div style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
+      <div className="account-hero" style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: `url("${HERO_IMAGES.account}")`, backgroundPosition: 'center', backgroundSize: 'cover', zIndex: 1 }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.3))', zIndex: 2 }} />
-        <div style={{ position: 'relative', zIndex: 3, padding: '3.5rem 2.5rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <div className="account-hero-content" style={{ position: 'relative', zIndex: 3, padding: '3.5rem 2.5rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.25rem', borderRadius: '50%', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
             <User size={36} color="white" />
           </div>
@@ -178,16 +178,17 @@ export default function Account() {
       </div>
 
       {/* Settings Panel */}
-      <div style={panelStyle}>
+      <div className="account-panel" style={panelStyle}>
 
         {/* Email Row */}
         <div
+          className="account-row"
           style={rowStyle}
           onClick={() => editingField !== 'email' && openEdit('email')}
           onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
+          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
             <div style={rowIconWrap('rgba(122, 94, 211, 0.15)')}>
               <Mail size={20} color="#7a5ed3" />
             </div>
@@ -201,14 +202,14 @@ export default function Account() {
 
         {/* Email Edit Form */}
         {editingField === 'email' && (
-          <div style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
+          <div className="account-edit-form" style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
             {emailMsg && <div style={msgStyle(emailMsg.type)}>{emailMsg.text}</div>}
             <form onSubmit={handleChangeEmail}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Email</label>
                 <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter new email address" style={inputStyle} required autoFocus />
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div className="account-form-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                 <button type="submit" disabled={emailLoading} style={{ ...saveBtnStyle, opacity: emailLoading ? 0.7 : 1 }}>
                   {emailLoading ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -222,12 +223,13 @@ export default function Account() {
 
         {/* Password Row */}
         <div
+          className="account-row"
           style={rowStyle}
           onClick={() => editingField !== 'password' && openEdit('password')}
           onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
             <div style={rowIconWrap('rgba(157, 132, 232, 0.15)')}>
               <Lock size={20} color="#9d84e8" />
             </div>
@@ -241,7 +243,7 @@ export default function Account() {
 
         {/* Password Edit Form */}
         {editingField === 'password' && (
-          <div style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
+          <div className="account-edit-form" style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
             {passwordMsg && <div style={msgStyle(passwordMsg.type)}>{passwordMsg.text}</div>}
             <form onSubmit={handleChangePassword}>
               <div style={{ marginBottom: '1rem' }}>
@@ -264,7 +266,7 @@ export default function Account() {
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>Confirm New Password</label>
                 <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" style={inputStyle} required minLength={6} />
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div className="account-form-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                 <button type="submit" disabled={passwordLoading} style={{ ...saveBtnStyle, opacity: passwordLoading ? 0.7 : 1 }}>
                   {passwordLoading ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -278,18 +280,19 @@ export default function Account() {
 
         {/* Subscription Row */}
         <div
+          className="account-row"
           style={rowStyle}
           onClick={() => navigate('/subscription')}
           onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
             <div style={rowIconWrap('rgba(132, 204, 22, 0.1)')}>
               <CreditCard size={20} color="#84cc16" />
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Subscription</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="account-subscription-status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>{planName}</span>
                 <span style={{
                   padding: '0.1rem 0.5rem', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase',
@@ -313,12 +316,13 @@ export default function Account() {
 
         {/* Diet & Allergies Row */}
         <div
+          className="account-row"
           style={rowStyle}
           onClick={() => navigate('/onboarding')}
           onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
             <div style={rowIconWrap('rgba(122, 94, 211, 0.15)')}>
               <Settings size={20} color="#7a5ed3" />
             </div>
@@ -334,12 +338,13 @@ export default function Account() {
 
         {/* Sign Out Row */}
         <div
+          className="account-row"
           style={{ ...rowStyle, cursor: 'pointer' }}
           onClick={handleLogout}
           onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.03)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
             <div style={rowIconWrap('rgba(239, 68, 68, 0.1)')}>
               <LogOut size={20} color="#ef4444" />
             </div>

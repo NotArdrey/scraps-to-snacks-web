@@ -114,10 +114,10 @@ export default function ResetPassword() {
   };
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', padding: '2rem', zIndex: 50 }}>
+    <div className="reset-password-page" style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', padding: '2rem', zIndex: 50 }}>
       <ThemeToggle />
 
-      <div style={{ width: '100%', maxWidth: '440px' }}>
+      <div className="reset-password-card" style={{ width: '100%', maxWidth: '440px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
           <BrandIcon size={32} color="#ffffff" />
           <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '1px' }}>

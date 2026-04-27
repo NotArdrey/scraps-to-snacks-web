@@ -27,7 +27,7 @@ export default function AdminFormModal({ open, title, onClose, onSubmit, submitT
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="glass-card"
+        className="glass-card admin-form-modal-card"
         style={{
           width: '100%',
           maxWidth: '520px',
@@ -63,12 +63,12 @@ export default function AdminFormModal({ open, title, onClose, onSubmit, submitT
         </div>
 
         {/* Body */}
-        <div style={{ padding: '1.25rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="admin-form-modal-body" style={{ padding: '1.25rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {children}
         </div>
 
         {/* Footer */}
-        <div style={{
+        <div className="admin-form-modal-footer" style={{
           display: 'flex', gap: '0.75rem', justifyContent: 'flex-end',
           padding: '1rem 1.75rem 1.5rem',
           borderTop: '1px solid var(--border-color)',

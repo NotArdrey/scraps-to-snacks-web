@@ -208,6 +208,7 @@ export default function Login() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            className="auth-dialog-card"
             style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--theme-text-main)', boxShadow: 'var(--shadow-lg)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.25rem 0.75rem', borderBottom: '1px solid var(--border-color)' }}>
@@ -238,7 +239,7 @@ export default function Login() {
                 style={{ width: '100%', padding: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--theme-text-main)', outline: 'none' }}
               />
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+              <div className="auth-dialog-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(false)}

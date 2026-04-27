@@ -27,6 +27,9 @@
   --surface-hover: rgba(45, 44, 56, 0.85);
   --surface-active: rgba(45, 44, 56, 0.95);
   --surface-border: rgba(61, 60, 72, 0.4);
+  --nav-background: #2d2c38;
+  --nav-control-background: #22212c;
+  --nav-border: #3d3c48;
 
   /* Text Colors */
   --text-primary: #ffffff;
@@ -54,6 +57,11 @@
   --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+html {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
@@ -62,8 +70,13 @@ body {
   background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 * {
@@ -88,6 +101,18 @@ a:hover {
 
 input, button, select, textarea {
   font-family: inherit;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  flex-shrink: 0;
 }
 
 select,
@@ -972,10 +997,10 @@ input[type="date"].input-field {
   align-items: center;
   padding: 1rem 2rem;
   margin: 1rem 2rem 0;
-  background: var(--surface-color);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--surface-border);
+  background: var(--nav-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--nav-border);
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-md);
   position: sticky;
@@ -991,6 +1016,7 @@ input[type="date"].input-field {
   gap: 0.75rem;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  min-width: 0;
 }
 
 .brand-text {
@@ -1012,6 +1038,7 @@ input[type="date"].input-field {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .nav-link {
@@ -1023,6 +1050,7 @@ input[type="date"].input-field {
   font-weight: 500;
   color: var(--text-secondary);
   transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -1033,6 +1061,28 @@ input[type="date"].input-field {
 .nav-link.active {
   background: rgba(6, 182, 212, 0.15);
   color: var(--primary-color);
+}
+
+.nav-theme-toggle {
+  width: 38px;
+  height: 38px;
+  margin-left: 0.5rem;
+  padding: 0;
+  background: var(--nav-control-background);
+  border: 1px solid var(--nav-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.nav-theme-toggle:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 /* Page Hero Components */
@@ -1088,6 +1138,35 @@ input[type="date"].input-field {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.pantry-table-panel {
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pantry-table-panel table {
+  min-width: 760px;
+}
+
+.auth-dialog-card {
+  min-width: 0;
+}
+
+.auth-dialog-card input,
+.auth-dialog-card select,
+.auth-dialog-card textarea {
+  min-width: 0;
+}
+
+.payment-card,
+.reset-password-card,
+.account-panel {
+  min-width: 0;
+}
+
+.admin-main table {
+  min-width: 640px;
 }
 
 .form-row {
@@ -1723,6 +1802,418 @@ input[type="date"].input-field {
   }
 }
 
+/* App-wide mobile refinements */
+@media (max-width: 900px) {
+  .split-auth-subscription .split-auth-plan-option {
+    min-width: 0;
+  }
+
+  .split-auth-subscription .split-auth-plan-option > div:first-child {
+    min-width: 0;
+  }
+
+  .split-auth-subscription .split-auth-plan-option > div:last-child {
+    flex-shrink: 0;
+  }
+
+  .split-auth-form-card input:not([type="checkbox"]):not([type="radio"]),
+  .split-auth-form-card select,
+  .split-auth-form-card textarea,
+  .payment-card input:not([type="checkbox"]):not([type="radio"]),
+  .payment-card select,
+  .payment-card textarea,
+  .reset-password-card input:not([type="checkbox"]):not([type="radio"]),
+  .reset-password-card select,
+  .reset-password-card textarea,
+  .account-edit-form input:not([type="checkbox"]):not([type="radio"]),
+  .account-edit-form select,
+  .account-edit-form textarea,
+  .admin-form-modal-card input:not([type="checkbox"]):not([type="radio"]),
+  .admin-form-modal-card select,
+  .admin-form-modal-card textarea {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .split-auth-onboarding .split-auth-form-card {
+    max-width: 640px !important;
+  }
+
+  .split-auth-onboarding .split-auth-form-card label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-container {
+    width: 100%;
+    margin: 1rem auto;
+  }
+
+  .hero-banner {
+    border-radius: 18px;
+    margin-bottom: 1.25rem;
+  }
+
+  .hero-icon-box {
+    padding: 1rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    line-height: 1.12;
+  }
+
+  .page-subtitle {
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+
+  .nav-brand {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .brand-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-links {
+    max-width: 100%;
+  }
+
+  .nav-theme-toggle {
+    margin-left: 0;
+  }
+
+  .pantry-table-panel table {
+    min-width: 720px;
+  }
+
+  .input-field {
+    min-height: 44px;
+  }
+
+  .form-row,
+  .pantry-add-fields {
+    align-items: stretch;
+  }
+
+  .form-group-flex,
+  .pantry-add-fields > .input-container {
+    min-width: min(100%, 220px) !important;
+  }
+
+  .pantry-add-fields button[type="submit"] {
+    min-height: 48px;
+  }
+
+  .pantry-actions-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .pantry-actions-bar > div,
+  .pantry-actions-bar button {
+    width: 100%;
+  }
+
+  .recipe-modal-backdrop {
+    align-items: stretch !important;
+    padding: 0.75rem !important;
+  }
+
+  .recipe-modal-card {
+    max-height: calc(100svh - 1.5rem) !important;
+    padding: 1.4rem !important;
+  }
+
+  .recipe-modal-header {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    padding-right: 2.5rem !important;
+  }
+
+  .recipe-modal-header h2 {
+    font-size: 1.45rem !important;
+    line-height: 1.18 !important;
+  }
+
+  .recipe-modal-header .btn-primary {
+    width: 100%;
+  }
+
+  .recipe-modal-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .magic-scan-results-card {
+    padding: 1.25rem !important;
+  }
+
+  .magic-scan-detection-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .magic-scan-detection-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .magic-scan-detection-fields {
+    align-items: stretch !important;
+  }
+
+  .magic-scan-detection-fields > div {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .magic-scan-detection-fields input,
+  .magic-scan-detection-fields select {
+    min-height: 40px;
+  }
+
+  .magic-scan-unit-select.input-field {
+    width: 100%;
+  }
+
+  .magic-scan-actions {
+    flex-direction: column !important;
+  }
+
+  .magic-scan-actions button {
+    width: 100%;
+  }
+
+  .account-page {
+    max-width: 100% !important;
+    margin: 1rem auto !important;
+  }
+
+  .account-hero {
+    border-radius: 18px !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .account-hero-content {
+    padding: 2rem 1.25rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+
+  .account-hero-content h2 {
+    font-size: 2rem !important;
+    line-height: 1.12 !important;
+  }
+
+  .account-hero-content p {
+    color: #e2e8f0 !important;
+    line-height: 1.45 !important;
+  }
+
+  .account-panel {
+    border-radius: 18px !important;
+  }
+
+  .account-row {
+    padding: 1rem !important;
+    gap: 0.75rem !important;
+  }
+
+  .account-row-main {
+    min-width: 0 !important;
+  }
+
+  .account-edit-form {
+    padding: 0 1rem 1.25rem !important;
+  }
+
+  .account-edit-form form {
+    min-width: 0;
+  }
+
+  .account-form-actions {
+    flex-direction: column !important;
+  }
+
+  .account-form-actions button {
+    width: 100%;
+  }
+
+  .account-subscription-status {
+    flex-wrap: wrap !important;
+  }
+
+  .payment-page,
+  .reset-password-page {
+    align-items: flex-start !important;
+    padding: 5rem 1rem 1rem !important;
+  }
+
+  .payment-card {
+    padding: 1.5rem !important;
+  }
+
+  .payment-action-row {
+    flex-direction: column !important;
+  }
+
+  .payment-action-row button {
+    width: 100%;
+  }
+
+  .reset-password-card h2 {
+    font-size: 2rem !important;
+    line-height: 1.12 !important;
+  }
+
+  .admin-main {
+    width: 100%;
+  }
+
+  .admin-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-form-modal-body > div,
+  .admin-form-grid > div {
+    min-width: 0;
+  }
+
+  .confirm-modal-card {
+    padding: 2rem 1.25rem 1.25rem !important;
+  }
+
+  .admin-form-modal-card {
+    max-height: calc(100svh - 2rem);
+    overflow-y: auto !important;
+  }
+
+  .admin-form-modal-body,
+  .admin-form-modal-footer {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .auth-dialog-card {
+    max-height: calc(100svh - 2rem) !important;
+    overflow-y: auto !important;
+  }
+
+  .auth-dialog-actions {
+    flex-direction: column !important;
+  }
+
+  .auth-dialog-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .split-auth-subscription .split-auth-plan-option {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .split-auth-subscription .split-auth-plan-option > div:last-child {
+    width: 100%;
+    justify-content: space-between !important;
+  }
+
+  .split-auth-onboarding .split-auth-form-card label {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .split-auth-name-row,
+  .split-auth-form-options {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .split-auth-form-options > div,
+  .split-auth-form-options > button {
+    width: 100%;
+  }
+
+  .split-auth-plan-option {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .split-auth-plan-option > span:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pantry-table-panel table,
+  .admin-main table {
+    min-width: 620px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0.75rem;
+  }
+
+  .nav-bar {
+    margin: 0.75rem;
+    padding: 0.75rem;
+    top: 0.75rem;
+  }
+
+  .nav-links {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
+    width: 100%;
+  }
+
+  .nav-link,
+  .nav-theme-toggle {
+    width: 100%;
+    height: 44px;
+    justify-content: center;
+  }
+
+  .nav-link {
+    padding: 0;
+  }
+
+  .hero-content {
+    padding: 2rem 1rem;
+  }
+
+  .hero-title {
+    font-size: 1.8rem;
+  }
+
+  .pantry-table-panel table,
+  .admin-main table {
+    min-width: 560px;
+  }
+
+  .confirm-modal-actions,
+  .admin-form-modal-footer {
+    flex-direction: column !important;
+  }
+
+  .confirm-modal-actions button,
+  .admin-form-modal-footer button {
+    width: 100%;
+  }
+}
+
 /* ===== LIGHT THEME ===== */
 [data-theme='light'] {
   --bg-main: #f8fafc;
@@ -1741,6 +2232,9 @@ input[type="date"].input-field {
   --surface-hover: rgba(255, 255, 255, 0.85);
   --surface-active: rgba(255, 255, 255, 0.95);
   --surface-border: rgba(0, 0, 0, 0.08);
+  --nav-background: #ffffff;
+  --nav-control-background: #f8fafc;
+  --nav-border: #e2e8f0;
 
   --text-primary: #0f172a;
   --text-secondary: #334155;
