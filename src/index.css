@@ -2197,6 +2197,9 @@ input[type="date"].input-field {
 
 @media (max-width: 640px) {
   .pantry-table-panel {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
     overflow-x: visible !important;
     overflow-y: visible !important;
   }
@@ -2218,22 +2221,28 @@ input[type="date"].input-field {
   .pantry-table-panel tbody tr {
     display: block;
     position: relative;
-    padding: 1rem;
-    border-bottom: 1px solid var(--surface-border) !important;
+    margin-bottom: 0.9rem;
+    padding: 1.05rem;
+    background: var(--surface-color) !important;
+    border: 1px solid var(--surface-border) !important;
+    border-radius: 18px;
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .pantry-table-panel tbody tr:last-child {
-    border-bottom: 0 !important;
+    margin-bottom: 0;
   }
 
   .pantry-table-panel tbody td {
-    display: flex;
+    display: grid;
+    grid-template-columns: 6.25rem minmax(0, 1fr);
     width: 100%;
     min-width: 0 !important;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.55rem 0 !important;
+    gap: 0.85rem;
+    padding: 0.42rem 0 !important;
     text-align: right !important;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -2241,9 +2250,8 @@ input[type="date"].input-field {
 
   .pantry-table-panel tbody td::before {
     content: attr(data-label);
-    flex: 0 0 7.25rem;
     color: var(--text-tertiary);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 700;
     line-height: 1.2;
     text-align: left;
@@ -2261,8 +2269,8 @@ input[type="date"].input-field {
 
   .pantry-table-panel .pantry-select-cell {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
+    top: 1.1rem;
+    right: 1.05rem;
     z-index: 1;
     display: inline-flex;
     width: auto !important;
@@ -2275,20 +2283,46 @@ input[type="date"].input-field {
   }
 
   .pantry-table-panel .pantry-select-cell input {
-    width: 22px !important;
-    height: 22px !important;
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(255, 255, 255, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.72);
+    border-radius: 7px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .pantry-table-panel .pantry-select-cell input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--secondary-color);
+    background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m5 12 4 4 10-10'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 18px;
+    box-shadow: 0 8px 18px rgba(122, 94, 211, 0.34);
   }
 
   .pantry-table-panel .pantry-item-name-cell {
-    justify-content: space-between;
-    padding-right: 2.5rem !important;
-    font-size: 1.05rem;
+    display: block;
+    padding: 0 2.8rem 0.7rem 0 !important;
+    text-align: left !important;
+    font-size: 1.22rem;
+    line-height: 1.2;
     font-weight: 700 !important;
   }
 
+  .pantry-table-panel .pantry-item-name-cell::before {
+    display: none;
+  }
+
   .pantry-table-panel .pantry-actions-cell {
+    display: flex;
     justify-content: flex-end;
-    padding-top: 0.85rem !important;
+    padding-top: 0.95rem !important;
   }
 
   .pantry-table-panel .pantry-actions-cell::before {
@@ -2299,6 +2333,13 @@ input[type="date"].input-field {
     width: 100%;
     justify-content: flex-end !important;
     flex-wrap: wrap;
+  }
+
+  .pantry-table-panel .pantry-actions-cell .btn-secondary,
+  .pantry-table-panel .pantry-actions-cell .btn-danger {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 12px !important;
   }
 
   .pantry-table-panel .badge {
