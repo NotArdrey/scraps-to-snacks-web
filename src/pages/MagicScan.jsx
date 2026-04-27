@@ -1,5 +1,5 @@
 import React, { useState, useContext, useRef } from 'react';
-import { Camera, Check, AlertTriangle, FileImage, Trash2 } from 'lucide-react';
+import { Camera, Check, AlertTriangle, FileImage, Trash2, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContext';
 import { usePantry } from '../hooks/usePantry';
@@ -47,7 +47,12 @@ export default function MagicScan() {
     const enriched = await Promise.all(
       rawItems.map(async (d) => {
         try {
-          const v = await validateIngredient(d.name, activeDietNames.join(', ') || 'None', activeAllergyNames);
+          const freshnessData = {
+            freshness: d.freshness,
+            freshnessScore: d.freshnessScore,
+            condition: d.condition,
+          };
+          const v = await validateIngredient(d.name, activeDietNames.join(', ') || 'None', activeAllergyNames, freshnessData);
           if (!v.isFood) return null;
           return {
             ...d,
@@ -57,10 +62,11 @@ export default function MagicScan() {
             dietConflict: v.dietConflict || false,
             allergyConflict: v.allergyConflict || false,
             warning: v.warning || null,
+            freshnessWarning: v.freshnessWarning || null,
             unit: 'pcs',
           };
         } catch {
-          return { ...d, category: null, expiresAt: null, dietConflict: false, allergyConflict: false, warning: null, unit: 'pcs' };
+          return { ...d, category: null, expiresAt: null, dietConflict: false, allergyConflict: false, warning: null, freshnessWarning: null, unit: 'pcs' };
         }
       })
     );
@@ -102,6 +108,9 @@ export default function MagicScan() {
         name: d.name,
         confidence: d.confidence,
         qty: d.qty || 1,
+        freshness: d.freshness || 'good',
+        freshnessScore: d.freshnessScore ?? 0.8,
+        condition: d.condition || null,
       }));
       const items = await enrichDetections(rawItems);
       setDetections(items);
@@ -276,6 +285,28 @@ export default function MagicScan() {
                       <span className="badge badge-success">
                         {(d.confidence * 100).toFixed(0)}% Match
                       </span>
+                      <span style={{
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        background: d.freshness === 'fresh' ? 'rgba(16, 185, 129, 0.15)' :
+                                    d.freshness === 'good' ? 'rgba(59, 130, 246, 0.15)' :
+                                    d.freshness === 'aging' ? 'rgba(245, 158, 11, 0.15)' :
+                                    d.freshness === 'questionable' ? 'rgba(239, 68, 68, 0.15)' :
+                                    'rgba(220, 38, 38, 0.2)',
+                        color: d.freshness === 'fresh' ? '#10b981' :
+                               d.freshness === 'good' ? '#3b82f6' :
+                               d.freshness === 'aging' ? '#f59e0b' :
+                               d.freshness === 'questionable' ? '#ef4444' :
+                               '#dc2626',
+                      }}>
+                        {d.freshness === 'fresh' ? 'Fresh' :
+                         d.freshness === 'good' ? 'Good' :
+                         d.freshness === 'aging' ? 'Aging' :
+                         d.freshness === 'questionable' ? 'Questionable' :
+                         'Spoiled'}
+                      </span>
                       <button onClick={() => removeDetection(d.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }} title="Remove">
                         <Trash2 size={16} />
                       </button>
@@ -306,6 +337,23 @@ export default function MagicScan() {
                   {(d.dietConflict || d.allergyConflict) && (
                     <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#d97706', fontSize: '0.85rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
                       <AlertTriangle size={14} /> {d.warning || 'Conflicts with your diet or allergies'}
+                    </div>
+                  )}
+                  {(d.freshness === 'spoiled' || d.freshness === 'questionable') && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: d.freshness === 'spoiled' ? '#dc2626' : '#ef4444', fontSize: '0.85rem', background: d.freshness === 'spoiled' ? 'rgba(220,38,38,0.1)' : 'rgba(239,68,68,0.1)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
+                      <ShieldAlert size={14} /> {d.freshness === 'spoiled' ? 'This item appears spoiled and should not be consumed.' : 'This item looks questionable — use within 1-2 days or discard.'}
+                      {d.condition && <span style={{ marginLeft: '0.25rem' }}>({d.condition})</span>}
+                    </div>
+                  )}
+                  {d.freshness === 'aging' && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f59e0b', fontSize: '0.85rem', background: 'rgba(245,158,11,0.08)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
+                      <AlertTriangle size={14} /> This item is aging — use it soon.
+                      {d.condition && <span style={{ marginLeft: '0.25rem' }}>({d.condition})</span>}
+                    </div>
+                  )}
+                  {d.freshnessWarning && d.freshness !== 'spoiled' && d.freshness !== 'questionable' && d.freshness !== 'aging' && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#6b7280', fontSize: '0.85rem', background: 'rgba(107,114,128,0.08)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
+                      <AlertTriangle size={14} /> {d.freshnessWarning}
                     </div>
                   )}
                 </li>
