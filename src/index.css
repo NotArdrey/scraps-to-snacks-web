@@ -1974,10 +1974,6 @@ input[type="date"].input-field {
     right: 1rem;
     bottom: calc(1rem + env(safe-area-inset-bottom));
     left: 1rem;
-    align-items: flex-end;
-  }
-
-  .cookbook-chatbot:not(.open) {
     align-items: flex-start;
   }
 
