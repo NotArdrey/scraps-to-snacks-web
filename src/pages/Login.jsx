@@ -6,6 +6,12 @@ import ThemeToggle from '../components/ThemeToggle';
 import { supabase } from '../lib/supabase';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
+const getResetPasswordRedirectUrl = () => {
+  const configuredUrl = import.meta.env.VITE_AUTH_REDIRECT_URL;
+  if (configuredUrl) return configuredUrl;
+  return `${window.location.origin}/reset-password`;
+};
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,12 +61,17 @@ export default function Login() {
     }
 
     setResetLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
+      redirectTo: getResetPasswordRedirectUrl(),
     });
     setResetLoading(false);
 
     if (error) {
+      console.error('Password reset email request failed', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+      });
       setError(error.message);
       return;
     }

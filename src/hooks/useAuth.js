@@ -12,7 +12,13 @@ export function useAuth() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          sessionStorage.setItem('password-recovery-active', 'true');
+        }
+        if (event === 'SIGNED_OUT') {
+          sessionStorage.removeItem('password-recovery-active');
+        }
         setSession(session);
         setLoading(false);
       }
