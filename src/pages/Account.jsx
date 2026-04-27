@@ -30,7 +30,7 @@ export default function Account() {
   const confirmLogout = async () => {
     setShowLogoutConfirm(false);
     await supabase.auth.signOut();
-    navigate('/login');
+    navigate('/login', { replace: true, state: null });
   };
 
   const openEdit = (field) => {

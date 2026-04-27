@@ -45,14 +45,8 @@ function AppRoutes() {
   };
 
   const getPostLoginRoute = () => {
-    const from = location.state?.from;
-    const fromPath = from?.pathname;
-    const authPages = ['/login', '/register', '/reset-password'];
-
-    if (fromPath && !authPages.includes(fromPath)) {
-      return `${fromPath}${from.search ?? ''}${from.hash ?? ''}`;
-    }
-
+    // Always send a fresh login to the app's normal landing route. This avoids
+    // stale protected-route state, such as /account after signing out there.
     return getDefaultRoute();
   };
 
