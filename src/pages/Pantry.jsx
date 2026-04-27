@@ -30,6 +30,26 @@ const OBVIOUS_NON_FOOD_ITEMS = new Set([
   'stone',
 ]);
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function parseDateOnly(date) {
+  if (!date) return null;
+  const [year, month, day] = date.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function getExpiryState(expires) {
+  const expiryDate = parseDateOnly(expires);
+  if (!expiryDate) return 'success';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / MS_PER_DAY);
+
+  return daysUntilExpiry <= EXPIRY_WARNING_MS / MS_PER_DAY ? 'danger' : 'success';
+}
+
 export default function Pantry() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
@@ -385,7 +405,6 @@ export default function Pantry() {
                     type="checkbox"
                     checked={items.length > 0 && selectedItems.length === items.length}
                     onChange={handleSelectAll}
-                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                     title="Select all"
                   />
                 )}
@@ -393,13 +412,13 @@ export default function Pantry() {
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Item Name</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Amount</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Category</th>
-              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Expires In</th>
+              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Expires</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.map(item => {
-              const isExpiredSoon = item.expires && new Date(item.expires) < new Date(Date.now() + EXPIRY_WARNING_MS);
+              const expiryState = getExpiryState(item.expires);
               const isEditing = editingItemId === item.id;
               return (
                 <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
@@ -408,7 +427,6 @@ export default function Pantry() {
                       type="checkbox"
                       checked={selectedItems.includes(item.id)}
                       onChange={() => handleToggleSelect(item.id)}
-                      style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                     />
                   </td>
                   <td className="pantry-item-name-cell" data-label="Item" style={{ padding: '1.25rem', fontWeight: '500', minWidth: isEditing ? '180px' : undefined }}>
@@ -479,7 +497,7 @@ export default function Pantry() {
                         aria-label="Edit expiration date"
                       />
                     ) : item.expires ? (
-                      <span className={isExpiredSoon ? 'badge badge-danger' : 'badge badge-success'}>
+                      <span className={`badge pantry-expiry-badge badge-${expiryState}`}>
                         {item.expires}
                       </span>
                     ) : (

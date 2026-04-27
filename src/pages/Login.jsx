@@ -143,7 +143,7 @@ export default function Login() {
 
             <div className="split-auth-form-options" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <input type="checkbox" id="remember" style={{ accentColor: '#7a5ed3', width: '16px', height: '16px' }} />
+                <input type="checkbox" id="remember" />
                 <label htmlFor="remember" style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>Remember me</label>
               </div>
               <button

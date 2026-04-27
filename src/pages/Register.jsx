@@ -290,7 +290,7 @@ export default function Register() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-              <input type="checkbox" id="terms" required style={{ accentColor: '#7a5ed3', width: '16px', height: '16px', flexShrink: 0 }} />
+              <input type="checkbox" id="terms" required />
               <label htmlFor="terms" style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>
                 I agree to the
               </label>

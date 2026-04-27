@@ -344,7 +344,6 @@ export default function Onboarding() {
                     type="checkbox"
                     checked={selectedDiets.has(diet.id)}
                     onChange={() => toggleDiet(diet.id)}
-                    style={{ accentColor: '#7a5ed3', width: '1.2rem', height: '1.2rem', margin: 0 }}
                   /> {diet.name}
                 </label>
               ))}
@@ -371,7 +370,6 @@ export default function Onboarding() {
                     type="checkbox"
                     checked={selectedAllergies.has(allergy.id)}
                     onChange={() => toggleAllergy(allergy.id)}
-                    style={{ accentColor: '#ef4444', width: '1.2rem', height: '1.2rem', margin: 0 }}
                   /> {allergy.name}
                 </label>
               ))}

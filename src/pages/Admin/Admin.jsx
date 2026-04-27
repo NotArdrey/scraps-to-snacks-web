@@ -483,7 +483,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
           </div>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-          <input type="checkbox" checked={formData.is_active} onChange={e => set('is_active', e.target.checked)} style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)' }} />
+          <input type="checkbox" checked={formData.is_active} onChange={e => set('is_active', e.target.checked)} />
           Active
         </label>
       </AdminFormModal>
