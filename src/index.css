@@ -2195,6 +2195,136 @@ input[type="date"].input-field {
   }
 }
 
+@media (max-width: 640px) {
+  .pantry-table-panel {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
+  .pantry-table-panel table {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .pantry-table-panel thead {
+    display: none;
+  }
+
+  .pantry-table-panel tbody {
+    display: block;
+  }
+
+  .pantry-table-panel tbody tr {
+    display: block;
+    padding: 1rem;
+    border-bottom: 1px solid var(--surface-border) !important;
+  }
+
+  .pantry-table-panel tbody tr:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .pantry-table-panel tbody td {
+    display: flex;
+    width: 100%;
+    min-width: 0 !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0 !important;
+    text-align: right !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .pantry-table-panel tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 7.25rem;
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .pantry-table-panel tbody td[colspan] {
+    display: block;
+    text-align: center !important;
+  }
+
+  .pantry-table-panel tbody td[colspan]::before {
+    display: none;
+  }
+
+  .pantry-table-panel .pantry-select-cell {
+    justify-content: flex-start;
+    padding-bottom: 0.2rem !important;
+  }
+
+  .pantry-table-panel .pantry-item-name-cell {
+    justify-content: space-between;
+    font-size: 1.05rem;
+    font-weight: 700 !important;
+  }
+
+  .pantry-table-panel .pantry-actions-cell {
+    justify-content: flex-end;
+    padding-top: 0.85rem !important;
+  }
+
+  .pantry-table-panel .pantry-actions-cell::before {
+    display: none;
+  }
+
+  .pantry-table-panel .pantry-actions-cell > div {
+    width: 100%;
+    justify-content: flex-end !important;
+    flex-wrap: wrap;
+  }
+
+  .pantry-table-panel .badge {
+    max-width: min(100%, 12rem);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .pantry-table-panel td .input-field {
+    min-width: 0;
+  }
+
+  .pantry-table-panel td[data-label="Amount"] > div {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    width: min(100%, 13rem);
+  }
+
+  .pantry-actions-bar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch !important;
+    padding: 1rem !important;
+  }
+
+  .pantry-actions-bar > div,
+  .pantry-actions-bar button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pantry-actions-bar button {
+    justify-content: center;
+    white-space: normal;
+  }
+
+  .pantry-actions-bar button > span {
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+}
+
 @media (max-width: 480px) {
   .main-content {
     padding: 0.75rem;

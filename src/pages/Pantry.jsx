@@ -379,7 +379,7 @@ export default function Pantry() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--surface-active)' }}>
-              <th style={{ padding: '1.25rem', width: '40px' }}>
+              <th className="pantry-select-heading" style={{ padding: '1.25rem', width: '40px' }}>
                 {items.length > 0 && (
                   <input
                     type="checkbox"
@@ -403,7 +403,7 @@ export default function Pantry() {
               const isEditing = editingItemId === item.id;
               return (
                 <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '1.25rem' }}>
+                  <td className="pantry-select-cell" data-label="Select" style={{ padding: '1.25rem' }}>
                     <input
                       type="checkbox"
                       checked={selectedItems.includes(item.id)}
@@ -411,7 +411,7 @@ export default function Pantry() {
                       style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                     />
                   </td>
-                  <td style={{ padding: '1.25rem', fontWeight: '500', minWidth: isEditing ? '180px' : undefined }}>
+                  <td className="pantry-item-name-cell" data-label="Item" style={{ padding: '1.25rem', fontWeight: '500', minWidth: isEditing ? '180px' : undefined }}>
                     {isEditing ? (
                       <input
                         type="text"
@@ -425,7 +425,7 @@ export default function Pantry() {
                       item.name
                     )}
                   </td>
-                  <td style={{ padding: '1.25rem', color: 'var(--text-secondary)', minWidth: isEditing ? '160px' : undefined }}>
+                  <td data-label="Amount" style={{ padding: '1.25rem', color: 'var(--text-secondary)', minWidth: isEditing ? '160px' : undefined }}>
                     {isEditing ? (
                       <div style={{ display: 'grid', gridTemplateColumns: '72px 82px', gap: '0.5rem' }}>
                         <input
@@ -452,7 +452,7 @@ export default function Pantry() {
                       `${item.quantity} ${item.unit}`
                     )}
                   </td>
-                  <td style={{ padding: '1.25rem', color: 'var(--text-tertiary)', minWidth: isEditing ? '170px' : undefined }}>
+                  <td data-label="Category" style={{ padding: '1.25rem', color: 'var(--text-tertiary)', minWidth: isEditing ? '170px' : undefined }}>
                     {isEditing ? (
                       <select
                         className="input-field"
@@ -468,7 +468,7 @@ export default function Pantry() {
                       item.category || '--'
                     )}
                   </td>
-                  <td style={{ padding: '1.25rem', minWidth: isEditing ? '170px' : undefined }}>
+                  <td data-label="Expires" style={{ padding: '1.25rem', minWidth: isEditing ? '170px' : undefined }}>
                     {isEditing ? (
                       <input
                         type="date"
@@ -491,7 +491,7 @@ export default function Pantry() {
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '1.25rem', textAlign: 'right' }}>
+                  <td className="pantry-actions-cell" data-label="Actions" style={{ padding: '1.25rem', textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
                       {isEditing ? (
                         <>
