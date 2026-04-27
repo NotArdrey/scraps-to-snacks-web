@@ -1,28 +1,62 @@
 import React from 'react';
-import { Leaf, UtensilsCrossed, Sparkles } from 'lucide-react';
 
 export default function BrandIcon({ size = 36 }) {
-  const iconSize = Math.round(size * 0.5);
-  const leafSize = Math.round(size * 0.5);
-  const sparkleSize = Math.round(size * 0.25);
-  const radius = size <= 36 ? 10 : 14;
-
   return (
-    <div style={{
-      position: 'relative',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: size,
-      height: size,
-      background: 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))',
-      borderRadius: `${radius}px`,
-      boxShadow: '0 2px 8px rgba(122, 94, 211, 0.35)',
-      flexShrink: 0,
-    }}>
-      <Leaf size={leafSize} color="white" strokeWidth={2.5} style={{ position: 'absolute', top: '3px', left: '3px', opacity: 0.35 }} />
-      <UtensilsCrossed size={iconSize} color="white" strokeWidth={2.5} style={{ position: 'relative', zIndex: 1 }} />
-      <Sparkles size={sparkleSize} color="#fbbf24" strokeWidth={3} style={{ position: 'absolute', top: '-2px', right: '-2px', zIndex: 2 }} />
-    </div>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="none"
+      role="img"
+      aria-label="Scraps2Snacks"
+      style={{ display: 'inline-block', flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id="brand-icon-bg" x1="10" y1="8" x2="55" y2="58" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#7a5ed3" />
+          <stop offset="1" stopColor="#10b981" />
+        </linearGradient>
+        <linearGradient id="brand-icon-leaf" x1="26" y1="14" x2="44" y2="34" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#d9f99d" />
+          <stop offset="1" stopColor="#ffffff" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="16" fill="url(#brand-icon-bg)" />
+      <path
+        d="M18 34.5h28c0 8.1-6.1 14.5-14 14.5s-14-6.4-14-14.5Z"
+        fill="#ffffff"
+      />
+      <path
+        d="M16 33.5c0-2.2 1.8-4 4-4h24c2.2 0 4 1.8 4 4v1H16v-1Z"
+        fill="#f5f3ff"
+      />
+      <path
+        d="M23 38.8c2 3 5.3 4.7 9 4.7 3.8 0 7.1-1.7 9.1-4.7"
+        stroke="#7a5ed3"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        opacity="0.28"
+      />
+      <path
+        d="M32 29.5c-1.1-8 3.4-14.3 11.4-16.5 1.1 7.6-3.4 14.8-11.4 16.5Z"
+        fill="url(#brand-icon-leaf)"
+      />
+      <path
+        d="M32.1 29.1c1.8-4.7 5.2-8.6 10.3-11.5"
+        stroke="#10b981"
+        strokeWidth="2"
+        strokeLinecap="round"
+        opacity="0.75"
+      />
+      <path
+        d="M21.5 20.5c3.7.4 6.9 3.5 7.5 7.4-4.1.2-7.4-2.8-7.5-7.4Z"
+        fill="#ffffff"
+        opacity="0.72"
+      />
+      <path
+        d="m48.5 12.5 1.4 3 3.1.5-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.5-3.1-2.2-2.2 3.1-.5 1.4-3Z"
+        fill="#fbbf24"
+      />
+    </svg>
   );
 }
