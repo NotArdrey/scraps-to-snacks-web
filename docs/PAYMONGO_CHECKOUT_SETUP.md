@@ -24,8 +24,13 @@ Apply the migration, then deploy both functions:
 ```bash
 supabase db push
 supabase functions deploy create-paymongo-checkout
+supabase functions deploy verify-paymongo-checkout
 supabase functions deploy paymongo-webhook --no-verify-jwt
 ```
+
+The subscription expiration migration installs a `pg_cron` job named
+`expire-due-user-subscriptions`. It runs every 15 minutes and marks
+`active` or `trialing` subscriptions as `expired` once `ends_at <= now()`.
 
 ## PayMongo Webhook
 
