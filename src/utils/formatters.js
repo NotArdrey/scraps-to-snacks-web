@@ -10,3 +10,8 @@ export function formatDate(date, locale = 'en-US') {
     day: 'numeric',
   });
 }
+
+export function formatModelProvider(provider) {
+  if (!provider) return '—';
+  return provider.toLowerCase().includes('groq') ? 'AI' : provider;
+}

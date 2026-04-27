@@ -31,7 +31,11 @@ export async function fetchPantryItems(householdId) {
 
   if (error || !data) return [];
 
-  return data.map(item => ({
+  return data.map(mapPantryItem);
+}
+
+function mapPantryItem(item) {
+  return {
     id: item.id,
     ingredientId: item.ingredients.id,
     name: item.ingredients.canonical_name,
@@ -40,7 +44,7 @@ export async function fetchPantryItems(householdId) {
     expires: item.expires_at ? item.expires_at.split('T')[0] : null,
     status: item.status,
     category: item.ingredients.category,
-  }));
+  };
 }
 
 export async function insertPantryItem(householdId, userId, { name, quantity, unit, expiresAt, source, category }) {
@@ -72,6 +76,48 @@ export async function insertPantryItem(householdId, userId, { name, quantity, un
   }
 
   return pantryItem;
+}
+
+export async function updatePantryItem(itemId, userId, { name, quantity, unit, category, expiresAt }) {
+  const cleanName = name?.trim();
+  if (!cleanName) throw new Error('Ingredient name is required.');
+
+  const cleanUnit = unit || 'pcs';
+  const ingredient = await findOrCreateIngredient(cleanName, cleanUnit, category);
+  if (!ingredient) throw new Error('Failed to find or create ingredient.');
+
+  const { error: ingredientError } = await supabase
+    .from('ingredients')
+    .update({
+      canonical_name: cleanName,
+      default_unit: cleanUnit,
+      category: category || null,
+    })
+    .eq('id', ingredient.id);
+
+  if (ingredientError) throw new Error(ingredientError.message);
+
+  const { data, error } = await supabase
+    .from('pantry_items')
+    .update({
+      ingredient_id: ingredient.id,
+      quantity: quantity || 1,
+      unit: cleanUnit,
+      expires_at: expiresAt || null,
+    })
+    .eq('id', itemId)
+    .select('id, quantity, unit, expires_at, status, source, ingredients(id, canonical_name, category)')
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  await supabase.from('pantry_item_events').insert({
+    pantry_item_id: itemId,
+    event_type: 'update',
+    actor_user_id: userId,
+  });
+
+  return data ? mapPantryItem(data) : null;
 }
 
 export async function discardPantryItem(itemId, userId) {

@@ -1,48 +1,44 @@
 import React, { useState, useContext } from 'react';
-import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck, Pencil, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { AppContext } from '../AppContext';
+import { AppContext } from '../AppContextValue';
 import { usePantry } from '../hooks/usePantry';
 import { useRecipes } from '../hooks/useRecipes';
 import { usePreferences } from '../hooks/usePreferences';
-import { generateRecipe, validateIngredient } from '../services/groq';
+import { generateRecipe, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
 import { CATEGORIES, UNITS } from '../constants/categories';
-import { DIET_RESTRICTED_CATEGORIES, ALLERGEN_KEYWORDS, EXPIRY_WARNING_MS } from '../constants/dietary';
+import { EXPIRY_WARNING_MS } from '../constants/dietary';
 import { HERO_IMAGES } from '../constants/images';
+
+const OBVIOUS_NON_FOOD_ITEMS = new Set([
+  'dinosaur',
+  'dragon',
+  'unicorn',
+  'mermaid',
+  'robot',
+  'phone',
+  'laptop',
+  'computer',
+  'soap',
+  'chair',
+  'table',
+  'plastic',
+  'paper',
+  'rock',
+  'stone',
+]);
 
 export default function Pantry() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
-  const { pantryItems: items, loading: pantryLoading, addPantryItem, removePantryItem, removePantryItems } = usePantry(user, householdId);
+  const { pantryItems: items, loading: pantryLoading, addPantryItem, editPantryItem, removePantryItem, removePantryItems } = usePantry(user, householdId);
   const { saveRecipe } = useRecipes(user);
   const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
 
   const activeAllergyNames = allergyTypes
     .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
     .map(a => a.name);
-
-  const getItemConflicts = (item) => {
-    const conflicts = [];
-    const cat = (item.category || '').toLowerCase();
-    const name = (item.name || '').toLowerCase();
-
-    for (const dietName of activeDietNames) {
-      const restricted = DIET_RESTRICTED_CATEGORIES[dietName.toLowerCase()] || [];
-      if (restricted.includes(cat)) {
-        conflicts.push(`Not ${dietName}-friendly`);
-      }
-    }
-
-    for (const allergyName of activeAllergyNames) {
-      const keywords = ALLERGEN_KEYWORDS[allergyName.toLowerCase()] || [allergyName.toLowerCase()];
-      if (keywords.some(kw => name.includes(kw))) {
-        conflicts.push(`May contain ${allergyName}`);
-      }
-    }
-
-    return conflicts;
-  };
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
@@ -59,6 +55,10 @@ export default function Pantry() {
   const [genError, setGenError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', quantity: 1, unit: 'pcs', category: '', expiresAt: '' });
+  const [savingEditId, setSavingEditId] = useState(null);
+  const [editError, setEditError] = useState(null);
 
   const handleAddItem = async (e) => {
     e.preventDefault();
@@ -125,6 +125,58 @@ export default function Pantry() {
     setNewItemExpires('');
   };
 
+  const handleEditItem = (item) => {
+    setEditingItemId(item.id);
+    setEditError(null);
+    setEditForm({
+      name: item.name || '',
+      quantity: item.quantity || 1,
+      unit: item.unit || 'pcs',
+      category: item.category || '',
+      expiresAt: item.expires || '',
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditError(null);
+  };
+
+  const setEditValue = (key, value) => {
+    setEditForm(prev => ({ ...prev, [key]: value }));
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async (itemId) => {
+    const cleanName = editForm.name.trim();
+    const quantity = Number(editForm.quantity);
+    if (!cleanName) {
+      setEditError('Ingredient name is required.');
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setEditError('Amount must be greater than 0.');
+      return;
+    }
+
+    setSavingEditId(itemId);
+    setEditError(null);
+    try {
+      await editPantryItem(itemId, {
+        name: cleanName,
+        quantity,
+        unit: editForm.unit,
+        category: editForm.category || null,
+        expiresAt: editForm.expiresAt || null,
+      });
+      setEditingItemId(null);
+    } catch (err) {
+      setEditError(err.message || 'Failed to update pantry item.');
+    } finally {
+      setSavingEditId(null);
+    }
+  };
+
   const handleToggleSelect = (id) => {
     if (selectedItems.includes(id)) {
       setSelectedItems(selectedItems.filter(itemId => itemId !== id));
@@ -140,8 +192,39 @@ export default function Pantry() {
 
     try {
       const selectedItemsData = items.filter(i => selectedItems.includes(i.id));
+      const obviousNonFoodItems = selectedItemsData
+        .map(item => item.name?.trim())
+        .filter(name => OBVIOUS_NON_FOOD_ITEMS.has(name?.toLowerCase()));
+
+      if (obviousNonFoodItems.length > 0) {
+        setGenError(`Remove non-food item${obviousNonFoodItems.length === 1 ? '' : 's'} before generating a recipe: ${obviousNonFoodItems.join(', ')}.`);
+        return;
+      }
+
+      const validationResults = await Promise.all(
+        selectedItemsData.map(async item => ({
+          item,
+          validation: await validateIngredient(item.name, activeDietNames.join(', ') || 'None', activeAllergyNames),
+        }))
+      );
+      const invalidItems = validationResults
+        .filter(({ validation }) => !validation.isFood)
+        .map(({ item }) => item.name);
+
+      if (invalidItems.length > 0) {
+        setGenError(`Remove non-food item${invalidItems.length === 1 ? '' : 's'} before generating a recipe: ${invalidItems.join(', ')}.`);
+        return;
+      }
+
       const ingredientList = selectedItemsData.map(i => `${i.quantity} ${i.unit} ${i.name}`);
-      const recipe = await generateRecipe(ingredientList, activeDietNames.join(', ') || 'None', activeAllergyNames);
+      const pantryItems = selectedItemsData.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        expires: item.expires,
+      }));
+      const recipe = await generateRecipe(ingredientList, activeDietNames.join(', ') || 'None', activeAllergyNames, pantryItems);
       setGeneratedRecipe(recipe);
     } catch (err) {
       setGenError(err.message);
@@ -152,7 +235,7 @@ export default function Pantry() {
 
   const handleSaveRecipe = async () => {
     if (!generatedRecipe) return;
-    await saveRecipe(generatedRecipe, 'groq');
+    await saveRecipe(generatedRecipe, 'ai');
     setGeneratedRecipe(null);
     navigate('/cookbook');
   };
@@ -269,29 +352,29 @@ export default function Pantry() {
 
       <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
         <form onSubmit={handleAddItem}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="pantry-add-fields">
             <div className="input-container" style={{ flex: 2, minWidth: '180px', margin: 0 }}>
               <label htmlFor="add-item" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Ingredient Name</label>
               <input type="text" id="add-item" className="input-field" placeholder="E.g., Apples..." value={newItemName} onChange={e => { setNewItemName(e.target.value); setAddError(null); }} />
             </div>
-            <div className="input-container" style={{ flex: 0, minWidth: '80px', margin: 0 }}>
+            <div className="input-container" style={{ flex: '0 0 88px', minWidth: '88px', margin: 0 }}>
               <label htmlFor="add-qty" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Qty</label>
-              <input type="number" id="add-qty" className="input-field" min="0.1" step="0.1" value={newItemQuantity} onChange={e => setNewItemQuantity(Number(e.target.value))} style={{ width: '80px' }} />
+              <input type="number" id="add-qty" className="input-field" min="0.1" step="0.1" value={newItemQuantity} onChange={e => setNewItemQuantity(Number(e.target.value))} />
             </div>
-            <div className="input-container" style={{ flex: 0, minWidth: '90px', margin: 0 }}>
+            <div className="input-container" style={{ flex: '0 0 100px', minWidth: '100px', margin: 0 }}>
               <label htmlFor="add-unit" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Unit</label>
-              <select id="add-unit" className="input-field" value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)} style={{ width: '90px' }}>
+              <select id="add-unit" className="input-field" value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}>
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
-            <div className="input-container" style={{ flex: 1, minWidth: '140px', margin: 0 }}>
+            <div className="input-container" style={{ flex: '1 1 160px', minWidth: '160px', margin: 0 }}>
               <label htmlFor="add-category" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Category (opt)</label>
               <select id="add-category" className="input-field" value={newItemCategory} onChange={e => setNewItemCategory(e.target.value)}>
                 <option value="">Auto-detect</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div className="input-container" style={{ flex: 1, minWidth: '140px', margin: 0 }}>
+            <div className="input-container" style={{ flex: '1 1 172px', minWidth: '172px', margin: 0 }}>
               <label htmlFor="add-expires" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Expiration (opt)</label>
               <input type="date" id="add-expires" className="input-field" value={newItemExpires} onChange={e => setNewItemExpires(e.target.value)} />
             </div>
@@ -349,9 +432,9 @@ export default function Pantry() {
           <tbody>
             {items.map(item => {
               const isExpiredSoon = item.expires && new Date(item.expires) < new Date(Date.now() + EXPIRY_WARNING_MS);
-              const conflicts = getItemConflicts(item);
+              const isEditing = editingItemId === item.id;
               return (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: conflicts.length > 0 ? 'rgba(245,158,11,0.05)' : 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = conflicts.length > 0 ? 'rgba(245,158,11,0.1)' : 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = conflicts.length > 0 ? 'rgba(245,158,11,0.05)' : 'transparent'}>
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '1.25rem' }}>
                     <input
                       type="checkbox"
@@ -360,35 +443,128 @@ export default function Pantry() {
                       style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                     />
                   </td>
-                  <td style={{ padding: '1.25rem', fontWeight: '500' }}>
-                    {item.name}
-                    {conflicts.length > 0 && (
-                      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
-                        {conflicts.map((c, i) => (
-                          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#d97706', background: 'rgba(245,158,11,0.1)', padding: '0.15rem 0.5rem', borderRadius: '9999px', border: '1px solid rgba(245,158,11,0.25)' }}>
-                            <AlertTriangle size={11} /> {c}
-                          </span>
-                        ))}
-                      </div>
+                  <td style={{ padding: '1.25rem', fontWeight: '500', minWidth: isEditing ? '180px' : undefined }}>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={editForm.name}
+                        onChange={e => setEditValue('name', e.target.value)}
+                        style={{ minHeight: 40, padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                        aria-label="Edit item name"
+                      />
+                    ) : (
+                      item.name
                     )}
                   </td>
-                  <td style={{ padding: '1.25rem', color: 'var(--text-secondary)' }}>{item.quantity} {item.unit}</td>
-                  <td style={{ padding: '1.25rem', color: 'var(--text-tertiary)' }}>
-                    {item.category || '--'}
+                  <td style={{ padding: '1.25rem', color: 'var(--text-secondary)', minWidth: isEditing ? '160px' : undefined }}>
+                    {isEditing ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: '72px 82px', gap: '0.5rem' }}>
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          className="input-field"
+                          value={editForm.quantity}
+                          onChange={e => setEditValue('quantity', e.target.value)}
+                          style={{ minHeight: 40, padding: '0.55rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                          aria-label="Edit quantity"
+                        />
+                        <select
+                          className="input-field"
+                          value={editForm.unit}
+                          onChange={e => setEditValue('unit', e.target.value)}
+                          style={{ minHeight: 40, padding: '0.55rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                          aria-label="Edit unit"
+                        >
+                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                      </div>
+                    ) : (
+                      `${item.quantity} ${item.unit}`
+                    )}
                   </td>
-                  <td style={{ padding: '1.25rem' }}>
-                    {item.expires ? (
+                  <td style={{ padding: '1.25rem', color: 'var(--text-tertiary)', minWidth: isEditing ? '170px' : undefined }}>
+                    {isEditing ? (
+                      <select
+                        className="input-field"
+                        value={editForm.category}
+                        onChange={e => setEditValue('category', e.target.value)}
+                        style={{ minHeight: 40, padding: '0.55rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                        aria-label="Edit category"
+                      >
+                        <option value="">No category</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    ) : (
+                      item.category || '--'
+                    )}
+                  </td>
+                  <td style={{ padding: '1.25rem', minWidth: isEditing ? '170px' : undefined }}>
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        className="input-field"
+                        value={editForm.expiresAt}
+                        onChange={e => setEditValue('expiresAt', e.target.value)}
+                        style={{ minHeight: 40, padding: '0.55rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                        aria-label="Edit expiration date"
+                      />
+                    ) : item.expires ? (
                       <span className={isExpiredSoon ? 'badge badge-danger' : 'badge badge-success'}>
                         {item.expires}
                       </span>
                     ) : (
                       <span style={{ color: 'var(--text-tertiary)' }}>--</span>
                     )}
+                    {isEditing && editError && (
+                      <div style={{ marginTop: '0.45rem', color: '#fca5a5', fontSize: '0.78rem', whiteSpace: 'normal' }}>
+                        {editError}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '1.25rem', textAlign: 'right' }}>
-                    <button onClick={() => handleDeleteItem(item.id)} className="btn-danger" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Remove Item">
-                      <Trash2 size={16} />
-                    </button>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleCancelEdit()}
+                            className="btn-secondary"
+                            disabled={savingEditId === item.id}
+                            style={{ width: 34, height: 34, padding: 0, borderRadius: 'var(--radius-sm)' }}
+                            title="Cancel edit"
+                            aria-label="Cancel edit"
+                          >
+                            <X size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleSaveEdit(item.id)}
+                            className="btn-primary"
+                            disabled={savingEditId === item.id}
+                            style={{ width: 34, height: 34, padding: 0, borderRadius: 'var(--radius-sm)' }}
+                            title="Save changes"
+                            aria-label="Save changes"
+                          >
+                            <Check size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEditItem(item)}
+                            className="btn-secondary"
+                            style={{ width: 34, height: 34, padding: 0, borderRadius: 'var(--radius-sm)' }}
+                            title="Edit item"
+                            aria-label="Edit item"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteItem(item.id)} className="btn-danger" style={{ width: 34, height: 34, padding: 0 }} title="Remove item" aria-label="Remove item">
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

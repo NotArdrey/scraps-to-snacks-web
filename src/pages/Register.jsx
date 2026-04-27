@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Check, X } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import { supabase } from '../lib/supabase';
+import { fetchActivePlans, formatPlanPrice, getPlanBillingLabel, startPaymongoCheckout } from '../services/subscription';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
 export default function Register() {
@@ -11,8 +12,12 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [plans, setPlans] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState('');
+  const [plansLoading, setPlansLoading] = useState(true);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
@@ -22,25 +27,68 @@ export default function Register() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPlans = async () => {
+      const data = await fetchActivePlans({ paidOnly: true });
+      if (!isMounted) return;
+      setPlans(data);
+      if (data.length > 0) setSelectedPlan(data[0].plan_code);
+      setPlansLoading(false);
+    };
+
+    loadPlans();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    if (!selectedPlan) {
+      setError('Please choose a paid plan to continue.');
+      setLoading(false);
+      return;
+    }
     
     const displayName = `${firstName} ${lastName}`.trim();
 
-    const { error } = await supabase.auth.signUp({ 
+    const { data, error: signUpError } = await supabase.auth.signUp({ 
       email, 
       password,
       options: {
         data: {
-          display_name: displayName
+          display_name: displayName,
+          selected_plan_code: selectedPlan,
         }
       }
     });
 
-    if (error) {
-      setError(error.message);
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!data.session) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError || !signInData.session) {
+        setError('Account created. Please confirm your email, then log in to finish payment.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const checkout = await startPaymongoCheckout(selectedPlan);
+      window.location.assign(checkout.checkout_url);
+    } catch (checkoutError) {
+      setError(checkoutError.message);
       setLoading(false);
     }
   };
@@ -143,19 +191,126 @@ export default function Register() {
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <input type="checkbox" id="terms" required style={{ accentColor: '#7a5ed3', width: '16px', height: '16px' }} />
-              <label htmlFor="terms" style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>
-                I agree to the <span style={{ color: '#7a5ed3', textDecoration: 'underline' }}>Terms & Conditions</span>
-              </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>Choose a plan</div>
+              {plansLoading ? (
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>
+                  Loading plans...
+                </div>
+              ) : plans.length === 0 ? (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '1rem', color: 'var(--danger-color)', fontSize: '0.9rem' }}>
+                  No paid plans are available right now.
+                </div>
+              ) : (
+                plans.map(plan => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => setSelectedPlan(plan.plan_code)}
+                    style={{
+                      width: '100%',
+                      background: selectedPlan === plan.plan_code ? 'rgba(122, 94, 211, 0.1)' : 'var(--bg-card)',
+                      border: selectedPlan === plan.plan_code ? '2px solid #7a5ed3' : '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      color: 'var(--theme-text-main)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontWeight: 700, fontSize: '0.95rem' }}>{plan.display_name}</span>
+                      <span style={{ display: 'block', color: 'var(--theme-text-muted)', fontSize: '0.82rem', marginTop: '0.25rem' }}>{plan.description}</span>
+                      <span style={{ display: 'block', color: '#9d84e8', fontSize: '0.78rem', fontWeight: 700, marginTop: '0.35rem' }}>{getPlanBillingLabel(plan)}</span>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                      <span style={{ fontWeight: 800 }}>{formatPlanPrice(plan)}</span>
+                      <span style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        border: selectedPlan === plan.plan_code ? 'none' : '2px solid var(--border-color)',
+                        background: selectedPlan === plan.plan_code ? '#7a5ed3' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {selectedPlan === plan.plan_code && <Check size={13} color="#ffffff" />}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
 
-            <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '1rem', opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Creating account...' : 'Create account'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              <input type="checkbox" id="terms" required style={{ accentColor: '#7a5ed3', width: '16px', height: '16px', flexShrink: 0 }} />
+              <label htmlFor="terms" style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem' }}>
+                I agree to the
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
+                style={{ color: '#7a5ed3', textDecoration: 'underline', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.9rem' }}
+              >
+                Terms & Conditions
+              </button>
+            </div>
+
+            <button type="submit" disabled={loading || plansLoading || plans.length === 0} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '1rem', opacity: loading || plansLoading || plans.length === 0 ? 0.7 : 1 }}>
+              {loading ? 'Redirecting to PayMongo...' : 'Create account and pay'}
             </button>
           </form>
         </div>
       </div>
+
+      {showTerms && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="terms-title"
+          onClick={() => setShowTerms(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', zIndex: 100 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--theme-text-main)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.25rem 0.75rem', borderBottom: '1px solid var(--border-color)' }}>
+              <h3 id="terms-title" style={{ margin: 0, fontSize: '1.25rem' }}>Terms & Conditions</h3>
+              <button
+                type="button"
+                aria-label="Close terms"
+                onClick={() => setShowTerms(false)}
+                style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--theme-text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem', color: 'var(--theme-text-muted)', lineHeight: 1.6, fontSize: '0.95rem' }}>
+              <p style={{ marginTop: 0 }}>By creating an account, you agree to use Scraps2Snacks responsibly and provide accurate account and payment information.</p>
+              <p>Recipe suggestions and pantry insights are provided for planning support only. You remain responsible for checking ingredient freshness, allergens, safe food handling, and dietary suitability.</p>
+              <p>Uploaded ingredient images and account data may be processed to provide app features, improve pantry tracking, and support subscription/payment services.</p>
+              <p style={{ marginBottom: 0 }}>You also agree not to misuse the service, attempt unauthorized access, or submit content that violates applicable laws or the rights of others.</p>
+            </div>
+
+            <div style={{ padding: '0 1.25rem 1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowTerms(false)}
+                style={{ padding: '0.75rem 1rem', background: '#7a5ed3', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,11 @@
+[functions.create-paymongo-checkout]
+verify_jwt = true
+
+[functions.paymongo-webhook]
+verify_jwt = false
+
+[functions.verify-paymongo-checkout]
+verify_jwt = true
+
+[functions.ai]
+verify_jwt = true

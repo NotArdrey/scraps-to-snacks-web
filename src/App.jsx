@@ -3,14 +3,17 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import Navigation from './components/Navigation';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import Subscription from './pages/Subscription';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 import Onboarding from './pages/Onboarding';
 import Pantry from './pages/Pantry';
 import MagicScan from './pages/MagicScan';
 import Cookbook from './pages/Cookbook';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
-import { AppContext } from './AppContext';
+import { AppContext } from './AppContextValue';
 import './index.css';
 
 function AppRoutes() {
@@ -32,12 +35,25 @@ function AppRoutes() {
   const isSubscribed = hasActiveSubscription;
   const isFullyOnboarded = isOnboarded;
   const onAdminPage = location.pathname === '/admin';
+  const loginRedirect = <Navigate to="/login" state={{ from: location }} replace />;
 
   const getDefaultRoute = () => {
     if (isAdmin) return '/admin';
     if (!isSubscribed) return '/subscription';
     if (!isFullyOnboarded) return '/onboarding';
     return '/pantry';
+  };
+
+  const getPostLoginRoute = () => {
+    const from = location.state?.from;
+    const fromPath = from?.pathname;
+    const authPages = ['/login', '/register', '/reset-password'];
+
+    if (fromPath && !authPages.includes(fromPath)) {
+      return `${fromPath}${from.search ?? ''}${from.hash ?? ''}`;
+    }
+
+    return getDefaultRoute();
   };
 
   return (
@@ -51,47 +67,58 @@ function AppRoutes() {
           } />
 
           <Route path="/login" element={
-            isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <Login />
+            isAuthenticated ? <Navigate to={getPostLoginRoute()} replace /> : <Login />
           } />
           <Route path="/register" element={
             isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <Register />
           } />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="/subscription" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             <Subscription />
           } />
+          <Route path="/payment/success" element={
+            !isAuthenticated ? loginRedirect :
+            isAdmin ? <Navigate to="/admin" /> :
+            <PaymentSuccess />
+          } />
+          <Route path="/payment/cancel" element={
+            !isAuthenticated ? loginRedirect :
+            isAdmin ? <Navigate to="/admin" /> :
+            <PaymentCancel />
+          } />
           <Route path="/onboarding" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             !isSubscribed ? <Navigate to="/subscription" /> :
             <Onboarding />
           } />
 
           <Route path="/pantry" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             !isSubscribed ? <Navigate to="/subscription" /> :
             !isFullyOnboarded ? <Navigate to="/onboarding" /> :
             <Pantry />
           } />
           <Route path="/scan" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             !isSubscribed ? <Navigate to="/subscription" /> :
             !isFullyOnboarded ? <Navigate to="/onboarding" /> :
             <MagicScan />
           } />
           <Route path="/cookbook" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             !isSubscribed ? <Navigate to="/subscription" /> :
             !isFullyOnboarded ? <Navigate to="/onboarding" /> :
             <Cookbook />
           } />
           <Route path="/account" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             !isSubscribed ? <Navigate to="/subscription" /> :
             !isFullyOnboarded ? <Navigate to="/onboarding" /> :
@@ -99,7 +126,7 @@ function AppRoutes() {
           } />
 
           <Route path="/admin" element={
-            !isAuthenticated ? <Navigate to="/login" /> :
+            !isAuthenticated ? loginRedirect :
             !isAdmin ? <Navigate to="/pantry" /> :
             <Admin />
           } />

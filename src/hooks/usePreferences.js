@@ -32,7 +32,8 @@ export function usePreferences(user) {
   }, [user]);
 
   useEffect(() => {
-    fetchPreferences();
+    const timeoutId = setTimeout(fetchPreferences, 0);
+    return () => clearTimeout(timeoutId);
   }, [fetchPreferences]);
 
   // Supabase Realtime: re-fetch when user diet/allergy prefs change

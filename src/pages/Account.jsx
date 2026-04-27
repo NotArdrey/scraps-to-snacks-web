@@ -1,10 +1,11 @@
 import { useContext, useState } from 'react';
 import { User, LogOut, Mail, Lock, Eye, EyeOff, ChevronRight, CreditCard, Settings } from 'lucide-react';
-import { AppContext } from '../AppContext';
+import { AppContext } from '../AppContextValue';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
 import { HERO_IMAGES } from '../constants/images';
+import { formatDate } from '../utils/formatters';
 
 export default function Account() {
   const { user, subscription } = useContext(AppContext);
@@ -90,6 +91,13 @@ export default function Account() {
 
   const planName = subscription?.subscription_plans?.display_name || 'Free';
   const planStatus = subscription?.status || 'none';
+  const subscriptionStartsAt = subscription?.starts_at ? formatDate(subscription.starts_at) : null;
+  const subscriptionEndsAt = subscription?.ends_at ? formatDate(subscription.ends_at) : null;
+  const subscriptionPeriod = subscriptionStartsAt && subscriptionEndsAt
+    ? `${subscriptionStartsAt} to ${subscriptionEndsAt}`
+    : subscriptionStartsAt
+      ? `Started ${subscriptionStartsAt}`
+      : null;
 
   // Shared styles
   const panelStyle = {
@@ -279,7 +287,7 @@ export default function Account() {
             <div style={rowIconWrap('rgba(132, 204, 22, 0.1)')}>
               <CreditCard size={20} color="#84cc16" />
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Subscription</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>{planName}</span>
@@ -291,6 +299,11 @@ export default function Account() {
                   {planStatus === 'active' ? 'Active' : planStatus === 'trialing' ? 'Trial' : 'None'}
                 </span>
               </div>
+              {subscriptionPeriod && (
+                <div style={{ fontSize: '0.82rem', color: 'var(--theme-text-muted)', marginTop: '0.25rem', fontWeight: 500 }}>
+                  {subscriptionPeriod}
+                </div>
+              )}
             </div>
           </div>
           <ChevronRight size={20} color="#6b7280" />

@@ -1,34 +1,52 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export function useSubscription(user) {
   const [subscription, setSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState(null);
+  const fetchRequestRef = useRef(0);
 
   const fetchSubscription = useCallback(async () => {
-    if (!user) {
+    const requestId = fetchRequestRef.current + 1;
+    fetchRequestRef.current = requestId;
+    const userId = user?.id ?? null;
+
+    if (!userId) {
       setSubscription(null);
+      setLoadedUserId(null);
       setLoading(false);
-      return;
+      return null;
     }
 
     setLoading(true);
+    const now = new Date().toISOString();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_subscriptions')
       .select('*, subscription_plans(*)')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .in('status', ['trialing', 'active'])
+      .or(`ends_at.is.null,ends_at.gt.${now}`)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    setSubscription(data);
+    if (fetchRequestRef.current !== requestId) return data ?? null;
+
+    if (error) {
+      console.error('Failed to load subscription', error);
+    }
+
+    setSubscription(error ? null : data);
+    setLoadedUserId(userId);
     setLoading(false);
-  }, [user]);
+    return error ? null : data;
+  }, [user?.id]);
 
   useEffect(() => {
-    fetchSubscription();
+    const timeoutId = setTimeout(fetchSubscription, 0);
+    return () => clearTimeout(timeoutId);
   }, [fetchSubscription]);
 
   // Supabase Realtime: re-fetch when subscription status changes
@@ -53,7 +71,7 @@ export function useSubscription(user) {
   return {
     subscription,
     hasActiveSubscription: !!subscription,
-    loading,
+    loading: loading || loadedUserId !== (user?.id ?? null),
     refreshSubscription: fetchSubscription,
   };
 }

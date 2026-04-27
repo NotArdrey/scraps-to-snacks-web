@@ -1,10 +1,10 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Check, ArrowLeft } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
-import { AppContext } from '../AppContext';
-import { fetchActivePlans, createSubscription, formatPlanPrice } from '../services/subscription';
+import { AppContext } from '../AppContextValue';
+import { fetchActivePlans, formatPlanPrice, getPlanBillingLabel, startPaymongoCheckout } from '../services/subscription';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
 export default function Subscription() {
@@ -14,6 +14,7 @@ export default function Subscription() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function Subscription() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await fetchActivePlans();
+      const data = await fetchActivePlans({ paidOnly: true });
       setPlans(data);
       if (data.length > 0) setSelectedPlan(data[0].plan_code);
       setFetching(false);
@@ -36,14 +37,19 @@ export default function Subscription() {
   const handleSelect = async () => {
     if (!user || !selectedPlan) return;
     setLoading(true);
+    setError('');
 
     const plan = plans.find(p => p.plan_code === selectedPlan);
     if (!plan) { setLoading(false); return; }
 
-    await createSubscription(user.id, plan);
-    await refreshSubscription();
-    setLoading(false);
-    navigate(hasActiveSubscription ? '/account' : '/onboarding');
+    try {
+      const checkout = await startPaymongoCheckout(plan.plan_code);
+      window.location.assign(checkout.checkout_url);
+    } catch (checkoutError) {
+      setError(checkoutError.message);
+      await refreshSubscription();
+      setLoading(false);
+    }
   };
 
   if (fetching) {
@@ -110,11 +116,22 @@ export default function Subscription() {
           )}
           <h2 style={{ fontSize: '2.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Choose Your Plan</h2>
           <p style={{ color: 'var(--theme-text-muted)', marginBottom: '2.5rem', fontSize: '1rem' }}>
-            Get started with AI magic parsing and unrestricted recipes.
+            Pay securely with PayMongo Checkout.
           </p>
 
+          {error && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--danger-color)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+              <AlertCircle size={18} />
+              {error}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {plans.map(plan => (
+            {plans.length === 0 ? (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1.5rem', color: 'var(--theme-text-muted)' }}>
+                No paid plans are available right now.
+              </div>
+            ) : plans.map(plan => (
               <div
                 key={plan.id}
                 style={{
@@ -133,6 +150,7 @@ export default function Subscription() {
                 <div>
                   <h3 style={{ fontSize: '1.1rem', margin: '0 0 0.5rem 0', fontWeight: '600' }}>{plan.display_name}</h3>
                   <p style={{ color: 'var(--theme-text-muted)', fontSize: '0.9rem', margin: 0 }}>{plan.description}</p>
+                  <p style={{ color: '#9d84e8', fontSize: '0.8rem', fontWeight: 700, margin: '0.45rem 0 0' }}>{getPlanBillingLabel(plan)}</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{formatPlanPrice(plan)}</div>
@@ -154,7 +172,7 @@ export default function Subscription() {
           </div>
 
           <button onClick={handleSelect} disabled={loading || !selectedPlan} style={{ width: '100%', padding: '1rem', background: '#7a5ed3', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', marginTop: '2rem', opacity: loading || !selectedPlan ? 0.7 : 1 }}>
-            {loading ? 'Processing...' : hasActiveSubscription ? 'Update Plan' : 'Continue to Onboarding'}
+            {loading ? 'Opening PayMongo...' : hasActiveSubscription ? 'Renew or Change Plan' : 'Continue to Payment'}
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useCallback, useState, useEffect, useContext } from 'react';
 import { Shield, Users, CreditCard, Package, ChefHat, BarChart3, ToggleLeft, ToggleRight, LogOut, Moon, Sun, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
 import {
   fetchAllUsers, fetchAdminStats, fetchAllPlans, togglePlanActive,
@@ -8,11 +8,13 @@ import {
   adminCreatePantryItem, updatePantryItem, deletePantryItem,
   updateRecipeTitle, deleteRecipe,
 } from '../../services/admin';
-import { AppContext } from '../../AppContext';
+import { formatPlanPrice } from '../../services/subscription';
+import { AppContext } from '../../AppContextValue';
 import BrandIcon from '../../components/BrandIcon';
 import ConfirmModal from '../../components/ConfirmModal';
 import AdminFormModal from '../../components/AdminFormModal';
 import { CATEGORIES, UNITS } from '../../constants/categories';
+import { formatModelProvider } from '../../utils/formatters';
 
 const TABS = [
   { key: 'stats', label: 'Dashboard', icon: BarChart3 },
@@ -34,9 +36,7 @@ export default function Admin() {
   const [households, setHouseholds] = useState([]);
   const [confirmModal, setConfirmModal] = useState(null);
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     const [statsData, usersData, plansData, pantryData, recipesData, householdData] = await Promise.all([
       fetchAdminStats(), fetchAllUsers(), fetchAllPlans(),
@@ -49,7 +49,12 @@ export default function Admin() {
     setRecipes(recipesData);
     setHouseholds(householdData);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(loadData, 0);
+    return () => clearTimeout(timeoutId);
+  }, [loadData]);
 
   const handleTogglePlan = async (planId, currentActive) => {
     const { error } = await togglePlanActive(planId, !currentActive);
@@ -337,7 +342,7 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
 function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm }) {
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [formData, setFormData] = useState({ display_name: '', plan_code: '', price: '', billing_period_days: 30, is_active: true });
+  const [formData, setFormData] = useState({ display_name: '', plan_code: '', price: '', currency: 'PHP', billing_period_days: 30, is_active: true });
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -348,14 +353,14 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
 
   const openCreate = () => {
     setEditingPlan(null);
-    setFormData({ display_name: '', plan_code: '', price: '', billing_period_days: 30, is_active: true });
+    setFormData({ display_name: '', plan_code: '', price: '', currency: 'PHP', billing_period_days: 30, is_active: true });
     setFormError('');
     setShowForm(true);
   };
 
   const openEdit = (plan) => {
     setEditingPlan(plan);
-    setFormData({ display_name: plan.display_name, plan_code: plan.plan_code, price: (plan.price_cents / 100).toFixed(2), billing_period_days: plan.billing_period_days, is_active: plan.is_active });
+    setFormData({ display_name: plan.display_name, plan_code: plan.plan_code, price: (plan.price_cents / 100).toFixed(2), currency: plan.currency || 'PHP', billing_period_days: plan.billing_period_days, is_active: plan.is_active });
     setFormError('');
     setShowForm(true);
   };
@@ -369,6 +374,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
       display_name: formData.display_name,
       plan_code: formData.plan_code,
       price_cents: Math.round(parseFloat(formData.price) * 100),
+      currency: (formData.currency || 'PHP').toUpperCase(),
       billing_period_days: parseInt(formData.billing_period_days, 10),
       is_active: formData.is_active,
     };
@@ -432,7 +438,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
                 <tr key={p.id}>
                   <td style={{ ...tdStyle, fontWeight: '600' }}>{p.display_name}</td>
                   <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.plan_code}</td>
-                  <td style={tdStyle}>${(p.price_cents / 100).toFixed(2)}</td>
+                  <td style={tdStyle}>{formatPlanPrice(p)}</td>
                   <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.billing_period_days} days</td>
                   <td style={tdStyle}>
                     <span style={badgeStyle(p.is_active ? '#10b981' : '#ef4444')}>{p.is_active ? 'Active' : 'Inactive'}</span>
@@ -467,10 +473,16 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
           <label style={labelStyle}>Plan Code</label>
           <input style={inputStyle} value={formData.plan_code} onChange={e => set('plan_code', e.target.value)} placeholder="e.g. monthly_pro" required />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 1fr', gap: '1rem' }}>
           <div>
-            <label style={labelStyle}>Price ($)</label>
+            <label style={labelStyle}>Price ({formData.currency || 'PHP'})</label>
             <input style={inputStyle} type="number" step="0.01" min="0" value={formData.price} onChange={e => set('price', e.target.value)} placeholder="9.99" required />
+          </div>
+          <div>
+            <label style={labelStyle}>Currency</label>
+            <select style={inputStyle} value={formData.currency} onChange={e => set('currency', e.target.value)} required>
+              <option value="PHP">PHP</option>
+            </select>
           </div>
           <div>
             <label style={labelStyle}>Period (days)</label>
@@ -735,7 +747,7 @@ function RecipesTab({ recipes, setRecipes, formatDate, panelStyle, thStyle, tdSt
                         autoFocus />
                     ) : r.title}
                   </td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{r.model_provider || '—'}</td>
+                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatModelProvider(r.model_provider)}</td>
                   <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(r.created_at)}</td>
                   <td style={tdStyle}>
                     {isEditing ? (

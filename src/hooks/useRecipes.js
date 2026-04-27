@@ -20,7 +20,8 @@ export function useRecipes(user) {
   }, [user]);
 
   useEffect(() => {
-    fetchRecipes();
+    const timeoutId = setTimeout(fetchRecipes, 0);
+    return () => clearTimeout(timeoutId);
   }, [fetchRecipes]);
 
   // Supabase Realtime: silently re-fetch when saved_recipes change for this user
@@ -42,46 +43,58 @@ export function useRecipes(user) {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [fetchRecipes]);
 
-  const saveRecipe = useCallback(async (recipeData, modelProvider = 'groq') => {
+  const saveRecipe = useCallback(async (recipeData, modelProvider = 'ai') => {
     if (!user) return;
     mutatingRef.current = true;
-    await insertRecipe(user.id, recipeData, modelProvider);
-    await fetchRecipes({ silent: true });
-    mutatingRef.current = false;
+    try {
+      await insertRecipe(user.id, recipeData, modelProvider);
+      await fetchRecipes({ silent: true });
+    } finally {
+      mutatingRef.current = false;
+    }
   }, [user, fetchRecipes]);
 
   const deleteRecipe = useCallback(async (savedRecipeId) => {
     if (!user) return;
     mutatingRef.current = true;
-    await removeSavedRecipe(savedRecipeId, user.id);
-    await fetchRecipes({ silent: true });
-    mutatingRef.current = false;
+    try {
+      await removeSavedRecipe(savedRecipeId, user.id);
+      await fetchRecipes({ silent: true });
+    } finally {
+      mutatingRef.current = false;
+    }
   }, [user, fetchRecipes]);
 
   const deleteRecipes = useCallback(async (savedRecipeIds) => {
     if (!user || savedRecipeIds.length === 0) return;
     mutatingRef.current = true;
-    for (const id of savedRecipeIds) {
-      await removeSavedRecipe(id, user.id);
+    try {
+      for (const id of savedRecipeIds) {
+        await removeSavedRecipe(id, user.id);
+      }
+      await fetchRecipes({ silent: true });
+    } finally {
+      mutatingRef.current = false;
     }
-    await fetchRecipes({ silent: true });
-    mutatingRef.current = false;
   }, [user, fetchRecipes]);
 
   const updateRecipe = useCallback(async (recipeId, savedRecipeId, { title, rating, instructions, ingredientNames }) => {
     if (!user) return;
     mutatingRef.current = true;
-    if (title !== undefined) {
-      await updateRecipeTitle(recipeId, title);
+    try {
+      if (title !== undefined) {
+        await updateRecipeTitle(recipeId, title);
+      }
+      if (rating !== undefined) {
+        await upsertRating(user.id, recipeId, rating);
+      }
+      if (instructions !== undefined || ingredientNames !== undefined) {
+        await updateRecipeDetails(recipeId, { instructions, ingredientNames });
+      }
+      await fetchRecipes({ silent: true });
+    } finally {
+      mutatingRef.current = false;
     }
-    if (rating !== undefined) {
-      await upsertRating(user.id, recipeId, rating);
-    }
-    if (instructions !== undefined || ingredientNames !== undefined) {
-      await updateRecipeDetails(recipeId, { instructions, ingredientNames });
-    }
-    await fetchRecipes({ silent: true });
-    mutatingRef.current = false;
   }, [user, fetchRecipes]);
 
   return { savedRecipes, loading, saveRecipe, deleteRecipe, deleteRecipes, updateRecipe, refreshRecipes: fetchRecipes };

@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppContext } from '../AppContext';
+import { AppContext } from '../AppContextValue';
 import { usePreferences } from '../hooks/usePreferences';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
@@ -25,11 +25,15 @@ export default function Onboarding() {
   }, []);
 
   useEffect(() => {
-    if (!prefsLoading && !initialized) {
+    if (prefsLoading || initialized) return undefined;
+
+    const timeoutId = setTimeout(() => {
       if (userDiets.length > 0) setSelectedDiets(new Set(userDiets));
       if (userAllergies.length > 0) setSelectedAllergies(new Set(userAllergies));
       setInitialized(true);
-    }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [prefsLoading, userDiets, userAllergies, initialized]);
 
   const toggleDiet = (id) => {

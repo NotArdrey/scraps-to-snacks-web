@@ -143,10 +143,10 @@ export async function togglePlanActive(planId, isActive) {
   return { error };
 }
 
-export async function createPlan({ display_name, plan_code, price_cents, billing_period_days, is_active }) {
+export async function createPlan({ display_name, plan_code, price_cents, billing_period_days, is_active, currency = 'PHP' }) {
   const { data, error } = await supabase
     .from('subscription_plans')
-    .insert({ display_name, plan_code, price_cents, billing_period_days, is_active })
+    .insert({ display_name, plan_code, price_cents, billing_period_days, is_active, currency })
     .select()
     .single();
   return { data, error };

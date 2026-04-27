@@ -1,6 +1,76 @@
 import { supabase } from '../lib/supabase';
 import { findOrCreateIngredient } from './pantry';
 
+const QUANTITY_UNITS = [
+  'pcs', 'piece', 'pieces', 'kg', 'g', 'gram', 'grams', 'lbs', 'lb', 'oz',
+  'L', 'l', 'mL', 'ml', 'cup', 'cups', 'tbsp', 'tablespoon', 'tablespoons',
+  'tsp', 'teaspoon', 'teaspoons',
+];
+
+function toPositiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function parseFraction(value) {
+  if (!value) return null;
+  if (value.includes('/')) {
+    const [top, bottom] = value.split('/').map(Number);
+    return Number.isFinite(top) && Number.isFinite(bottom) && bottom !== 0 ? top / bottom : null;
+  }
+
+  return toPositiveNumber(value);
+}
+
+function parseIngredientLine(line) {
+  const text = typeof line === 'string' ? line.trim().replace(/\s+/g, ' ') : '';
+  if (!text) return null;
+
+  const match = text.match(/^(\d+(?:\.\d+)?|\d+\/\d+)(?:\s+([a-zA-Z]+))?\s+(.+)$/);
+  if (!match) return { name: text, quantity: null, unit: '' };
+
+  const parsedQuantity = parseFraction(match[1]);
+  const maybeUnit = match[2] || '';
+  const hasKnownUnit = QUANTITY_UNITS.some(unit => unit.toLowerCase() === maybeUnit.toLowerCase());
+  const name = hasKnownUnit ? match[3] : `${maybeUnit} ${match[3]}`.trim();
+
+  return {
+    name: name || text,
+    quantity: parsedQuantity,
+    unit: hasKnownUnit ? maybeUnit : '',
+  };
+}
+
+function normalizeIngredientDetails(recipeData) {
+  if (Array.isArray(recipeData.ingredientDetails) && recipeData.ingredientDetails.length > 0) {
+    return recipeData.ingredientDetails
+      .map(detail => {
+        const name = typeof detail?.name === 'string' ? detail.name.trim() : '';
+        if (!name) return null;
+
+        return {
+          name,
+          quantity: toPositiveNumber(detail.quantity),
+          unit: typeof detail.unit === 'string' ? detail.unit.trim() : '',
+        };
+      })
+      .filter(Boolean);
+  }
+
+  if (Array.isArray(recipeData.ingredients) && recipeData.ingredients.length > 0) {
+    return recipeData.ingredients.map(parseIngredientLine).filter(Boolean);
+  }
+
+  if (Array.isArray(recipeData.ingredientNames)) {
+    return recipeData.ingredientNames
+      .map(name => (typeof name === 'string' ? name.trim() : ''))
+      .filter(Boolean)
+      .map(name => ({ name, quantity: null, unit: '' }));
+  }
+
+  return [];
+}
+
 export async function fetchSavedRecipes(userId) {
   const { data, error } = await supabase
     .from('saved_recipes')
@@ -15,7 +85,10 @@ export async function fetchSavedRecipes(userId) {
 
   if (error || !data || data.length === 0) return [];
 
-  const recipeIds = data.map(sr => sr.recipes.id);
+  const savedRows = data.filter(sr => sr.recipes);
+  if (savedRows.length === 0) return [];
+
+  const recipeIds = savedRows.map(sr => sr.recipes.id);
 
   const { data: ratings } = await supabase
     .from('cooking_events')
@@ -31,7 +104,7 @@ export async function fetchSavedRecipes(userId) {
     }
   }
 
-  return data.map(sr => ({
+  return savedRows.map(sr => ({
     id: sr.id,
     recipeId: sr.recipes.id,
     title: sr.recipes.title,
@@ -58,15 +131,20 @@ export async function insertRecipe(userId, recipeData, modelProvider) {
 
   if (!recipe) return null;
 
-  if (recipeData.ingredientNames && recipeData.ingredientNames.length > 0) {
+  const ingredientDetails = normalizeIngredientDetails(recipeData);
+
+  if (ingredientDetails.length > 0) {
     const ingredientRows = [];
-    for (const name of recipeData.ingredientNames) {
-      const ingredient = await findOrCreateIngredient(name);
+    for (const detail of ingredientDetails) {
+      const ingredient = await findOrCreateIngredient(detail.name, detail.unit);
       if (ingredient) {
-        ingredientRows.push({
+        const row = {
           recipe_id: recipe.id,
           ingredient_id: ingredient.id,
-        });
+        };
+        if (detail.quantity) row.quantity = detail.quantity;
+        if (detail.unit) row.unit = detail.unit;
+        ingredientRows.push(row);
       }
     }
     if (ingredientRows.length > 0) {

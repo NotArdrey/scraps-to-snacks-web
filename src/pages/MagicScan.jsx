@@ -1,10 +1,10 @@
 import React, { useState, useContext, useRef } from 'react';
 import { Camera, Check, AlertTriangle, FileImage, Trash2, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { AppContext } from '../AppContext';
+import { AppContext } from '../AppContextValue';
 import { usePantry } from '../hooks/usePantry';
 import { usePreferences } from '../hooks/usePreferences';
-import { scanIngredientsFromImage, validateIngredient } from '../services/groq';
+import { scanIngredientsFromImage, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
 import { UNITS } from '../constants/categories';
 import { HERO_IMAGES } from '../constants/images';
@@ -190,7 +190,7 @@ export default function MagicScan() {
           <div>
             <h2 className="hero-title">Magic Scan</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
-              <p className="hero-subtitle">Instantly organize your fridge or grocery haul using Groq Vision AI.</p>
+              <p className="hero-subtitle">Instantly organize your fridge or grocery haul using AI image scanning.</p>
               {activeDietNames.length > 0 && (
                 <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
                   Diet: {activeDietNames.join(', ')}
@@ -247,7 +247,7 @@ export default function MagicScan() {
             <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
             <Camera size={32} color="var(--primary-color)" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
           </div>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>Analyzing with Groq Vision AI...</h3>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>Analyzing your image...</h3>
           <p style={{ color: 'var(--text-tertiary)', margin: 0 }}>Detecting ingredients from your image.</p>
         </div>
       )}
@@ -319,7 +319,7 @@ export default function MagicScan() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <label style={{ color: 'var(--text-tertiary)' }}>Unit:</label>
-                      <select value={d.unit || 'pcs'} onChange={e => updateDetection(d.id, 'unit', e.target.value)} className="input-field" style={{ width: '70px', padding: '0.3rem 0.4rem', fontSize: '0.85rem' }}>
+                      <select value={d.unit || 'pcs'} onChange={e => updateDetection(d.id, 'unit', e.target.value)} className="input-field magic-scan-unit-select">
                         {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>

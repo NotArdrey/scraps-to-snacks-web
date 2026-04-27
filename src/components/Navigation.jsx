@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
 import { List, Scan, Book, User, Moon, Sun } from 'lucide-react';
-import { AppContext } from '../AppContext';
+import { AppContext } from '../AppContextValue';
 import BrandIcon from './BrandIcon';
 
 export default function Navigation() {

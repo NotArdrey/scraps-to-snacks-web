@@ -1,16 +1,18 @@
 import React, { useContext, useState } from 'react';
-import { Book, Star, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus } from 'lucide-react';
-import { AppContext } from '../AppContext';
+import { Book, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus } from 'lucide-react';
+import { AppContext } from '../AppContextValue';
 import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
 import BrandIcon from '../components/BrandIcon';
+import CookbookChatbot from '../components/CookbookChatbot';
 import { HERO_IMAGES } from '../constants/images';
 
 export default function Cookbook() {
   const { user } = useContext(AppContext);
   const { savedRecipes: recipes, loading: recipesLoading, deleteRecipe, deleteRecipes, updateRecipe } = useRecipes(user);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ title: '', rating: 0, ingredients: [], instructions: [] });
+  const [editForm, setEditForm] = useState({ title: '', ingredients: [], instructions: [] });
+  const [savingId, setSavingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
@@ -55,24 +57,30 @@ export default function Cookbook() {
     setEditingId(recipe.id);
     setEditForm({
       title: recipe.title,
-      rating: recipe.rating,
       ingredients: [...(recipe.ingredients || [])],
       instructions: [...(recipe.instructions || [])],
     });
   };
 
   const handleSaveEdit = async (recipe) => {
+    const title = editForm.title.trim();
+    if (!title) return;
+
     const ingredientNames = editForm.ingredients.map(ing => {
       return ing.replace(/^[\d./\s]+(pcs|kg|g|lbs|oz|L|mL|cups|tbsp|tsp)?\s*/i, '').trim() || ing.trim();
     }).filter(Boolean);
 
-    await updateRecipe(recipe.recipeId, recipe.id, {
-      title: editForm.title,
-      rating: editForm.rating,
-      instructions: editForm.instructions.filter(s => s.trim()),
-      ingredientNames,
-    });
-    setEditingId(null);
+    setSavingId(recipe.id);
+    try {
+      await updateRecipe(recipe.recipeId, recipe.id, {
+        title,
+        instructions: editForm.instructions.map(s => s.trim()).filter(Boolean),
+        ingredientNames,
+      });
+      setEditingId(null);
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const updateIngredient = (idx, value) => {
@@ -111,11 +119,6 @@ export default function Cookbook() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="skeleton-card">
               <div className="skeleton skeleton-line-lg" style={{ width: '60%' }} />
-              <div style={{ display: 'flex', gap: '4px', marginBottom: '1rem' }}>
-                {Array.from({ length: 5 }).map((_, j) => (
-                  <div key={j} className="skeleton" style={{ width: 20, height: 20, borderRadius: 4 }} />
-                ))}
-              </div>
               <div className="skeleton skeleton-line" style={{ width: '40%' }} />
               <div style={{ marginTop: '1.25rem' }}>
                 <div className="skeleton skeleton-line" style={{ width: '90%' }} />
@@ -175,52 +178,52 @@ export default function Cookbook() {
       ) : (
         <>
         {recipes.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+          <div className="cookbook-toolbar">
+            <label className="cookbook-select-all">
               <input
                 type="checkbox"
                 checked={recipes.length > 0 && selectedIds.length === recipes.length}
                 onChange={handleSelectAll}
-                style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
+                className="cookbook-checkbox"
               />
-              Select All
+              <span>Select All</span>
             </label>
             {selectedIds.length > 0 && (
-              <button onClick={handleBatchDelete} className="btn-danger" style={{ padding: '0.6rem 1.2rem' }}>
+              <button onClick={handleBatchDelete} className="btn-danger cookbook-batch-delete">
                 <Trash2 size={16} /> Delete Selected ({selectedIds.length})
               </button>
             )}
           </div>
         )}
-        <div className="grid-container">
+        <div className="grid-container cookbook-grid">
           {recipes.map(recipe => (
-            <div key={recipe.id} className={`glass-card${editingId === recipe.id ? ' editing' : ''}`} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            <article key={recipe.id} className={`glass-card cookbook-card${editingId === recipe.id ? ' editing' : ''}`}>
 
-              <div style={{ position: 'absolute', top: '1rem', left: '1rem' }}>
+              <label className="cookbook-card-select" title="Select recipe">
                 <input
                   type="checkbox"
                   checked={selectedIds.includes(recipe.id)}
                   onChange={() => handleToggleSelect(recipe.id)}
-                  style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
+                  className="cookbook-checkbox"
                 />
-              </div>
+              </label>
 
-              <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
+              <div className="cookbook-card-actions">
                 {editingId === recipe.id ? (
                   <>
-                    <button onClick={() => setEditingId(null)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '50%' }} title="Cancel">
+                    <button onClick={() => setEditingId(null)} className="btn-secondary cookbook-icon-button" title="Cancel" disabled={savingId === recipe.id}>
                       <X size={16} />
                     </button>
-                    <button onClick={() => handleSaveEdit(recipe)} className="btn-primary" style={{ padding: '0.4rem', borderRadius: '50%' }} title="Save">
+                    <button onClick={() => handleSaveEdit(recipe)} className="btn-primary cookbook-icon-button" title="Save" disabled={savingId === recipe.id || !editForm.title.trim()}>
                       <Save size={16} />
                     </button>
                   </>
                 ) : (
                   <>
-                    <button onClick={() => handleEditClick(recipe)} className="btn-secondary" style={{ padding: '0.4rem', borderRadius: '50%' }} title="Edit">
+                    <button onClick={() => handleEditClick(recipe)} className="btn-secondary cookbook-icon-button" title="Edit">
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={() => handleDelete(recipe)} className="btn-danger" style={{ padding: '0.4rem', borderRadius: '50%' }} title="Delete">
+                    <button onClick={() => handleDelete(recipe)} className="btn-danger cookbook-icon-button" title="Delete">
                       <Trash2 size={16} />
                     </button>
                   </>
@@ -228,131 +231,128 @@ export default function Cookbook() {
               </div>
 
               {editingId === recipe.id ? (
-                <div style={{ marginTop: '0.5rem', marginBottom: '1.5rem', paddingRight: '4rem' }}>
+                <div className="cookbook-card-header cookbook-card-header-editing">
+                  <label className="cookbook-field-label" htmlFor={`recipe-title-${recipe.id}`}>Recipe title</label>
                   <input
+                    id={`recipe-title-${recipe.id}`}
                     type="text"
                     value={editForm.title}
                     onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-                    className="input-field"
-                    style={{ marginBottom: '1rem', fontSize: '1.2rem', padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
+                    className="input-field cookbook-title-input"
+                    placeholder="Recipe title"
                   />
-                  <div style={{ display: 'flex', gap: '0.2rem', color: '#fbbf24', cursor: 'pointer' }}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={24}
-                        onClick={() => setEditForm({...editForm, rating: i + 1})}
-                        fill={i < editForm.rating ? '#fbbf24' : 'transparent'}
-                        stroke={i < editForm.rating ? '#fbbf24' : 'var(--text-tertiary)'}
-                        style={{ transition: 'transform 0.1s', cursor: 'pointer' }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      />
-                    ))}
-                  </div>
                 </div>
               ) : (
-                <div style={{ marginTop: '0.5rem', marginBottom: '1.5rem', paddingRight: '4rem' }}>
-                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.4rem' }}>{recipe.title}</h3>
-                  <div style={{ display: 'flex', gap: '0.2rem', color: '#fbbf24' }}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={20} fill={i < recipe.rating ? '#fbbf24' : 'transparent'} stroke={i < recipe.rating ? '#fbbf24' : 'var(--text-tertiary)'} />
-                    ))}
-                  </div>
+                <div className="cookbook-card-header">
+                  <h3 className="cookbook-card-title">{recipe.title}</h3>
                 </div>
               )}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-tertiary)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-                <span style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}><Calendar size={16} /> Saved: {recipe.date}</span>
+              <div className="cookbook-meta">
+                <span className="cookbook-meta-item"><Calendar size={16} /> Saved: {recipe.date}</span>
                 {recipe.nutrition && recipe.nutrition.cals && (
-                  <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center', color: '#ff7b72' }}>
-                    <Flame size={16} style={{ display: 'block' }} />
-                    <span style={{ lineHeight: 1, position: 'relative', top: '1px' }}>Calories: {recipe.nutrition.cals} kcal</span>
+                  <span className="cookbook-meta-item cookbook-calories">
+                    <Flame size={16} />
+                    <span>Calories: {recipe.nutrition.cals} kcal</span>
                   </span>
                 )}
               </div>
 
-              <div style={{ background: 'var(--surface-color)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', marginTop: 'auto' }}>
+              <div className={`cookbook-details-panel${editingId === recipe.id ? ' cookbook-details-panel-editing' : ''}${(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) ? ' cookbook-details-panel-empty' : ''}`}>
                 {editingId === recipe.id ? (
                   <>
-                    <div style={{ marginBottom: '1rem' }}>
-                      <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="cookbook-edit-section">
+                      <h4 className="cookbook-edit-heading">
                         Ingredients
-                        <button type="button" onClick={addIngredient} className="btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Plus size={14} /> Add
+                        <button type="button" onClick={addIngredient} className="btn-secondary cookbook-add-button" title="Add ingredient">
+                          <Plus size={14} />
+                          <span>Add</span>
                         </button>
                       </h4>
                       {editForm.ingredients.map((ing, idx) => (
-                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <div key={idx} className="cookbook-edit-row">
                           <input
                             type="text"
                             value={ing}
                             onChange={(e) => updateIngredient(idx, e.target.value)}
-                            className="input-field"
-                            style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+                            className="input-field cookbook-edit-input"
                             placeholder="e.g., 2 cups flour"
                           />
-                          <button type="button" onClick={() => removeIngredient(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem', flexShrink: 0 }} title="Remove">
+                          <button type="button" onClick={() => removeIngredient(idx)} className="cookbook-remove-button" title="Remove ingredient">
                             <Minus size={16} />
                           </button>
                         </div>
                       ))}
+                      {editForm.ingredients.length === 0 && (
+                        <p className="cookbook-empty-edit">No ingredients yet.</p>
+                      )}
                     </div>
-                    <div>
-                      <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="cookbook-edit-section">
+                      <h4 className="cookbook-edit-heading">
                         Instructions
-                        <button type="button" onClick={addInstruction} className="btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Plus size={14} /> Add
+                        <button type="button" onClick={addInstruction} className="btn-secondary cookbook-add-button" title="Add instruction">
+                          <Plus size={14} />
+                          <span>Add</span>
                         </button>
                       </h4>
                       {editForm.instructions.map((inst, idx) => (
-                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                          <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem', minWidth: '20px', paddingTop: '0.5rem' }}>{idx + 1}.</span>
+                        <div key={idx} className="cookbook-edit-row cookbook-instruction-row">
+                          <span className="cookbook-step-number">{idx + 1}.</span>
                           <textarea
                             value={inst}
                             onChange={(e) => updateInstruction(idx, e.target.value)}
-                            className="input-field"
-                            rows={2}
-                            style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.9rem', resize: 'vertical' }}
+                            className="input-field cookbook-edit-input cookbook-edit-textarea"
+                            rows={3}
                             placeholder={`Step ${idx + 1}...`}
                           />
-                          <button type="button" onClick={() => removeInstruction(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem', flexShrink: 0, marginTop: '0.3rem' }} title="Remove">
+                          <button type="button" onClick={() => removeInstruction(idx)} className="cookbook-remove-button" title="Remove instruction">
                             <Minus size={16} />
                           </button>
                         </div>
                       ))}
+                      {editForm.instructions.length === 0 && (
+                        <p className="cookbook-empty-edit">No instructions yet.</p>
+                      )}
+                    </div>
+                    <div className="cookbook-edit-footer">
+                      <button type="button" onClick={() => setEditingId(null)} className="btn-secondary" disabled={savingId === recipe.id}>
+                        <X size={16} /> Cancel
+                      </button>
+                      <button type="button" onClick={() => handleSaveEdit(recipe)} className="btn-primary" disabled={savingId === recipe.id || !editForm.title.trim()}>
+                        <Save size={16} /> {savingId === recipe.id ? 'Saving' : 'Save changes'}
+                      </button>
                     </div>
                   </>
                 ) : (
                   <>
                 {recipe.ingredients && recipe.ingredients.length > 0 && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)' }}>Ingredients</h4>
-                    <ul style={{ margin: 0, paddingLeft: '1.5rem', color: 'var(--text-secondary)' }}>
+                  <section className="cookbook-section">
+                    <h4 className="cookbook-section-heading">Ingredients</h4>
+                    <ul className="cookbook-list">
                       {recipe.ingredients.map((ing, idx) => (
-                        <li key={idx} style={{ marginBottom: '0.25rem' }}>{ing}</li>
+                        <li key={idx}>{ing}</li>
                       ))}
                     </ul>
-                  </div>
+                  </section>
                 )}
                 {recipe.instructions && recipe.instructions.length > 0 && (
-                  <div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)' }}>Instructions</h4>
-                    <ol style={{ margin: 0, paddingLeft: '1.5rem', color: 'var(--text-secondary)' }}>
+                  <section className="cookbook-section">
+                    <h4 className="cookbook-section-heading">Instructions</h4>
+                    <ol className="cookbook-list cookbook-steps">
                       {recipe.instructions.map((inst, idx) => (
-                        <li key={idx} style={{ marginBottom: '0.25rem' }}>{inst}</li>
+                        <li key={idx}>{inst}</li>
                       ))}
                     </ol>
-                  </div>
+                  </section>
                 )}
                 {(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) && (
-                  <p style={{ color: 'var(--text-tertiary)', margin: 0, fontStyle: 'italic' }}>No detailed instructions saved.</p>
+                  <p className="cookbook-empty-state">No detailed instructions saved.</p>
                 )}
                   </>
                 )}
               </div>
 
-            </div>
+            </article>
           ))}
         </div>
         </>
@@ -377,6 +377,8 @@ export default function Cookbook() {
         onConfirm={confirmBatchDeleteRecipes}
         onCancel={() => setConfirmBatchDelete(false)}
       />
+
+      <CookbookChatbot recipes={recipes} loading={recipesLoading} />
     </div>
   );
 }

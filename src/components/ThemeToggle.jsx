@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { Moon, Sun } from 'lucide-react';
-import { AppContext } from '../AppContext';
+import { AppContext } from '../AppContextValue';
 
 export default function ThemeToggle({ style: overrideStyle } = {}) {
   const { theme, toggleTheme } = useContext(AppContext);

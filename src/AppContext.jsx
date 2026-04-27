@@ -1,9 +1,8 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useProfile } from './hooks/useProfile';
 import { useSubscription } from './hooks/useSubscription';
-
-export const AppContext = createContext();
+import { AppContext } from './AppContextValue';
 
 export const AppProvider = ({ children }) => {
   const auth = useAuth();

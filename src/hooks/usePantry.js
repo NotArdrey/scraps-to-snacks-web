@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { fetchPantryItems, insertPantryItem, discardPantryItem } from '../services/pantry';
+import { fetchPantryItems, insertPantryItem, updatePantryItem, discardPantryItem } from '../services/pantry';
 
 export function usePantry(user, householdId) {
   const [pantryItems, setPantryItems] = useState([]);
@@ -20,7 +20,8 @@ export function usePantry(user, householdId) {
   }, [householdId]);
 
   useEffect(() => {
-    fetchPantry();
+    const timeoutId = setTimeout(fetchPantry, 0);
+    return () => clearTimeout(timeoutId);
   }, [fetchPantry]);
 
   // Supabase Realtime: silently re-fetch when pantry_items change for this household
@@ -58,6 +59,18 @@ export function usePantry(user, householdId) {
     mutatingRef.current = false;
   }, [user, fetchPantry]);
 
+  const editPantryItem = useCallback(async (itemId, itemData) => {
+    if (!user) return null;
+    mutatingRef.current = true;
+    try {
+      const updatedItem = await updatePantryItem(itemId, user.id, itemData);
+      await fetchPantry({ silent: true });
+      return updatedItem;
+    } finally {
+      mutatingRef.current = false;
+    }
+  }, [user, fetchPantry]);
+
   const removePantryItems = useCallback(async (itemIds) => {
     if (!user || itemIds.length === 0) return;
     mutatingRef.current = true;
@@ -68,5 +81,5 @@ export function usePantry(user, householdId) {
     mutatingRef.current = false;
   }, [user, fetchPantry]);
 
-  return { pantryItems, loading, addPantryItem, removePantryItem, removePantryItems, refreshPantry: fetchPantry };
+  return { pantryItems, loading, addPantryItem, editPantryItem, removePantryItem, removePantryItems, refreshPantry: fetchPantry };
 }
