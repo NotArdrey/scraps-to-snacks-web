@@ -2217,6 +2217,7 @@ input[type="date"].input-field {
 
   .pantry-table-panel tbody tr {
     display: block;
+    position: relative;
     padding: 1rem;
     border-bottom: 1px solid var(--surface-border) !important;
   }
@@ -2259,12 +2260,28 @@ input[type="date"].input-field {
   }
 
   .pantry-table-panel .pantry-select-cell {
-    justify-content: flex-start;
-    padding-bottom: 0.2rem !important;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1;
+    display: inline-flex;
+    width: auto !important;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  .pantry-table-panel .pantry-select-cell::before {
+    display: none;
+  }
+
+  .pantry-table-panel .pantry-select-cell input {
+    width: 22px !important;
+    height: 22px !important;
   }
 
   .pantry-table-panel .pantry-item-name-cell {
     justify-content: space-between;
+    padding-right: 2.5rem !important;
     font-size: 1.05rem;
     font-weight: 700 !important;
   }
