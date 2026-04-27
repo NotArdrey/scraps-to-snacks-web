@@ -89,7 +89,7 @@ export default function Account() {
     setPasswordLoading(false);
   };
 
-  const planName = subscription?.subscription_plans?.display_name || 'Free';
+  const planName = subscription?.subscription_plans?.display_name || (subscription ? 'Active subscription' : 'No active subscription');
   const planStatus = subscription?.status || 'none';
   const subscriptionStartsAt = subscription?.starts_at ? formatDate(subscription.starts_at) : null;
   const subscriptionEndsAt = subscription?.ends_at ? formatDate(subscription.ends_at) : null;

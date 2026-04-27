@@ -13,6 +13,7 @@ import MagicScan from './pages/MagicScan';
 import Cookbook from './pages/Cookbook';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
+import LoadingAlert from './components/LoadingAlert';
 import { AppContext } from './AppContextValue';
 import './index.css';
 
@@ -21,15 +22,7 @@ function AppRoutes() {
   const location = useLocation();
 
   if (loading || (isAuthenticated && (profileLoading || subLoading))) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '48px', height: '48px', border: '4px solid rgba(139, 92, 246, 0.2)', borderTopColor: 'var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
-          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-          <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingAlert title="Loading account" message="Checking your session, profile, and subscription." />;
   }
 
   const isSubscribed = hasActiveSubscription;

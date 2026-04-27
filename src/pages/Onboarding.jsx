@@ -4,8 +4,9 @@ import { AppContext } from '../AppContextValue';
 import { usePreferences } from '../hooks/usePreferences';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
-import { ArrowLeft } from 'lucide-react';
-import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
+import LoadingAlert from '../components/LoadingAlert';
+import { ArrowLeft, Check, Leaf, Settings, ShieldAlert } from 'lucide-react';
+import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS, HERO_IMAGES } from '../constants/images';
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -29,7 +30,9 @@ export default function Onboarding() {
 
     const timeoutId = setTimeout(() => {
       if (userDiets.length > 0) setSelectedDiets(new Set(userDiets));
-      if (userAllergies.length > 0) setSelectedAllergies(new Set(userAllergies));
+      if (userAllergies.length > 0) {
+        setSelectedAllergies(new Set(userAllergies.map(allergy => allergy.allergy_type_id)));
+      }
       setInitialized(true);
     }, 0);
 
@@ -53,17 +56,242 @@ export default function Onboarding() {
   };
 
   const handleComplete = async () => {
+    if (saving) return;
     setSaving(true);
-    await savePreferences([...selectedDiets], [...selectedAllergies]);
-    await refreshProfile();
-    setSaving(false);
-    navigate(isOnboarded ? '/account' : '/pantry');
+    try {
+      await savePreferences([...selectedDiets], [...selectedAllergies], { refresh: !isOnboarded, markOnboarded: !isOnboarded });
+      if (!isOnboarded) await refreshProfile();
+      navigate(isOnboarded ? '/account' : '/pantry');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (prefsLoading) {
+    if (isOnboarded) {
+      return (
+        <div style={{ maxWidth: '760px', margin: '3rem auto' }}>
+          <button onClick={() => navigate('/account')} style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            background: 'none', border: 'none', color: 'var(--theme-text-muted)',
+            cursor: 'pointer', fontSize: '0.95rem', padding: 0, marginBottom: '1.5rem',
+            transition: 'color 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--theme-text-main)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--theme-text-muted)'}
+          >
+            <ArrowLeft size={18} /> Back to Account
+          </button>
+
+          <div style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url("${HERO_IMAGES.account}")`, backgroundPosition: 'center', backgroundSize: 'cover', zIndex: 1 }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.82), rgba(0,0,0,0.28))', zIndex: 2 }} />
+            <div style={{ position: 'relative', zIndex: 3, padding: '3.5rem 2.5rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.25rem', borderRadius: '50%', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                <Settings size={36} color="white" />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 0.25rem 0', color: 'white' }}>Preferences</h2>
+                <p style={{ fontSize: '1.1rem', color: '#e2e8f0', margin: 0 }}>Manage diet choices and allergy exclusions</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)', overflow: 'hidden', border: '1px solid var(--border-color)', padding: '1.75rem', color: 'var(--theme-text-muted)' }}>
+            Loading preferences...
+          </div>
+        </div>
+      );
+    }
+
+    return <LoadingAlert title="Loading preferences" message="Fetching your diet and allergy options." />;
+  }
+
+  if (isOnboarded) {
+    const panelStyle = {
+      background: 'var(--bg-card)',
+      borderRadius: '24px',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+      overflow: 'hidden',
+      border: '1px solid var(--border-color)'
+    };
+
+    const sectionStyle = {
+      padding: '1.75rem',
+    };
+
+    const dividerStyle = {
+      height: '1px',
+      background: 'var(--border-color)',
+      margin: '0 1.75rem',
+    };
+
+    const optionGridStyle = {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: '0.75rem',
+    };
+
+    const preferenceOptionStyle = (selected, color) => ({
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '0.75rem',
+      minHeight: '52px',
+      padding: '0.85rem 1rem',
+      borderRadius: '12px',
+      border: selected ? `1px solid ${color}` : '1px solid var(--border-color)',
+      background: selected ? `${color}22` : 'transparent',
+      color: selected ? 'var(--theme-text-main)' : 'var(--theme-text-muted)',
+      cursor: 'pointer',
+      fontWeight: selected ? 700 : 500,
+      transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+    });
+
+    const checkedIconStyle = (selected, color) => ({
+      width: '22px',
+      height: '22px',
+      borderRadius: '50%',
+      border: selected ? 'none' : '2px solid var(--border-color)',
+      background: selected ? color : 'transparent',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    });
+
     return (
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', zIndex: 50 }}>
-        <p style={{ color: 'var(--theme-text-muted)' }}>Loading preferences...</p>
+      <div style={{ maxWidth: '760px', margin: '3rem auto' }}>
+        <button onClick={() => navigate('/account')} style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          background: 'none', border: 'none', color: 'var(--theme-text-muted)',
+          cursor: 'pointer', fontSize: '0.95rem', padding: 0, marginBottom: '1.5rem',
+          transition: 'color 0.2s'
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = 'var(--theme-text-main)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--theme-text-muted)'}
+        >
+          <ArrowLeft size={18} /> Back to Account
+        </button>
+
+        <div style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: `url("${HERO_IMAGES.account}")`, backgroundPosition: 'center', backgroundSize: 'cover', zIndex: 1 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.82), rgba(0,0,0,0.28))', zIndex: 2 }} />
+          <div style={{ position: 'relative', zIndex: 3, padding: '3.5rem 2.5rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.25rem', borderRadius: '50%', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+              <Settings size={36} color="white" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 0.25rem 0', color: 'white' }}>Preferences</h2>
+              <p style={{ fontSize: '1.1rem', color: '#e2e8f0', margin: 0 }}>Manage diet choices and allergy exclusions</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={panelStyle}>
+          <div style={sectionStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(122, 94, 211, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Leaf size={20} color="#7a5ed3" />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Diets</div>
+                <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: 600 }}>Recipe personalization</div>
+              </div>
+            </div>
+
+            <div style={optionGridStyle}>
+              {dietTypes.map(diet => {
+                const selected = selectedDiets.has(diet.id);
+                return (
+                  <button
+                    key={diet.id}
+                    type="button"
+                    onClick={() => toggleDiet(diet.id)}
+                    style={preferenceOptionStyle(selected, '#7a5ed3')}
+                  >
+                    <span>{diet.name}</span>
+                    <span style={checkedIconStyle(selected, '#7a5ed3')}>
+                      {selected && <Check size={13} color="#ffffff" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={dividerStyle} />
+
+          <div style={sectionStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ShieldAlert size={20} color="#ef4444" />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Allergies</div>
+                <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: 600 }}>Exclude from recipes</div>
+              </div>
+            </div>
+
+            <div style={optionGridStyle}>
+              {allergyTypes.map(allergy => {
+                const selected = selectedAllergies.has(allergy.id);
+                return (
+                  <button
+                    key={allergy.id}
+                    type="button"
+                    onClick={() => toggleAllergy(allergy.id)}
+                    style={preferenceOptionStyle(selected, '#ef4444')}
+                  >
+                    <span>{allergy.name}</span>
+                    <span style={checkedIconStyle(selected, '#ef4444')}>
+                      {selected && <Check size={13} color="#ffffff" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={dividerStyle} />
+
+          <div style={{ padding: '1.5rem 1.75rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/account')}
+              style={{
+                padding: '0.7rem 1.75rem',
+                background: 'transparent',
+                border: '1px solid var(--border-color)',
+                color: 'var(--theme-text-muted)',
+                borderRadius: '9999px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={saving}
+              style={{
+                padding: '0.7rem 1.75rem',
+                background: '#7a5ed3',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              Save Preferences
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

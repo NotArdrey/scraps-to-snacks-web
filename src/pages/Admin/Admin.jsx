@@ -13,6 +13,7 @@ import { AppContext } from '../../AppContextValue';
 import BrandIcon from '../../components/BrandIcon';
 import ConfirmModal from '../../components/ConfirmModal';
 import AdminFormModal from '../../components/AdminFormModal';
+import LoadingAlert from '../../components/LoadingAlert';
 import { CATEGORIES, UNITS } from '../../constants/categories';
 import { formatModelProvider } from '../../utils/formatters';
 
@@ -77,15 +78,7 @@ export default function Admin() {
   const badgeStyle = (color) => ({ padding: '0.15rem 0.55rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', background: `${color}18`, color });
 
   if (loading) {
-    return (
-      <div className="admin-layout">
-        <div style={{ textAlign: 'center', padding: '6rem 0', width: '100%' }}>
-          <div style={{ width: '48px', height: '48px', border: '4px solid rgba(139, 92, 246, 0.2)', borderTopColor: 'var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
-          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-          <p style={{ color: 'var(--text-secondary)' }}>Loading admin dashboard...</p>
-        </div>
-      </div>
-    );
+    return <LoadingAlert title="Loading admin dashboard" message="Fetching users, plans, pantry items, and recipes." />;
   }
 
   return (

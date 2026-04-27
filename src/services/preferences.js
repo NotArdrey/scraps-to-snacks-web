@@ -20,7 +20,9 @@ export async function fetchUserAllergies(userId) {
   return data || [];
 }
 
-export async function saveUserPreferences(userId, selectedDietIds, selectedAllergyIds) {
+export async function saveUserPreferences(userId, selectedDietIds, selectedAllergyIds, options = {}) {
+  const { markOnboarded = true } = options;
+
   await supabase.from('user_diet_preferences').delete().eq('user_id', userId);
   if (selectedDietIds.length > 0) {
     await supabase.from('user_diet_preferences').insert(
@@ -35,8 +37,10 @@ export async function saveUserPreferences(userId, selectedDietIds, selectedAller
     );
   }
 
-  await supabase
-    .from('app_user_profiles')
-    .update({ onboarding_completed_at: new Date().toISOString() })
-    .eq('user_id', userId);
+  if (markOnboarded) {
+    await supabase
+      .from('app_user_profiles')
+      .update({ onboarding_completed_at: new Date().toISOString() })
+      .eq('user_id', userId);
+  }
 }
