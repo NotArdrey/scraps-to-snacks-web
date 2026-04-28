@@ -1,5 +1,5 @@
 import React, { useState, useContext, useRef } from 'react';
-import { Camera, Check, AlertTriangle, FileImage, Trash2, ShieldAlert } from 'lucide-react';
+import { Camera, Check, AlertTriangle, Trash2, ShieldAlert, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContextValue';
 import { usePantry } from '../hooks/usePantry';
@@ -15,6 +15,7 @@ export default function MagicScan() {
   const { addPantryItem } = usePantry(user, householdId);
   const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const prevPreviewRef = useRef(null);
 
   const activeAllergyNames = allergyTypes
@@ -85,6 +86,12 @@ export default function MagicScan() {
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setScanError('Please upload an image file.');
+      e.target.value = '';
+      return;
+    }
 
     setStatus('scanning');
     setScanError(null);
@@ -219,6 +226,13 @@ export default function MagicScan() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
             capture="environment"
             onChange={handleFileSelect}
             style={{ display: 'none' }}
@@ -227,10 +241,13 @@ export default function MagicScan() {
             <Camera size={48} color="var(--primary-color)" />
           </div>
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem' }}>Upload or Capture Ingredients</h3>
-          <p style={{ color: 'var(--text-tertiary)', marginBottom: '2rem' }}>Take a photo of your fridge, pantry, or groceries.</p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <p style={{ color: 'var(--text-tertiary)', marginBottom: '2rem' }}>Choose an existing image or take a new photo of your fridge, pantry, or groceries.</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="btn-primary">
-              <FileImage size={18} /> Upload Image
+              <Upload size={18} /> Upload Image
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }} className="btn-secondary">
+              <Camera size={18} /> Take Photo
             </button>
           </div>
         </div>
