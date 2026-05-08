@@ -235,11 +235,13 @@ export async function updateUserSubscription(userId, planId, status) {
 }
 
 export async function deleteUserProfile(userId) {
-  const { error } = await supabase
-    .from('app_user_profiles')
-    .delete()
-    .eq('user_id', userId);
-  return { error };
+  const { data, error } = await supabase.rpc('admin_delete_user', { target_user_id: userId });
+  return { data, error };
+}
+
+export async function pruneAuthUserMismatches() {
+  const { data, error } = await supabase.rpc('admin_prune_auth_user_mismatches');
+  return { data, error };
 }
 
 // ── Plans CRUD ────────────────────────────────────────────────────

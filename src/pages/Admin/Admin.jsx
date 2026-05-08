@@ -8,7 +8,7 @@ import {
 import {
   fetchAllUsers, fetchAdminStats, fetchAllPlans, togglePlanActive,
   fetchAllPantryItems, fetchAllRecipes, fetchAllHouseholds,
-  updateUserRole, deleteUserProfile, updateUserSubscription,
+  updateUserRole, deleteUserProfile, updateUserSubscription, pruneAuthUserMismatches,
   createPlan, updatePlan, deletePlan,
   adminCreatePantryItem, updatePantryItem, deletePantryItem,
   adminCreateRecipe, adminUpdateRecipe, deleteRecipe,
@@ -169,7 +169,7 @@ export default function Admin() {
 
       <main className="admin-main">
         {activeTab === 'stats' && <StatsTab stats={stats} users={users} plans={plans} pantryItems={pantryItems} recipes={recipes} onNavigate={openTab} onAction={triggerAction} onRefresh={loadData} />}
-        {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} plans={plans} formatDate={formatDate} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} />}
+        {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} plans={plans} currentUserId={user?.id} formatDate={formatDate} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} />}
         {activeTab === 'plans' && <PlansTab plans={plans} setPlans={setPlans} onToggle={handleTogglePlan} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'plans' ? pendingAction : null} />}
         {activeTab === 'pantry' && <PantryTab items={pantryItems} setItems={setPantryItems} households={households} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'pantry' ? pendingAction : null} />}
         {activeTab === 'recipes' && <RecipesTab recipes={recipes} setRecipes={setRecipes} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'recipes' ? pendingAction : null} />}
@@ -614,13 +614,14 @@ function StatsTab({ stats, users, plans, pantryItems, recipes, onNavigate, onAct
 
 /* ─── Users Tab ─────────────────────────────────────────────────── */
 
-function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm, showFeedback }) {
+function UsersTab({ users, setUsers, plans, currentUserId, formatDate, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm, showFeedback }) {
   const [editingId, setEditingId] = useState(null);
   const [editRole, setEditRole] = useState('');
   const [editSubStatus, setEditSubStatus] = useState('');
   const [editPlanId, setEditPlanId] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [syncing, setSyncing] = useState(false);
 
   const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const selectStyle = { padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.85rem' };
@@ -701,15 +702,42 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
   };
 
   const handleDelete = (u) => {
-    showConfirm('Delete User', `Remove the profile for "${u.email}"? This will remove their profile data.`, async () => {
+    showConfirm('Delete User', `Delete "${u.email}" from the app database and Supabase Auth? This cannot be undone.`, async () => {
       const { error } = await deleteUserProfile(u.user_id);
-      if (error) throw new Error(error.message || 'Failed to delete user profile.');
+      if (error) throw new Error(error.message || 'Failed to delete user.');
       setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
-    }, 'danger', `The profile for "${u.email}" was removed.`);
+    }, 'danger', `"${u.email}" was deleted from the database and Auth.`);
+  };
+
+  const handlePruneMismatches = () => {
+    showConfirm('Clean Auth Mismatches', 'Remove Auth users without an app profile, and profile rows without an Auth user?', async () => {
+      setSyncing(true);
+      const { data, error } = await pruneAuthUserMismatches();
+      if (error) {
+        setSyncing(false);
+        throw new Error(error.message || 'Failed to clean Auth mismatches.');
+      }
+      const refreshedUsers = await fetchAllUsers();
+      setUsers(refreshedUsers);
+      setSyncing(false);
+      const deletedAuth = data?.deleted_auth_users_without_profile || 0;
+      const deletedProfiles = data?.deleted_profiles_without_auth || 0;
+      showFeedback({
+        title: 'Auth cleaned',
+        message: `Removed ${deletedAuth} Auth user${deletedAuth === 1 ? '' : 's'} and ${deletedProfiles} profile row${deletedProfiles === 1 ? '' : 's'} that did not match.`,
+        variant: 'success',
+      });
+    }, 'danger', null);
   };
 
   return (
     <>
+    <div className="admin-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+      <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Users</h3>
+      <button type="button" className="btn-secondary" onClick={handlePruneMismatches} disabled={syncing} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+        <RefreshCw size={16} /> {syncing ? 'Cleaning...' : 'Clean Auth Mismatches'}
+      </button>
+    </div>
     <div className="admin-table-panel" style={panelStyle}>
       <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
         <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -766,7 +794,7 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
                     ) : (
                       <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
                         <button className="admin-action-button" onClick={() => startEdit(u)} style={actionBtn} title={`Edit ${u.email}`} aria-label={`Edit ${u.email}`}><Pencil size={16} /></button>
-                        <button className="admin-action-button" onClick={() => handleDelete(u)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${u.email}`} aria-label={`Delete ${u.email}`}><Trash2 size={16} /></button>
+                        <button className="admin-action-button" onClick={() => handleDelete(u)} disabled={u.user_id === currentUserId} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)', opacity: u.user_id === currentUserId ? 0.45 : 1, cursor: u.user_id === currentUserId ? 'not-allowed' : 'pointer' }} title={u.user_id === currentUserId ? 'You cannot delete your own admin account here' : `Delete ${u.email}`} aria-label={u.user_id === currentUserId ? 'You cannot delete your own admin account here' : `Delete ${u.email}`}><Trash2 size={16} /></button>
                       </div>
                     )}
                   </td>

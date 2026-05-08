@@ -173,7 +173,7 @@ const savedRecipes = [
   },
 ];
 
-const userRows = [
+let userRows = [
   {
     user_id: USER_ID,
     email: 'cook@example.com',
@@ -582,7 +582,7 @@ export const mockSupabase = {
       };
     },
   },
-  async rpc(name) {
+  async rpc(name, params = {}) {
     if (name === 'admin_list_users') {
       return { data: userRows, error: null };
     }
@@ -593,6 +593,26 @@ export const mockSupabase = {
           active_subscriptions: 2,
           total_pantry_items: pantryItems.length,
           total_recipes: adminRecipes.length,
+        },
+        error: null,
+      };
+    }
+    if (name === 'admin_delete_user') {
+      userRows = userRows.filter(row => row.user_id !== params.target_user_id);
+      return {
+        data: {
+          user_id: params.target_user_id,
+          deleted_profile: true,
+          deleted_auth_user: true,
+        },
+        error: null,
+      };
+    }
+    if (name === 'admin_prune_auth_user_mismatches') {
+      return {
+        data: {
+          deleted_profiles_without_auth: 0,
+          deleted_auth_users_without_profile: 0,
         },
         error: null,
       };
