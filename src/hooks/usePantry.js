@@ -6,15 +6,23 @@ export function usePantry(user, householdId) {
   const [pantryItems, setPantryItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const mutatingRef = useRef(false);
+  const fetchRequestRef = useRef(0);
 
   const fetchPantry = useCallback(async ({ silent = false } = {}) => {
+    const requestId = fetchRequestRef.current + 1;
+    fetchRequestRef.current = requestId;
+
     if (!householdId) {
       setPantryItems([]);
       setLoading(false);
       return;
     }
-    if (!silent) setLoading(true);
+    if (!silent) {
+      setPantryItems([]);
+      setLoading(true);
+    }
     const items = await fetchPantryItems(householdId);
+    if (fetchRequestRef.current !== requestId) return;
     setPantryItems(items);
     setLoading(false);
   }, [householdId]);
@@ -46,17 +54,23 @@ export function usePantry(user, householdId) {
   const addPantryItem = useCallback(async (itemData) => {
     if (!user || !householdId) return;
     mutatingRef.current = true;
-    await insertPantryItem(householdId, user.id, itemData);
-    await fetchPantry({ silent: true });
-    mutatingRef.current = false;
+    try {
+      await insertPantryItem(householdId, user.id, itemData);
+      await fetchPantry({ silent: true });
+    } finally {
+      mutatingRef.current = false;
+    }
   }, [user, householdId, fetchPantry]);
 
   const removePantryItem = useCallback(async (itemId) => {
     if (!user) return;
     mutatingRef.current = true;
-    await discardPantryItem(itemId, user.id);
-    await fetchPantry({ silent: true });
-    mutatingRef.current = false;
+    try {
+      await discardPantryItem(itemId, user.id);
+      await fetchPantry({ silent: true });
+    } finally {
+      mutatingRef.current = false;
+    }
   }, [user, fetchPantry]);
 
   const editPantryItem = useCallback(async (itemId, itemData) => {
@@ -74,11 +88,14 @@ export function usePantry(user, householdId) {
   const removePantryItems = useCallback(async (itemIds) => {
     if (!user || itemIds.length === 0) return;
     mutatingRef.current = true;
-    for (const id of itemIds) {
-      await discardPantryItem(id, user.id);
+    try {
+      for (const id of itemIds) {
+        await discardPantryItem(id, user.id);
+      }
+      await fetchPantry({ silent: true });
+    } finally {
+      mutatingRef.current = false;
     }
-    await fetchPantry({ silent: true });
-    mutatingRef.current = false;
   }, [user, fetchPantry]);
 
   return { pantryItems, loading, addPantryItem, editPantryItem, removePantryItem, removePantryItems, refreshPantry: fetchPantry };

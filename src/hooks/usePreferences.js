@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { fetchDietTypes, fetchAllergyTypes, fetchUserDietIds, fetchUserAllergies, saveUserPreferences } from '../services/preferences';
 
@@ -9,30 +9,45 @@ export function usePreferences(user) {
   const [userAllergies, setUserAllergies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadedUserId, setLoadedUserId] = useState(null);
+  const fetchRequestRef = useRef(0);
 
   const fetchPreferences = useCallback(async ({ silent = false } = {}) => {
-    if (!user) {
+    const requestId = fetchRequestRef.current + 1;
+    fetchRequestRef.current = requestId;
+    const userId = user?.id ?? null;
+
+    if (!userId) {
+      setDietTypes([]);
+      setAllergyTypes([]);
+      setUserDiets([]);
+      setUserAllergies([]);
       setLoading(false);
       setLoadedUserId(null);
       return;
     }
 
-    if (!silent) setLoading(true);
+    if (!silent) {
+      setLoading(true);
+      setUserDiets([]);
+      setUserAllergies([]);
+    }
 
     const [diets, allergies, dietIds, allergyPrefs] = await Promise.all([
       fetchDietTypes(),
       fetchAllergyTypes(),
-      fetchUserDietIds(user.id),
-      fetchUserAllergies(user.id),
+      fetchUserDietIds(userId),
+      fetchUserAllergies(userId),
     ]);
+
+    if (fetchRequestRef.current !== requestId) return;
 
     setDietTypes(diets);
     setAllergyTypes(allergies);
     setUserDiets(dietIds);
     setUserAllergies(allergyPrefs);
-    setLoadedUserId(user.id);
+    setLoadedUserId(userId);
     setLoading(false);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     const timeoutId = setTimeout(fetchPreferences, 0);
@@ -68,15 +83,16 @@ export function usePreferences(user) {
     if (refresh) await fetchPreferences({ silent: true });
   }, [user, fetchPreferences]);
 
-  const activeDietNames = dietTypes
+  const preferencesReady = loadedUserId === (user?.id ?? null);
+  const activeDietNames = preferencesReady ? dietTypes
     .filter(dt => userDiets.includes(dt.id))
-    .map(dt => dt.name);
+    .map(dt => dt.name) : [];
 
   return {
     dietTypes,
     allergyTypes,
-    userDiets,
-    userAllergies,
+    userDiets: preferencesReady ? userDiets : [],
+    userAllergies: preferencesReady ? userAllergies : [],
     activeDietNames,
     loading: loading || loadedUserId !== (user?.id ?? null),
     savePreferences,
