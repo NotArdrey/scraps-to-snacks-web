@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AlertCircle, CheckCircle, Eye, EyeOff, X } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
@@ -54,6 +54,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const resetRequestInFlightRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -142,24 +143,30 @@ export default function Login() {
       return;
     }
 
+    if (resetRequestInFlightRef.current) return;
+    resetRequestInFlightRef.current = true;
     setResetLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
-      redirectTo: getResetPasswordRedirectUrl(),
-    });
-    setResetLoading(false);
-
-    if (error) {
-      console.error('Password reset email request failed', {
-        message: error.message,
-        status: error.status,
-        code: error.code,
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
+        redirectTo: getResetPasswordRedirectUrl(),
       });
-      setError(error.message);
-      return;
-    }
 
-    setNotice('Password reset instructions have been sent to your email.');
-    setShowForgotPassword(false);
+      if (error) {
+        console.error('Password reset email request failed', {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+        });
+        setError(error.message);
+        return;
+      }
+
+      setNotice('Password reset instructions have been sent to your email.');
+      setShowForgotPassword(false);
+    } finally {
+      resetRequestInFlightRef.current = false;
+      setResetLoading(false);
+    }
   };
 
   return (

@@ -17,6 +17,9 @@ const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
 const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
 const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
 const REGISTRATION_CHECKOUT_PENDING_KEY = 'registration-checkout-pending';
+const REGISTRATION_CONFIRMATION_EMAIL_KEY_PREFIX = 'registration-confirmation-email';
+const PENDING_EMAIL_LOCK_TTL_MS = 60 * 1000;
+const signupConfirmationEmailRequests = new Map();
 
 const getAuthRedirectUrl = () => `${window.location.origin}/login`;
 
@@ -41,23 +44,77 @@ const clearStoredRegistrationCheckout = () => {
   sessionStorage.removeItem(REGISTRATION_CHECKOUT_PENDING_KEY);
 };
 
-const sendSignupConfirmationEmail = async (email) => {
-  if (!email) return false;
+const getSignupConfirmationEmailKey = ({ attemptId, checkoutSessionId, email }) => {
+  const identifier = attemptId || checkoutSessionId || email;
+  return identifier ? `${REGISTRATION_CONFIRMATION_EMAIL_KEY_PREFIX}:${identifier}` : null;
+};
 
-  const { error } = await supabase.auth.resend({
-    type: 'signup',
-    email,
-    options: {
-      emailRedirectTo: getAuthRedirectUrl(),
-    },
-  });
+const reserveSignupConfirmationEmail = (key) => {
+  if (typeof window === 'undefined' || !key) return 'reserved';
 
-  if (error) {
-    console.warn('Unable to send signup confirmation email after payment', error);
-    return false;
+  const now = Date.now();
+  const rawStatus = sessionStorage.getItem(key);
+  if (rawStatus) {
+    try {
+      const status = JSON.parse(rawStatus);
+      if (status?.state === 'sent') return 'sent';
+      if (status?.state === 'pending' && now - Number(status.timestamp || 0) < PENDING_EMAIL_LOCK_TTL_MS) {
+        return 'pending';
+      }
+    } catch {
+      // Ignore malformed status and replace it below.
+    }
   }
 
-  return true;
+  sessionStorage.setItem(key, JSON.stringify({ state: 'pending', timestamp: now }));
+  return 'reserved';
+};
+
+const markSignupConfirmationEmailSent = (key) => {
+  if (typeof window === 'undefined' || !key) return;
+  sessionStorage.setItem(key, JSON.stringify({ state: 'sent', timestamp: Date.now() }));
+};
+
+const releaseSignupConfirmationEmail = (key) => {
+  if (typeof window === 'undefined' || !key) return;
+  sessionStorage.removeItem(key);
+};
+
+const sendSignupConfirmationEmail = async (email, dedupeKey) => {
+  if (!email) return false;
+  if (dedupeKey && signupConfirmationEmailRequests.has(dedupeKey)) {
+    return signupConfirmationEmailRequests.get(dedupeKey);
+  }
+
+  const request = (async () => {
+    const reservation = reserveSignupConfirmationEmail(dedupeKey);
+    if (reservation === 'sent' || reservation === 'pending') return true;
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: getAuthRedirectUrl(),
+      },
+    });
+
+    if (error) {
+      console.warn('Unable to send signup confirmation email after payment', error);
+      releaseSignupConfirmationEmail(dedupeKey);
+      return false;
+    }
+
+    markSignupConfirmationEmailSent(dedupeKey);
+    return true;
+  })();
+
+  if (dedupeKey) signupConfirmationEmailRequests.set(dedupeKey, request);
+
+  try {
+    return await request;
+  } finally {
+    if (dedupeKey) signupConfirmationEmailRequests.delete(dedupeKey);
+  }
 };
 
 export default function PaymentSuccess() {
@@ -100,7 +157,11 @@ export default function PaymentSuccess() {
         if (verification?.status === 'paid' && verification?.subscription_id && !redirecting) {
           setRedirecting(true);
           const email = registrationCheckout.email || verification.user_email || user?.email || '';
-          const emailSent = await sendSignupConfirmationEmail(email);
+          const emailSent = await sendSignupConfirmationEmail(email, getSignupConfirmationEmailKey({
+            attemptId,
+            checkoutSessionId: nextAttempt?.paymongo_checkout_session_id,
+            email,
+          }));
           clearStoredRegistrationCheckout();
           if (user) await signOut();
           navigate('/login', {
@@ -173,7 +234,11 @@ export default function PaymentSuccess() {
 
       if (isRegistrationCheckout) {
         const email = registrationCheckout.email || user?.email || '';
-        const emailSent = await sendSignupConfirmationEmail(email);
+        const emailSent = await sendSignupConfirmationEmail(email, getSignupConfirmationEmailKey({
+          attemptId: paidAttemptId,
+          checkoutSessionId: paidCheckoutSessionId,
+          email,
+        }));
         clearStoredRegistrationCheckout();
         await signOut();
         navigate('/login', {

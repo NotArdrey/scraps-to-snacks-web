@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { User, LogOut, Mail, Lock, Eye, EyeOff, ChevronRight, CreditCard, Settings } from 'lucide-react';
 import { AppContext } from '../AppContextValue';
 import { supabase } from '../lib/supabase';
@@ -25,6 +25,7 @@ export default function Account() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [confirmEdit, setConfirmEdit] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const confirmEditInFlightRef = useRef(false);
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -143,13 +144,18 @@ export default function Account() {
   };
 
   const handleConfirmEdit = async () => {
-    if (!confirmEdit) return;
+    if (!confirmEdit || confirmEditInFlightRef.current) return;
+    confirmEditInFlightRef.current = true;
     const pending = confirmEdit;
     setConfirmEdit(null);
-    if (pending.type === 'email') {
-      await confirmChangeEmail(pending.value);
-    } else if (pending.type === 'password') {
-      await confirmChangePassword(pending.value);
+    try {
+      if (pending.type === 'email') {
+        await confirmChangeEmail(pending.value);
+      } else if (pending.type === 'password') {
+        await confirmChangePassword(pending.value);
+      }
+    } finally {
+      confirmEditInFlightRef.current = false;
     }
   };
 
