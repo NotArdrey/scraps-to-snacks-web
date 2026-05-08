@@ -1,5 +1,21 @@
 import { supabase } from '../lib/supabase';
 
+async function getFunctionErrorMessage(error, fallback) {
+  const response = error?.context;
+
+  if (response?.clone) {
+    try {
+      const body = await response.clone().json();
+      if (typeof body?.error === 'string' && body.error.trim()) return body.error;
+      if (typeof body?.message === 'string' && body.message.trim()) return body.message;
+    } catch {
+      // Supabase FunctionsHttpError stores the response here, but it may not be JSON.
+    }
+  }
+
+  return error?.message || fallback;
+}
+
 export async function fetchActivePlans({ paidOnly = false } = {}) {
   let query = supabase
     .from('subscription_plans')
@@ -24,14 +40,16 @@ export async function startPaymongoCheckout(planCode, { checkoutFlow = 'subscrip
   });
 
   if (error) {
+    const message = await getFunctionErrorMessage(error, 'Unable to start PayMongo Checkout.');
     console.error('create-paymongo-checkout failed', {
       message: error.message,
       status: error.status,
       code: error.code,
       details: error.details,
       context: error.context,
+      responseMessage: message,
     });
-    throw new Error(data?.error || error.message || 'Unable to start PayMongo Checkout.');
+    throw new Error(data?.error || message);
   }
 
   if (!data?.checkout_url) {
@@ -62,14 +80,16 @@ export async function startRegistrationPaymongoCheckout({
   });
 
   if (error) {
+    const message = await getFunctionErrorMessage(error, 'Unable to start PayMongo Checkout.');
     console.error('registration create-paymongo-checkout failed', {
       message: error.message,
       status: error.status,
       code: error.code,
       details: error.details,
       context: error.context,
+      responseMessage: message,
     });
-    throw new Error(data?.error || error.message || 'Unable to start PayMongo Checkout.');
+    throw new Error(data?.error || message);
   }
 
   if (!data?.checkout_url) {
@@ -101,14 +121,16 @@ export async function verifyPaymongoCheckout(attemptId) {
   });
 
   if (error) {
+    const message = await getFunctionErrorMessage(error, 'Unable to verify PayMongo checkout.');
     console.error('verify-paymongo-checkout failed', {
       message: error.message,
       status: error.status,
       code: error.code,
       details: error.details,
       context: error.context,
+      responseMessage: message,
     });
-    throw new Error(data?.error || error.message || 'Unable to verify PayMongo checkout.');
+    throw new Error(data?.error || message);
   }
 
   return data;
@@ -123,14 +145,16 @@ export async function verifyRegistrationPaymongoCheckout(attemptId) {
   });
 
   if (error) {
+    const message = await getFunctionErrorMessage(error, 'Unable to verify PayMongo checkout.');
     console.error('registration verify-paymongo-checkout failed', {
       message: error.message,
       status: error.status,
       code: error.code,
       details: error.details,
       context: error.context,
+      responseMessage: message,
     });
-    throw new Error(data?.error || error.message || 'Unable to verify PayMongo checkout.');
+    throw new Error(data?.error || message);
   }
 
   return data;
