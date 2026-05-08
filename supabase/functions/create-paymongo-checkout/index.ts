@@ -51,6 +51,15 @@ function getDisplayName(userMetadata: Record<string, unknown> | undefined) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function getTextField(payload: Record<string, unknown> | null, key: string) {
+  const value = payload?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function getCheckoutAmountCents(plan: Plan) {
   const testAmount = Deno.env.get("PAYMONGO_TEST_AMOUNT_CENTS");
   if (!testAmount) return plan.price_cents;
@@ -101,20 +110,10 @@ Deno.serve(async (req) => {
     const supabaseServiceRoleKey = getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY");
     const paymongoSecretKey = getRequiredEnv("PAYMONGO_SECRET_KEY");
     const authHeader = req.headers.get("Authorization");
-
-    if (!authHeader) return jsonResponse({ error: "Missing Authorization header" }, 401);
-
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
-
-    const { data: userData, error: userError } = await authClient.auth.getUser();
-    if (userError || !userData.user) return jsonResponse({ error: "Invalid session" }, 401);
-
-    const requestBody = await req.json().catch(() => null);
-    const planCode = typeof requestBody?.plan_code === "string" ? requestBody.plan_code.trim() : "";
+    const requestBody = await req.json().catch(() => null) as Record<string, unknown> | null;
     const checkoutFlow = requestBody?.checkout_flow === "registration" ? "registration" : "subscription";
+    const planCode = getTextField(requestBody, "plan_code");
+
     if (!planCode) return jsonResponse({ error: "plan_code is required" }, 400);
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -135,6 +134,62 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Only paid plans can be purchased through PayMongo Checkout" }, 400);
     }
 
+    let checkoutUser: {
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+    } | null = null;
+    let createdRegistrationUserId: string | null = null;
+
+    if (checkoutFlow === "registration") {
+      const email = normalizeEmail(getTextField(requestBody, "email"));
+      const password = getTextField(requestBody, "password");
+      const firstName = getTextField(requestBody, "first_name");
+      const lastName = getTextField(requestBody, "last_name");
+      const displayName = getTextField(requestBody, "display_name") || `${firstName} ${lastName}`.trim();
+
+      if (!email) return jsonResponse({ error: "email is required" }, 400);
+      if (password.length < 6) return jsonResponse({ error: "Password must be at least 6 characters." }, 400);
+
+      const { data: createdUserData, error: createUserError } = await serviceClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: false,
+        user_metadata: {
+          display_name: displayName,
+          first_name: firstName,
+          last_name: lastName,
+          selected_plan_code: planCode,
+        },
+      });
+
+      if (createUserError || !createdUserData.user) {
+        const message = createUserError?.message ?? "Unable to create account.";
+        const alreadyExists = /already|registered|exists/i.test(message);
+        return jsonResponse({
+          error: alreadyExists
+            ? "An account with this email already exists. Please log in or use a different email."
+            : message,
+        }, alreadyExists ? 409 : 400);
+      }
+
+      checkoutUser = createdUserData.user;
+      createdRegistrationUserId = createdUserData.user.id;
+    } else {
+      if (!authHeader) return jsonResponse({ error: "Missing Authorization header" }, 401);
+
+      const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
+      });
+
+      const { data: userData, error: userError } = await authClient.auth.getUser();
+      if (userError || !userData.user) return jsonResponse({ error: "Invalid session" }, 401);
+      checkoutUser = userData.user;
+    }
+
+    if (!checkoutUser) return jsonResponse({ error: "Unable to prepare checkout user" }, 500);
+
     const currency = (plan.currency ?? "PHP").toUpperCase();
     if (currency !== "PHP") return jsonResponse({ error: "PayMongo checkout is configured for PHP plans only" }, 400);
     const checkoutAmountCents = getCheckoutAmountCents(plan);
@@ -142,7 +197,7 @@ Deno.serve(async (req) => {
     const { data: attempt, error: attemptError } = await serviceClient
       .from("paymongo_checkout_sessions")
       .insert({
-        user_id: userData.user.id,
+        user_id: checkoutUser.id,
         plan_id: plan.id,
         amount_cents: checkoutAmountCents,
         currency,
@@ -159,7 +214,7 @@ Deno.serve(async (req) => {
 
     const successUrl = `${appOrigin}/payment/success?${returnParams.toString()}`;
     const cancelUrl = `${appOrigin}/payment/cancel?${returnParams.toString()}`;
-    const userName = getDisplayName(userData.user.user_metadata);
+    const userName = getDisplayName(checkoutUser.user_metadata);
 
     const checkoutPayload = {
       data: {
@@ -180,10 +235,10 @@ Deno.serve(async (req) => {
           send_email_receipt: true,
           show_description: true,
           show_line_items: true,
-          customer_email: userData.user.email,
+          customer_email: checkoutUser.email,
           metadata: {
             local_attempt_id: attempt.id,
-            user_id: userData.user.id,
+            user_id: checkoutUser.id,
             plan_code: plan.plan_code,
             plan_price_cents: String(plan.price_cents),
             checkout_amount_cents: String(checkoutAmountCents),
@@ -202,6 +257,9 @@ Deno.serve(async (req) => {
         .from("paymongo_checkout_sessions")
         .update({ status: "failed", raw_checkout: { error: getErrorMessage(error) } })
         .eq("id", attempt.id);
+      if (createdRegistrationUserId) {
+        await serviceClient.auth.admin.deleteUser(createdRegistrationUserId);
+      }
       throw error;
     }
 
@@ -213,6 +271,9 @@ Deno.serve(async (req) => {
         .from("paymongo_checkout_sessions")
         .update({ status: "failed", raw_checkout: checkout })
         .eq("id", attempt.id);
+      if (createdRegistrationUserId) {
+        await serviceClient.auth.admin.deleteUser(createdRegistrationUserId);
+      }
       return jsonResponse({ error: "PayMongo did not return a checkout URL" }, 502);
     }
 

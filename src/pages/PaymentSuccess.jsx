@@ -6,7 +6,12 @@ import ThemeToggle from '../components/ThemeToggle';
 import LoadingAlert from '../components/LoadingAlert';
 import { AppContext } from '../AppContextValue';
 import { supabase } from '../lib/supabase';
-import { fetchPaymentAttempt, formatPlanPrice, verifyPaymongoCheckout } from '../services/subscription';
+import {
+  fetchPaymentAttempt,
+  formatPlanPrice,
+  verifyPaymongoCheckout,
+  verifyRegistrationPaymongoCheckout,
+} from '../services/subscription';
 
 const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
 const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
@@ -69,11 +74,49 @@ export default function PaymentSuccess() {
   const returnFlow = searchParams.get('flow');
   const registrationCheckout = getStoredRegistrationCheckout();
   const destination = isOnboarded ? '/pantry' : '/onboarding';
+  const isRegistrationReturn = returnFlow === 'registration';
 
   const loadAttempt = useCallback(async () => {
     if (!attemptId && !checkoutSessionId) {
       setError('Missing payment reference.');
       setLoading(false);
+      return;
+    }
+
+    if (isRegistrationReturn) {
+      if (!attemptId) {
+        setError('Missing registration payment reference.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const verification = await verifyRegistrationPaymongoCheckout(attemptId);
+        const nextAttempt = verification?.attempt ?? null;
+        setAttempt(nextAttempt);
+        setError('');
+        setLoading(false);
+
+        if (verification?.status === 'paid' && verification?.subscription_id && !redirecting) {
+          setRedirecting(true);
+          const email = registrationCheckout.email || verification.user_email || user?.email || '';
+          const emailSent = await sendSignupConfirmationEmail(email);
+          clearStoredRegistrationCheckout();
+          if (user) await signOut();
+          navigate('/login', {
+            replace: true,
+            state: {
+              email,
+              notice: emailSent
+                ? 'Payment confirmed. We sent a confirmation email. Confirm your email, then log in to start onboarding.'
+                : 'Payment confirmed. Log in to start onboarding.',
+            },
+          });
+        }
+      } catch (verificationError) {
+        setError(verificationError.message || 'Unable to verify PayMongo checkout.');
+        setLoading(false);
+      }
       return;
     }
 
@@ -151,6 +194,7 @@ export default function PaymentSuccess() {
     attemptId,
     checkoutSessionId,
     destination,
+    isRegistrationReturn,
     navigate,
     redirecting,
     refreshSubscription,
@@ -159,7 +203,7 @@ export default function PaymentSuccess() {
     registrationCheckout.email,
     returnFlow,
     signOut,
-    user?.email,
+    user,
   ]);
 
   useEffect(() => {

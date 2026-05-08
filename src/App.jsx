@@ -24,6 +24,11 @@ const isRegistrationCheckoutPending = () => (
   sessionStorage.getItem(REGISTRATION_CHECKOUT_PENDING_KEY) === 'true'
 );
 
+const isRegistrationPaymentReturn = (location) => (
+  ['/payment/success', '/payment/cancel'].includes(location.pathname) &&
+  new URLSearchParams(location.search).get('flow') === 'registration'
+);
+
 function AppRoutes() {
   const { isAuthenticated, loading, hasActiveSubscription, profileReady, subscriptionReady, isOnboarded, isAdmin } = useContext(AppContext);
   const location = useLocation();
@@ -37,6 +42,7 @@ function AppRoutes() {
   const onAdminPage = location.pathname === '/admin';
   const loginRedirect = <Navigate to="/login" state={{ from: location }} replace />;
   const allowRegistrationCheckout = location.pathname === '/register' && isRegistrationCheckoutPending();
+  const allowRegistrationPaymentReturn = isRegistrationPaymentReturn(location);
 
   const getDefaultRoute = () => {
     if (isAdmin) return '/admin';
@@ -75,12 +81,12 @@ function AppRoutes() {
             <Subscription />
           } />
           <Route path="/payment/success" element={
-            !isAuthenticated ? loginRedirect :
+            !isAuthenticated && !allowRegistrationPaymentReturn ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             <PaymentSuccess />
           } />
           <Route path="/payment/cancel" element={
-            !isAuthenticated ? loginRedirect :
+            !isAuthenticated && !allowRegistrationPaymentReturn ? loginRedirect :
             isAdmin ? <Navigate to="/admin" /> :
             <PaymentCancel />
           } />

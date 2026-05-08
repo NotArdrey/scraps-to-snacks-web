@@ -44,8 +44,14 @@ export default function PaymentCancel() {
   const attemptId = searchParams.get('attempt_id');
   const checkoutSessionId = searchParams.get('checkout_session_id');
   const returnFlow = searchParams.get('flow');
+  const isRegistrationReturn = returnFlow === 'registration';
 
   const loadAttempt = useCallback(async () => {
+    if (isRegistrationReturn) {
+      setLoading(false);
+      return;
+    }
+
     const { data, error: attemptError } = await fetchPaymentAttempt({ attemptId, checkoutSessionId });
     if (attemptError) {
       setError(attemptError.message || 'Unable to load checkout details.');
@@ -53,7 +59,7 @@ export default function PaymentCancel() {
       setAttempt(data);
     }
     setLoading(false);
-  }, [attemptId, checkoutSessionId]);
+  }, [attemptId, checkoutSessionId, isRegistrationReturn]);
 
   useEffect(() => {
     const timeoutId = setTimeout(loadAttempt, 0);
@@ -62,6 +68,11 @@ export default function PaymentCancel() {
 
   const handleRetry = async () => {
     const planCode = attempt?.subscription_plans?.plan_code;
+    if (isRegistrationReturn && !planCode) {
+      navigate('/register');
+      return;
+    }
+
     if (!planCode) {
       navigate('/subscription');
       return;

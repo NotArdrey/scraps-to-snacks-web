@@ -12,6 +12,11 @@ type CheckoutAttempt = {
   status: string;
   subscription_plans: {
     billing_period_days: number | null;
+    display_name?: string | null;
+    description?: string | null;
+    price_cents?: number | null;
+    currency?: string | null;
+    plan_code?: string | null;
   } | null;
 };
 
@@ -182,31 +187,40 @@ Deno.serve(async (req) => {
     const supabaseServiceRoleKey = getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY");
     const paymongoSecretKey = getRequiredEnv("PAYMONGO_SECRET_KEY");
     const authHeader = req.headers.get("Authorization");
-
-    if (!authHeader) return jsonResponse({ error: "Missing Authorization header" }, 401);
-
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
-
-    const { data: userData, error: userError } = await authClient.auth.getUser();
-    if (userError || !userData.user) return jsonResponse({ error: "Invalid session" }, 401);
-
     const requestBody = await req.json().catch(() => null);
     const attemptId = typeof requestBody?.attempt_id === "string" ? requestBody.attempt_id.trim() : "";
+    const checkoutFlow = requestBody?.checkout_flow === "registration" ? "registration" : "subscription";
     if (!attemptId) return jsonResponse({ error: "attempt_id is required" }, 400);
+
+    let authenticatedUserId: string | null = null;
+
+    if (checkoutFlow !== "registration") {
+      if (!authHeader) return jsonResponse({ error: "Missing Authorization header" }, 401);
+
+      const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
+      });
+
+      const { data: userData, error: userError } = await authClient.auth.getUser();
+      if (userError || !userData.user) return jsonResponse({ error: "Invalid session" }, 401);
+      authenticatedUserId = userData.user.id;
+    }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false },
     });
 
-    const { data: attemptData, error: attemptError } = await serviceClient
+    let attemptQuery = serviceClient
       .from("paymongo_checkout_sessions")
-      .select("*, subscription_plans(billing_period_days)")
-      .eq("id", attemptId)
-      .eq("user_id", userData.user.id)
-      .maybeSingle();
+      .select("*, subscription_plans(billing_period_days, display_name, description, price_cents, currency, plan_code)")
+      .eq("id", attemptId);
+
+    if (authenticatedUserId) {
+      attemptQuery = attemptQuery.eq("user_id", authenticatedUserId);
+    }
+
+    const { data: attemptData, error: attemptError } = await attemptQuery.maybeSingle();
 
     if (attemptError) throw attemptError;
     const attempt = attemptData as CheckoutAttempt | null;
@@ -215,8 +229,18 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Payment attempt has no PayMongo checkout session" }, 400);
     }
 
+    const { data: attemptUserData } = checkoutFlow === "registration"
+      ? await serviceClient.auth.admin.getUserById(attempt.user_id)
+      : { data: { user: null } };
+    const userEmail = attemptUserData?.user?.email ?? null;
+
     if (attempt.status === "paid" && attempt.subscription_id) {
-      return jsonResponse({ status: "paid", subscription_id: attempt.subscription_id });
+      return jsonResponse({
+        status: "paid",
+        subscription_id: attempt.subscription_id,
+        attempt,
+        user_email: userEmail,
+      });
     }
 
     const checkout = await retrievePaymongoCheckout(paymongoSecretKey, attempt.paymongo_checkout_session_id);
@@ -233,6 +257,8 @@ Deno.serve(async (req) => {
         status: "pending",
         checkout_status: checkoutAttributes.status ?? null,
         payment_intent_status: paymentIntentStatus ?? null,
+        attempt,
+        user_email: userEmail,
       });
     }
 
@@ -272,7 +298,11 @@ Deno.serve(async (req) => {
     return jsonResponse({
       status: "paid",
       subscription_id: subscriptionId,
-      attempt: updatedAttempt,
+      attempt: {
+        ...attempt,
+        ...updatedAttempt,
+      },
+      user_email: userEmail,
     });
   } catch (error) {
     console.error("verify-paymongo-checkout failed", error);

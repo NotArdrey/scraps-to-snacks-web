@@ -3,16 +3,13 @@ import { Link } from 'react-router-dom';
 import { AlertCircle, Check, Eye, EyeOff, X } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
-import { supabase } from '../lib/supabase';
-import { fetchActivePlans, formatPlanPrice, getPlanBillingLabel, startPaymongoCheckout } from '../services/subscription';
+import { fetchActivePlans, formatPlanPrice, getPlanBillingLabel, startRegistrationPaymongoCheckout } from '../services/subscription';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
 const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
 const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
 const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
 const REGISTRATION_CHECKOUT_PENDING_KEY = 'registration-checkout-pending';
-
-const getAuthRedirectUrl = () => `${window.location.origin}/login`;
 
 const rememberRegistrationCheckout = (checkout, email) => {
   if (typeof window === 'undefined') return;
@@ -95,40 +92,16 @@ export default function Register() {
     }
     
     const normalizedEmail = email.trim().toLowerCase();
-    const displayName = `${firstName} ${lastName}`.trim();
     setRegistrationCheckoutPending(true);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ 
-      email: normalizedEmail, 
-      password,
-      options: {
-        emailRedirectTo: getAuthRedirectUrl(),
-        data: {
-          display_name: displayName,
-          selected_plan_code: selectedPlan,
-        }
-      }
-    });
-
-    if (signUpError) {
-      setRegistrationCheckoutPending(false);
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (!data.session) {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
-      if (signInError || !signInData.session) {
-        setRegistrationCheckoutPending(false);
-        setError('Account created. Please confirm your email, then log in to finish payment.');
-        setLoading(false);
-        return;
-      }
-    }
-
     try {
-      const checkout = await startPaymongoCheckout(selectedPlan, { checkoutFlow: 'registration' });
+      const checkout = await startRegistrationPaymongoCheckout({
+        planCode: selectedPlan,
+        email: normalizedEmail,
+        password,
+        firstName,
+        lastName,
+      });
       rememberRegistrationCheckout(checkout, normalizedEmail);
       setRegistrationCheckoutPending(false);
       window.location.assign(checkout.checkout_url);
