@@ -7,6 +7,24 @@ import { supabase } from '../lib/supabase';
 import { fetchActivePlans, formatPlanPrice, getPlanBillingLabel, startPaymongoCheckout } from '../services/subscription';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
+const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
+const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
+const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
+
+const getAuthRedirectUrl = () => `${window.location.origin}/login`;
+
+const rememberRegistrationCheckout = (checkout, email) => {
+  if (typeof window === 'undefined') return;
+
+  if (checkout.attempt_id) {
+    sessionStorage.setItem(REGISTRATION_CHECKOUT_ATTEMPT_KEY, checkout.attempt_id);
+  }
+  if (checkout.checkout_session_id) {
+    sessionStorage.setItem(REGISTRATION_CHECKOUT_SESSION_KEY, checkout.checkout_session_id);
+  }
+  sessionStorage.setItem(REGISTRATION_CHECKOUT_EMAIL_KEY, email);
+};
+
 export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,12 +83,14 @@ export default function Register() {
       return;
     }
     
+    const normalizedEmail = email.trim().toLowerCase();
     const displayName = `${firstName} ${lastName}`.trim();
 
     const { data, error: signUpError } = await supabase.auth.signUp({ 
-      email, 
+      email: normalizedEmail, 
       password,
       options: {
+        emailRedirectTo: getAuthRedirectUrl(),
         data: {
           display_name: displayName,
           selected_plan_code: selectedPlan,
@@ -85,7 +105,7 @@ export default function Register() {
     }
 
     if (!data.session) {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (signInError || !signInData.session) {
         setError('Account created. Please confirm your email, then log in to finish payment.');
         setLoading(false);
@@ -95,6 +115,7 @@ export default function Register() {
 
     try {
       const checkout = await startPaymongoCheckout(selectedPlan);
+      rememberRegistrationCheckout(checkout, normalizedEmail);
       window.location.assign(checkout.checkout_url);
     } catch (checkoutError) {
       setError(checkoutError.message);

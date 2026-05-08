@@ -4,6 +4,7 @@ import { AlertCircle, Check, ArrowLeft, CreditCard } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import LoadingAlert from '../components/LoadingAlert';
+import LoadingPanel from '../components/LoadingPanel';
 import { AppContext } from '../AppContextValue';
 import { fetchActivePlans, formatPlanPrice, getPlanBillingLabel, startPaymongoCheckout } from '../services/subscription';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS, HERO_IMAGES } from '../constants/images';
@@ -128,7 +129,7 @@ export default function Subscription() {
       );
     }
 
-    return <LoadingAlert title="Loading plans" message="Fetching the available subscription options." />;
+    return <LoadingPanel title="Loading plans" message="Fetching the available subscription options." />;
   }
 
   if (hasActiveSubscription) {

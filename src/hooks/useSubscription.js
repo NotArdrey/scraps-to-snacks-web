@@ -72,6 +72,7 @@ export function useSubscription(user) {
     subscription,
     hasActiveSubscription: !!subscription,
     loading: loading || loadedUserId !== (user?.id ?? null),
+    ready: loadedUserId === (user?.id ?? null),
     refreshSubscription: fetchSubscription,
   };
 }

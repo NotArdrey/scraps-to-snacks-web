@@ -6,7 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
 import BrandIcon from '../components/BrandIcon';
 import CookbookChatbot from '../components/CookbookChatbot';
-import LoadingAlert from '../components/LoadingAlert';
+import LoadingPanel from '../components/LoadingPanel';
 import { HERO_IMAGES } from '../constants/images';
 
 export default function Cookbook() {
@@ -167,7 +167,7 @@ export default function Cookbook() {
   };
 
   if (recipesLoading) {
-    return <LoadingAlert title="Loading cookbook" message="Fetching your saved recipes." />;
+    return <LoadingPanel title="Loading cookbook" message="Fetching your saved recipes." />;
   }
 
   return (

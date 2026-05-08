@@ -5,12 +5,58 @@ import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import LoadingAlert from '../components/LoadingAlert';
 import { AppContext } from '../AppContextValue';
+import { supabase } from '../lib/supabase';
 import { fetchPaymentAttempt, formatPlanPrice, verifyPaymongoCheckout } from '../services/subscription';
+
+const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
+const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
+const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
+
+const getAuthRedirectUrl = () => `${window.location.origin}/login`;
+
+const getStoredRegistrationCheckout = () => {
+  if (typeof window === 'undefined') {
+    return { attemptId: null, checkoutSessionId: null, email: '' };
+  }
+
+  return {
+    attemptId: sessionStorage.getItem(REGISTRATION_CHECKOUT_ATTEMPT_KEY),
+    checkoutSessionId: sessionStorage.getItem(REGISTRATION_CHECKOUT_SESSION_KEY),
+    email: sessionStorage.getItem(REGISTRATION_CHECKOUT_EMAIL_KEY) || '',
+  };
+};
+
+const clearStoredRegistrationCheckout = () => {
+  if (typeof window === 'undefined') return;
+
+  sessionStorage.removeItem(REGISTRATION_CHECKOUT_ATTEMPT_KEY);
+  sessionStorage.removeItem(REGISTRATION_CHECKOUT_SESSION_KEY);
+  sessionStorage.removeItem(REGISTRATION_CHECKOUT_EMAIL_KEY);
+};
+
+const sendSignupConfirmationEmail = async (email) => {
+  if (!email) return false;
+
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: getAuthRedirectUrl(),
+    },
+  });
+
+  if (error) {
+    console.warn('Unable to send signup confirmation email after payment', error);
+    return false;
+  }
+
+  return true;
+};
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { refreshSubscription, isOnboarded } = useContext(AppContext);
+  const { user, refreshSubscription, isOnboarded, signOut } = useContext(AppContext);
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -18,7 +64,12 @@ export default function PaymentSuccess() {
 
   const attemptId = searchParams.get('attempt_id');
   const checkoutSessionId = searchParams.get('checkout_session_id');
-  const destination = isOnboarded ? '/account' : '/onboarding';
+  const registrationCheckout = getStoredRegistrationCheckout();
+  const isRegistrationCheckout = Boolean(
+    (attemptId && registrationCheckout.attemptId === attemptId) ||
+    (checkoutSessionId && registrationCheckout.checkoutSessionId === checkoutSessionId),
+  );
+  const destination = isOnboarded ? '/pantry' : '/onboarding';
 
   const loadAttempt = useCallback(async () => {
     if (!attemptId && !checkoutSessionId) {
@@ -65,9 +116,38 @@ export default function PaymentSuccess() {
     if (nextAttempt?.status === 'paid' && nextAttempt.subscription_id && !redirecting) {
       setRedirecting(true);
       await refreshSubscription();
+
+      if (isRegistrationCheckout) {
+        const email = registrationCheckout.email || user?.email || '';
+        const emailSent = await sendSignupConfirmationEmail(email);
+        clearStoredRegistrationCheckout();
+        await signOut();
+        navigate('/login', {
+          replace: true,
+          state: {
+            email,
+            notice: emailSent
+              ? 'Payment confirmed. We sent a confirmation email. Confirm your email, then log in to start onboarding.'
+              : 'Payment confirmed. Log in to start onboarding.',
+          },
+        });
+        return;
+      }
+
       navigate(destination, { replace: true });
     }
-  }, [attemptId, checkoutSessionId, destination, navigate, redirecting, refreshSubscription]);
+  }, [
+    attemptId,
+    checkoutSessionId,
+    destination,
+    isRegistrationCheckout,
+    navigate,
+    redirecting,
+    refreshSubscription,
+    registrationCheckout.email,
+    signOut,
+    user?.email,
+  ]);
 
   useEffect(() => {
     let isMounted = true;

@@ -77,6 +77,7 @@ export function useProfile(user) {
     profile,
     householdId,
     loading: loading || loadedUserId !== (user?.id ?? null),
+    ready: loadedUserId === (user?.id ?? null),
     refreshProfile: fetchProfile,
   };
 }

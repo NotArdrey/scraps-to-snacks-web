@@ -18,10 +18,10 @@ import { AppContext } from './AppContextValue';
 import './index.css';
 
 function AppRoutes() {
-  const { isAuthenticated, loading, hasActiveSubscription, subLoading, isOnboarded, profileLoading, isAdmin } = useContext(AppContext);
+  const { isAuthenticated, loading, hasActiveSubscription, profileReady, subscriptionReady, isOnboarded, isAdmin } = useContext(AppContext);
   const location = useLocation();
 
-  if (loading || (isAuthenticated && (profileLoading || subLoading))) {
+  if (loading || (isAuthenticated && (!profileReady || !subscriptionReady))) {
     return <LoadingAlert title="Loading account" message="Checking your session, profile, and subscription." />;
   }
 

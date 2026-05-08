@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AlertCircle, CheckCircle, Eye, EyeOff, X } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
@@ -13,12 +13,15 @@ const getResetPasswordRedirectUrl = () => {
 };
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const initialEmail = typeof location.state?.email === 'string' ? location.state.email : '';
+  const initialNotice = typeof location.state?.notice === 'string' ? location.state.notice : null;
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
+  const [resetEmail, setResetEmail] = useState(initialEmail);
   const [error, setError] = useState(null);
-  const [notice, setNotice] = useState(null);
+  const [notice, setNotice] = useState(initialNotice);
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);

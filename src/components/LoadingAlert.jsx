@@ -1,9 +1,13 @@
+import { useId } from 'react';
 import { LoaderCircle } from 'lucide-react';
 
 export default function LoadingAlert({ title = 'Loading', message = 'Please wait while we prepare this view.' }) {
+  const titleId = useId();
+  const messageId = useId();
+
   return (
     <div
-      role="alert"
+      role="presentation"
       aria-live="polite"
       aria-busy="true"
       style={{
@@ -14,16 +18,19 @@ export default function LoadingAlert({ title = 'Loading', message = 'Please wait
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem',
-        background: 'rgba(0, 0, 0, 0.42)',
-        backdropFilter: 'blur(4px)',
+        background: 'rgba(var(--bg-rgb), 0.96)',
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
         style={{
           width: 'min(420px, 100%)',
           background: 'var(--bg-card)',
           border: '1px solid var(--border-color)',
-          borderRadius: '16px',
+          borderRadius: '8px',
           boxShadow: 'var(--shadow-lg)',
           padding: '1.5rem',
           color: 'var(--theme-text-main)',
@@ -45,14 +52,14 @@ export default function LoadingAlert({ title = 'Loading', message = 'Please wait
             flexShrink: 0,
           }}
         >
-          <LoaderCircle size={24} style={{ animation: 'spin 1s linear infinite' }} />
+          <LoaderCircle aria-hidden="true" size={24} style={{ animation: 'spin 1s linear infinite' }} />
         </div>
         <div style={{ minWidth: 0 }}>
           <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', lineHeight: 1.25 }}>
+          <h2 id={titleId} style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', lineHeight: 1.25 }}>
             {title}
           </h2>
-          <p style={{ margin: 0, color: 'var(--theme-text-muted)', fontSize: '0.92rem', lineHeight: 1.45 }}>
+          <p id={messageId} style={{ margin: 0, color: 'var(--theme-text-muted)', fontSize: '0.92rem', lineHeight: 1.45 }}>
             {message}
           </p>
         </div>

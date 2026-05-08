@@ -8,7 +8,7 @@ import { usePreferences } from '../hooks/usePreferences';
 import { generateRecipe, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
-import LoadingAlert from '../components/LoadingAlert';
+import LoadingPanel from '../components/LoadingPanel';
 import { CATEGORIES, UNITS } from '../constants/categories';
 import { EXPIRY_WARNING_MS } from '../constants/dietary';
 import { HERO_IMAGES } from '../constants/images';
@@ -366,7 +366,7 @@ export default function Pantry() {
   };
 
   if (pantryLoading) {
-    return <LoadingAlert title="Loading pantry" message="Fetching your household ingredients." />;
+    return <LoadingPanel title="Loading pantry" message="Fetching your household ingredients." />;
   }
 
   return (

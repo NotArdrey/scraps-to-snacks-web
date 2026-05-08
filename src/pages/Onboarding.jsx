@@ -4,7 +4,7 @@ import { AppContext } from '../AppContextValue';
 import { usePreferences } from '../hooks/usePreferences';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
-import LoadingAlert from '../components/LoadingAlert';
+import LoadingPanel from '../components/LoadingPanel';
 import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
 import { ArrowLeft, Check, Leaf, Settings, ShieldAlert } from 'lucide-react';
@@ -151,7 +151,7 @@ export default function Onboarding() {
       );
     }
 
-    return <LoadingAlert title="Loading preferences" message="Fetching your diet and allergy options." />;
+    return <LoadingPanel title="Loading preferences" message="Fetching your diet and allergy options." />;
   }
 
   if (isOnboarded) {

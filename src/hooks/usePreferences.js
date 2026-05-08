@@ -8,14 +8,16 @@ export function usePreferences(user) {
   const [userDiets, setUserDiets] = useState([]);
   const [userAllergies, setUserAllergies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState(null);
 
-  const fetchPreferences = useCallback(async () => {
+  const fetchPreferences = useCallback(async ({ silent = false } = {}) => {
     if (!user) {
       setLoading(false);
+      setLoadedUserId(null);
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
 
     const [diets, allergies, dietIds, allergyPrefs] = await Promise.all([
       fetchDietTypes(),
@@ -28,6 +30,7 @@ export function usePreferences(user) {
     setAllergyTypes(allergies);
     setUserDiets(dietIds);
     setUserAllergies(allergyPrefs);
+    setLoadedUserId(user.id);
     setLoading(false);
   }, [user]);
 
@@ -42,10 +45,10 @@ export function usePreferences(user) {
     const channel = supabase
       .channel(`prefs-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_diet_preferences', filter: `user_id=eq.${user.id}` }, () => {
-        fetchPreferences();
+        fetchPreferences({ silent: true });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_allergy_preferences', filter: `user_id=eq.${user.id}` }, () => {
-        fetchPreferences();
+        fetchPreferences({ silent: true });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -53,7 +56,7 @@ export function usePreferences(user) {
 
   // Re-fetch when the tab regains focus
   useEffect(() => {
-    const onVisibility = () => { if (document.visibilityState === 'visible') fetchPreferences(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchPreferences({ silent: true }); };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [fetchPreferences]);
@@ -62,7 +65,7 @@ export function usePreferences(user) {
     if (!user) return;
     const { refresh = true, markOnboarded = true } = options;
     await saveUserPreferences(user.id, selectedDietIds, selectedAllergyIds, { markOnboarded });
-    if (refresh) await fetchPreferences();
+    if (refresh) await fetchPreferences({ silent: true });
   }, [user, fetchPreferences]);
 
   const activeDietNames = dietTypes
@@ -75,7 +78,7 @@ export function usePreferences(user) {
     userDiets,
     userAllergies,
     activeDietNames,
-    loading,
+    loading: loading || loadedUserId !== (user?.id ?? null),
     savePreferences,
     refreshPreferences: fetchPreferences,
   };

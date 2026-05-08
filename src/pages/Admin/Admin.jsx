@@ -19,7 +19,7 @@ import BrandIcon from '../../components/BrandIcon';
 import ConfirmModal from '../../components/ConfirmModal';
 import FeedbackModal from '../../components/FeedbackModal';
 import AdminFormModal from '../../components/AdminFormModal';
-import LoadingAlert from '../../components/LoadingAlert';
+import LoadingPanel from '../../components/LoadingPanel';
 import { CATEGORIES, UNITS } from '../../constants/categories';
 
 const TABS = [
@@ -121,7 +121,7 @@ export default function Admin() {
   const badgeStyle = (color) => ({ padding: '0.15rem 0.55rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', background: `${color}18`, color });
 
   if (loading) {
-    return <LoadingAlert title="Loading admin dashboard" message="Fetching users, plans, pantry items, and recipes." />;
+    return <LoadingPanel title="Loading admin dashboard" message="Fetching users, plans, pantry items, and recipes." />;
   }
 
   return (
