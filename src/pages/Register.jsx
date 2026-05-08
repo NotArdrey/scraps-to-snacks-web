@@ -10,6 +10,7 @@ import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
 const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
 const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
+const REGISTRATION_CHECKOUT_PENDING_KEY = 'registration-checkout-pending';
 
 const getAuthRedirectUrl = () => `${window.location.origin}/login`;
 
@@ -23,6 +24,16 @@ const rememberRegistrationCheckout = (checkout, email) => {
     sessionStorage.setItem(REGISTRATION_CHECKOUT_SESSION_KEY, checkout.checkout_session_id);
   }
   sessionStorage.setItem(REGISTRATION_CHECKOUT_EMAIL_KEY, email);
+};
+
+const setRegistrationCheckoutPending = (pending) => {
+  if (typeof window === 'undefined') return;
+
+  if (pending) {
+    sessionStorage.setItem(REGISTRATION_CHECKOUT_PENDING_KEY, 'true');
+  } else {
+    sessionStorage.removeItem(REGISTRATION_CHECKOUT_PENDING_KEY);
+  }
 };
 
 export default function Register() {
@@ -85,6 +96,7 @@ export default function Register() {
     
     const normalizedEmail = email.trim().toLowerCase();
     const displayName = `${firstName} ${lastName}`.trim();
+    setRegistrationCheckoutPending(true);
 
     const { data, error: signUpError } = await supabase.auth.signUp({ 
       email: normalizedEmail, 
@@ -99,6 +111,7 @@ export default function Register() {
     });
 
     if (signUpError) {
+      setRegistrationCheckoutPending(false);
       setError(signUpError.message);
       setLoading(false);
       return;
@@ -107,6 +120,7 @@ export default function Register() {
     if (!data.session) {
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (signInError || !signInData.session) {
+        setRegistrationCheckoutPending(false);
         setError('Account created. Please confirm your email, then log in to finish payment.');
         setLoading(false);
         return;
@@ -114,10 +128,12 @@ export default function Register() {
     }
 
     try {
-      const checkout = await startPaymongoCheckout(selectedPlan);
+      const checkout = await startPaymongoCheckout(selectedPlan, { checkoutFlow: 'registration' });
       rememberRegistrationCheckout(checkout, normalizedEmail);
+      setRegistrationCheckoutPending(false);
       window.location.assign(checkout.checkout_url);
     } catch (checkoutError) {
+      setRegistrationCheckoutPending(false);
       setError(checkoutError.message);
       setLoading(false);
     }

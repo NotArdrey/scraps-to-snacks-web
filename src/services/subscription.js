@@ -15,9 +15,12 @@ export async function fetchActivePlans({ paidOnly = false } = {}) {
   return data || [];
 }
 
-export async function startPaymongoCheckout(planCode) {
+export async function startPaymongoCheckout(planCode, { checkoutFlow = 'subscription' } = {}) {
   const { data, error } = await supabase.functions.invoke('create-paymongo-checkout', {
-    body: { plan_code: planCode },
+    body: {
+      plan_code: planCode,
+      checkout_flow: checkoutFlow,
+    },
   });
 
   if (error) {

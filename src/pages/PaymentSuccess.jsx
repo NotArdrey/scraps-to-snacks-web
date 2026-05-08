@@ -11,6 +11,7 @@ import { fetchPaymentAttempt, formatPlanPrice, verifyPaymongoCheckout } from '..
 const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
 const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
 const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
+const REGISTRATION_CHECKOUT_PENDING_KEY = 'registration-checkout-pending';
 
 const getAuthRedirectUrl = () => `${window.location.origin}/login`;
 
@@ -32,6 +33,7 @@ const clearStoredRegistrationCheckout = () => {
   sessionStorage.removeItem(REGISTRATION_CHECKOUT_ATTEMPT_KEY);
   sessionStorage.removeItem(REGISTRATION_CHECKOUT_SESSION_KEY);
   sessionStorage.removeItem(REGISTRATION_CHECKOUT_EMAIL_KEY);
+  sessionStorage.removeItem(REGISTRATION_CHECKOUT_PENDING_KEY);
 };
 
 const sendSignupConfirmationEmail = async (email) => {
@@ -64,11 +66,8 @@ export default function PaymentSuccess() {
 
   const attemptId = searchParams.get('attempt_id');
   const checkoutSessionId = searchParams.get('checkout_session_id');
+  const returnFlow = searchParams.get('flow');
   const registrationCheckout = getStoredRegistrationCheckout();
-  const isRegistrationCheckout = Boolean(
-    (attemptId && registrationCheckout.attemptId === attemptId) ||
-    (checkoutSessionId && registrationCheckout.checkoutSessionId === checkoutSessionId),
-  );
   const destination = isOnboarded ? '/pantry' : '/onboarding';
 
   const loadAttempt = useCallback(async () => {
@@ -117,6 +116,18 @@ export default function PaymentSuccess() {
       setRedirecting(true);
       await refreshSubscription();
 
+      const paidAttemptId = nextAttempt.id || attemptId;
+      const paidCheckoutSessionId = nextAttempt.paymongo_checkout_session_id || checkoutSessionId;
+      const isStoredRegistrationCheckout = Boolean(
+        (paidAttemptId && registrationCheckout.attemptId === paidAttemptId) ||
+        (paidCheckoutSessionId && registrationCheckout.checkoutSessionId === paidCheckoutSessionId),
+      );
+      const isRegistrationCheckout = (
+        returnFlow === 'registration' ||
+        nextAttempt.checkout_flow === 'registration' ||
+        isStoredRegistrationCheckout
+      );
+
       if (isRegistrationCheckout) {
         const email = registrationCheckout.email || user?.email || '';
         const emailSent = await sendSignupConfirmationEmail(email);
@@ -140,11 +151,13 @@ export default function PaymentSuccess() {
     attemptId,
     checkoutSessionId,
     destination,
-    isRegistrationCheckout,
     navigate,
     redirecting,
     refreshSubscription,
+    registrationCheckout.attemptId,
+    registrationCheckout.checkoutSessionId,
     registrationCheckout.email,
+    returnFlow,
     signOut,
     user?.email,
   ]);

@@ -17,6 +17,13 @@ import LoadingAlert from './components/LoadingAlert';
 import { AppContext } from './AppContextValue';
 import './index.css';
 
+const REGISTRATION_CHECKOUT_PENDING_KEY = 'registration-checkout-pending';
+
+const isRegistrationCheckoutPending = () => (
+  typeof window !== 'undefined' &&
+  sessionStorage.getItem(REGISTRATION_CHECKOUT_PENDING_KEY) === 'true'
+);
+
 function AppRoutes() {
   const { isAuthenticated, loading, hasActiveSubscription, profileReady, subscriptionReady, isOnboarded, isAdmin } = useContext(AppContext);
   const location = useLocation();
@@ -29,6 +36,7 @@ function AppRoutes() {
   const isFullyOnboarded = isOnboarded;
   const onAdminPage = location.pathname === '/admin';
   const loginRedirect = <Navigate to="/login" state={{ from: location }} replace />;
+  const allowRegistrationCheckout = location.pathname === '/register' && isRegistrationCheckoutPending();
 
   const getDefaultRoute = () => {
     if (isAdmin) return '/admin';
@@ -57,7 +65,7 @@ function AppRoutes() {
             isAuthenticated ? <Navigate to={getPostLoginRoute()} replace /> : <Login />
           } />
           <Route path="/register" element={
-            isAuthenticated ? <Navigate to={getDefaultRoute()} /> : <Register />
+            isAuthenticated && !allowRegistrationCheckout ? <Navigate to={getDefaultRoute()} /> : <Register />
           } />
           <Route path="/reset-password" element={<ResetPassword />} />
 

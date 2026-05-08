@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
 
     const requestBody = await req.json().catch(() => null);
     const planCode = typeof requestBody?.plan_code === "string" ? requestBody.plan_code.trim() : "";
+    const checkoutFlow = requestBody?.checkout_flow === "registration" ? "registration" : "subscription";
     if (!planCode) return jsonResponse({ error: "plan_code is required" }, 400);
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -153,8 +154,11 @@ Deno.serve(async (req) => {
     if (attemptError) throw attemptError;
 
     const appOrigin = getAppOrigin(req);
-    const successUrl = `${appOrigin}/payment/success?attempt_id=${attempt.id}`;
-    const cancelUrl = `${appOrigin}/payment/cancel?attempt_id=${attempt.id}`;
+    const returnParams = new URLSearchParams({ attempt_id: attempt.id });
+    if (checkoutFlow === "registration") returnParams.set("flow", "registration");
+
+    const successUrl = `${appOrigin}/payment/success?${returnParams.toString()}`;
+    const cancelUrl = `${appOrigin}/payment/cancel?${returnParams.toString()}`;
     const userName = getDisplayName(userData.user.user_metadata);
 
     const checkoutPayload = {
@@ -183,6 +187,7 @@ Deno.serve(async (req) => {
             plan_code: plan.plan_code,
             plan_price_cents: String(plan.price_cents),
             checkout_amount_cents: String(checkoutAmountCents),
+            checkout_flow: checkoutFlow,
             customer_name: userName,
           },
         },
@@ -227,6 +232,7 @@ Deno.serve(async (req) => {
       checkout_url: checkoutUrl,
       checkout_session_id: checkoutSessionId,
       attempt_id: attempt.id,
+      checkout_flow: checkoutFlow,
     });
   } catch (error) {
     console.error("create-paymongo-checkout failed", error);

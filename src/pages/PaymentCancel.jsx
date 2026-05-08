@@ -5,6 +5,34 @@ import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import { fetchPaymentAttempt, formatPlanPrice, startPaymongoCheckout } from '../services/subscription';
 
+const REGISTRATION_CHECKOUT_ATTEMPT_KEY = 'registration-checkout-attempt-id';
+const REGISTRATION_CHECKOUT_SESSION_KEY = 'registration-checkout-session-id';
+const REGISTRATION_CHECKOUT_EMAIL_KEY = 'registration-checkout-email';
+
+const getStoredRegistrationCheckout = () => {
+  if (typeof window === 'undefined') {
+    return { attemptId: null, checkoutSessionId: null, email: '' };
+  }
+
+  return {
+    attemptId: sessionStorage.getItem(REGISTRATION_CHECKOUT_ATTEMPT_KEY),
+    checkoutSessionId: sessionStorage.getItem(REGISTRATION_CHECKOUT_SESSION_KEY),
+    email: sessionStorage.getItem(REGISTRATION_CHECKOUT_EMAIL_KEY) || '',
+  };
+};
+
+const rememberRegistrationCheckout = (checkout, email) => {
+  if (typeof window === 'undefined' || !email) return;
+
+  if (checkout.attempt_id) {
+    sessionStorage.setItem(REGISTRATION_CHECKOUT_ATTEMPT_KEY, checkout.attempt_id);
+  }
+  if (checkout.checkout_session_id) {
+    sessionStorage.setItem(REGISTRATION_CHECKOUT_SESSION_KEY, checkout.checkout_session_id);
+  }
+  sessionStorage.setItem(REGISTRATION_CHECKOUT_EMAIL_KEY, email);
+};
+
 export default function PaymentCancel() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -15,6 +43,7 @@ export default function PaymentCancel() {
 
   const attemptId = searchParams.get('attempt_id');
   const checkoutSessionId = searchParams.get('checkout_session_id');
+  const returnFlow = searchParams.get('flow');
 
   const loadAttempt = useCallback(async () => {
     const { data, error: attemptError } = await fetchPaymentAttempt({ attemptId, checkoutSessionId });
@@ -42,7 +71,19 @@ export default function PaymentCancel() {
     setError('');
 
     try {
-      const checkout = await startPaymongoCheckout(planCode);
+      const registrationCheckout = getStoredRegistrationCheckout();
+      const isRegistrationRetry = Boolean(
+        returnFlow === 'registration' ||
+        attempt?.checkout_flow === 'registration' ||
+        (attemptId && registrationCheckout.attemptId === attemptId) ||
+        (checkoutSessionId && registrationCheckout.checkoutSessionId === checkoutSessionId),
+      );
+      const checkout = await startPaymongoCheckout(planCode, {
+        checkoutFlow: isRegistrationRetry ? 'registration' : 'subscription',
+      });
+      if (isRegistrationRetry) {
+        rememberRegistrationCheckout(checkout, registrationCheckout.email);
+      }
       window.location.assign(checkout.checkout_url);
     } catch (checkoutError) {
       setError(checkoutError.message);
