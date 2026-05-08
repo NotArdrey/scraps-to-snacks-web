@@ -202,6 +202,7 @@ Deno.serve(async (req) => {
         amount_cents: checkoutAmountCents,
         currency,
         status: "pending",
+        checkout_flow: checkoutFlow,
       })
       .select("id")
       .single();

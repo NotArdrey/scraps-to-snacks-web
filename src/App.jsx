@@ -40,8 +40,10 @@ const isEmailConfirmationCallback = (location) => {
     type === 'signup' ||
     type === 'email_change' ||
     searchParams.has('code') ||
+    searchParams.has('token_hash') ||
     hashParams.has('access_token') ||
-    hashParams.has('refresh_token')
+    hashParams.has('refresh_token') ||
+    hashParams.has('token_hash')
   );
 };
 

@@ -33,6 +33,13 @@ const rememberRegistrationCheckout = (checkout, email) => {
   sessionStorage.setItem(REGISTRATION_CHECKOUT_EMAIL_KEY, email);
 };
 
+const getAttemptCheckoutFlow = (attempt) => (
+  attempt?.checkout_flow ||
+  attempt?.raw_checkout?.data?.attributes?.metadata?.checkout_flow ||
+  attempt?.raw_event?.checkout?.data?.attributes?.metadata?.checkout_flow ||
+  null
+);
+
 export default function PaymentCancel() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -85,7 +92,7 @@ export default function PaymentCancel() {
       const registrationCheckout = getStoredRegistrationCheckout();
       const isRegistrationRetry = Boolean(
         returnFlow === 'registration' ||
-        attempt?.checkout_flow === 'registration' ||
+        getAttemptCheckoutFlow(attempt) === 'registration' ||
         (attemptId && registrationCheckout.attemptId === attemptId) ||
         (checkoutSessionId && registrationCheckout.checkoutSessionId === checkoutSessionId),
       );

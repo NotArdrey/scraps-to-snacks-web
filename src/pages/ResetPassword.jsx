@@ -23,9 +23,11 @@ export default function ResetPassword() {
     const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
     const accessToken = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
+    const tokenHash = url.searchParams.get('token_hash') || hashParams.get('token_hash');
     const hasRecoveryParams =
       url.searchParams.get('type') === 'recovery' ||
       hashParams.get('type') === 'recovery' ||
+      !!tokenHash ||
       !!accessToken ||
       !!refreshToken ||
       url.searchParams.has('code');
@@ -41,6 +43,18 @@ export default function ResetPassword() {
             message: exchangeError.message,
             status: exchangeError.status,
             code: exchangeError.code,
+          });
+        }
+      } else if (tokenHash) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'recovery',
+        });
+        if (verifyError) {
+          console.error('Password reset token verification failed', {
+            message: verifyError.message,
+            status: verifyError.status,
+            code: verifyError.code,
           });
         }
       } else if (accessToken && refreshToken) {

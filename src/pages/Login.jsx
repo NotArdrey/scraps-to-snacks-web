@@ -20,16 +20,20 @@ function getLoginAuthCallback() {
   const type = url.searchParams.get('type') || hashParams.get('type');
   const accessToken = hashParams.get('access_token');
   const refreshToken = hashParams.get('refresh_token');
+  const tokenHash = url.searchParams.get('token_hash') || hashParams.get('token_hash');
   const hasCallbackParams = (
     type === 'signup' ||
     type === 'email_change' ||
     url.searchParams.has('code') ||
+    !!tokenHash ||
     !!accessToken ||
     !!refreshToken
   );
 
   return {
     code: url.searchParams.get('code'),
+    type,
+    tokenHash,
     accessToken,
     refreshToken,
     isConfirmation: type !== 'recovery' && hasCallbackParams,
@@ -38,6 +42,17 @@ function getLoginAuthCallback() {
 
 function clearLoginAuthCallback() {
   window.history.replaceState({}, document.title, '/login');
+}
+
+async function isRecoverableConfirmationExchangeError(error, completedByAuthHook) {
+  if (completedByAuthHook) return true;
+
+  const message = error?.message || '';
+  if (/verifier|both auth code|code verifier/i.test(message)) return true;
+  if (!/invalid|used/i.test(message)) return false;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  return !!session;
 }
 
 export default function Login() {
@@ -67,17 +82,31 @@ export default function Login() {
     let mounted = true;
 
     const finishEmailConfirmation = async () => {
-      const { code, accessToken, refreshToken, isConfirmation } = getLoginAuthCallback();
+      const { code, type, tokenHash, accessToken, refreshToken, isConfirmation } = getLoginAuthCallback();
       const completedByAuthHook = sessionStorage.getItem(EMAIL_CONFIRMATION_COMPLETE_KEY) === 'true';
 
       if (!isConfirmation && !completedByAuthHook) return;
 
       setError(null);
 
-      if (isConfirmation && code) {
+      if (isConfirmation && tokenHash && (type === 'signup' || type === 'email_change')) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type,
+        });
+        if (verifyError) {
+          const alreadyConsumed = await isRecoverableConfirmationExchangeError(verifyError, completedByAuthHook);
+          if (!alreadyConsumed) {
+            if (!mounted) return;
+            setError('This confirmation link is invalid or has expired.');
+            clearLoginAuthCallback();
+            return;
+          }
+        }
+      } else if (isConfirmation && code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          const alreadyConsumed = completedByAuthHook || /invalid|expired|used|verifier/i.test(exchangeError.message);
+          const alreadyConsumed = await isRecoverableConfirmationExchangeError(exchangeError, completedByAuthHook);
           if (!alreadyConsumed) {
             if (!mounted) return;
             setError('This confirmation link is invalid or has expired.');

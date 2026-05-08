@@ -11,8 +11,10 @@ function isEmailConfirmationRedirect() {
   const type = url.searchParams.get('type') || hashParams.get('type');
   const hasCallbackParams = (
     url.searchParams.has('code') ||
+    url.searchParams.has('token_hash') ||
     hashParams.has('access_token') ||
-    hashParams.has('refresh_token')
+    hashParams.has('refresh_token') ||
+    hashParams.has('token_hash')
   );
 
   if (url.pathname === '/reset-password' || type === 'recovery') return false;

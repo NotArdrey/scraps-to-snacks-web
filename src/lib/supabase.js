@@ -7,8 +7,4 @@ const useVisualDocsMock = import.meta.env.VITE_VISUAL_DOCS === 'true';
 
 export const supabase = useVisualDocsMock
   ? mockSupabase
-  : createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        detectSessionInUrl: false,
-      },
-    });
+  : createClient(supabaseUrl, supabaseAnonKey);

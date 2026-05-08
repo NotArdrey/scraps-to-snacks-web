@@ -44,6 +44,13 @@ const clearStoredRegistrationCheckout = () => {
   sessionStorage.removeItem(REGISTRATION_CHECKOUT_PENDING_KEY);
 };
 
+const getAttemptCheckoutFlow = (attempt) => (
+  attempt?.checkout_flow ||
+  attempt?.raw_checkout?.data?.attributes?.metadata?.checkout_flow ||
+  attempt?.raw_event?.checkout?.data?.attributes?.metadata?.checkout_flow ||
+  null
+);
+
 const getSignupConfirmationEmailKey = ({ attemptId, checkoutSessionId, email }) => {
   const identifier = attemptId || checkoutSessionId || email;
   return identifier ? `${REGISTRATION_CONFIRMATION_EMAIL_KEY_PREFIX}:${identifier}` : null;
@@ -228,7 +235,7 @@ export default function PaymentSuccess() {
       );
       const isRegistrationCheckout = (
         returnFlow === 'registration' ||
-        nextAttempt.checkout_flow === 'registration' ||
+        getAttemptCheckoutFlow(nextAttempt) === 'registration' ||
         isStoredRegistrationCheckout
       );
 

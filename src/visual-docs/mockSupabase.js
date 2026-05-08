@@ -556,6 +556,9 @@ export const mockSupabase = {
       sessionStorage.setItem('password-recovery-active', 'true');
       return { data: { session: getSession() }, error: null };
     },
+    async verifyOtp() {
+      return { data: { session: getSession() }, error: null };
+    },
     async setSession() {
       return { data: { session: getSession() }, error: null };
     },
