@@ -224,3 +224,5 @@ $$;
 
 revoke all on function public.admin_prune_auth_user_mismatches() from public;
 grant execute on function public.admin_prune_auth_user_mismatches() to authenticated;
+
+notify pgrst, 'reload schema';
