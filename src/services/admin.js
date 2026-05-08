@@ -1,6 +1,112 @@
 import { supabase } from '../lib/supabase';
 import { findOrCreateIngredient } from './pantry';
 
+const QUANTITY_UNITS = [
+  'pcs', 'piece', 'pieces', 'kg', 'g', 'gram', 'grams', 'lbs', 'lb', 'oz',
+  'L', 'l', 'mL', 'ml', 'cup', 'cups', 'tbsp', 'tablespoon', 'tablespoons',
+  'tsp', 'teaspoon', 'teaspoons',
+];
+
+function firstRow(data) {
+  return Array.isArray(data) ? data[0] || null : data || null;
+}
+
+function parsePositiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function parseFraction(value) {
+  if (!value) return null;
+  if (value.includes('/')) {
+    const [top, bottom] = value.split('/').map(Number);
+    return Number.isFinite(top) && Number.isFinite(bottom) && bottom !== 0 ? top / bottom : null;
+  }
+
+  return parsePositiveNumber(value);
+}
+
+function parseIngredientLine(line) {
+  const text = typeof line === 'string' ? line.trim().replace(/\s+/g, ' ') : '';
+  if (!text) return null;
+
+  const match = text.match(/^(\d+(?:\.\d+)?|\d+\/\d+)(?:\s+([a-zA-Z]+))?\s+(.+)$/);
+  if (!match) return { name: text, quantity: null, unit: '' };
+
+  const quantity = parseFraction(match[1]);
+  const maybeUnit = match[2] || '';
+  const hasKnownUnit = QUANTITY_UNITS.some(unit => unit.toLowerCase() === maybeUnit.toLowerCase());
+  const name = hasKnownUnit ? match[3] : `${maybeUnit} ${match[3]}`.trim();
+
+  return {
+    name: name || text,
+    quantity,
+    unit: hasKnownUnit ? maybeUnit : '',
+  };
+}
+
+function formatRecipeIngredient(row) {
+  const name = row?.ingredients?.canonical_name || '';
+  if (!name) return '';
+  return [row.quantity || '', row.unit || '', name].filter(Boolean).join(' ').trim();
+}
+
+function mapAdminRecipe(recipe) {
+  if (!recipe) return null;
+  return {
+    ...recipe,
+    instructions: Array.isArray(recipe.instructions_json) ? recipe.instructions_json : [],
+    ingredients: Array.isArray(recipe.recipe_ingredients)
+      ? recipe.recipe_ingredients.map(formatRecipeIngredient).filter(Boolean)
+      : [],
+  };
+}
+
+async function fetchAdminRecipeById(recipeId) {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select(`
+      id, title, instructions_json, created_at,
+      recipe_ingredients(quantity, unit, ingredients(canonical_name))
+    `)
+    .eq('id', recipeId)
+    .limit(1);
+
+  if (error) return { data: null, error };
+  return { data: mapAdminRecipe(firstRow(data)), error: null };
+}
+
+async function replaceRecipeIngredients(recipeId, ingredientLines) {
+  const { error: deleteError } = await supabase
+    .from('recipe_ingredients')
+    .delete()
+    .eq('recipe_id', recipeId);
+
+  if (deleteError) return deleteError;
+
+  const rows = [];
+  for (const line of ingredientLines || []) {
+    const detail = parseIngredientLine(line);
+    if (!detail?.name) continue;
+
+    const ingredient = await findOrCreateIngredient(detail.name, detail.unit);
+    if (ingredient) {
+      const row = {
+        recipe_id: recipeId,
+        ingredient_id: ingredient.id,
+      };
+      if (detail.quantity) row.quantity = detail.quantity;
+      if (detail.unit) row.unit = detail.unit;
+      rows.push(row);
+    }
+  }
+
+  if (rows.length === 0) return null;
+
+  const { error } = await supabase.from('recipe_ingredients').insert(rows);
+  return error;
+}
+
 // ── Fetch (existing) ──────────────────────────────────────────────
 
 export async function fetchAllUsers() {
@@ -43,10 +149,13 @@ export async function fetchAllPantryItems() {
 export async function fetchAllRecipes() {
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, model_provider, created_at')
+    .select(`
+      id, title, instructions_json, created_at,
+      recipe_ingredients(quantity, unit, ingredients(canonical_name))
+    `)
     .order('created_at', { ascending: false });
   if (error) { console.error('fetchAllRecipes error:', error); return []; }
-  return data || [];
+  return (data || []).map(mapAdminRecipe).filter(Boolean);
 }
 
 export async function fetchAllHouseholds() {
@@ -148,8 +257,8 @@ export async function createPlan({ display_name, plan_code, price_cents, billing
     .from('subscription_plans')
     .insert({ display_name, plan_code, price_cents, billing_period_days, is_active, currency })
     .select()
-    .single();
-  return { data, error };
+    .limit(1);
+  return { data: firstRow(data), error };
 }
 
 export async function updatePlan(planId, updates) {
@@ -158,8 +267,8 @@ export async function updatePlan(planId, updates) {
     .update(updates)
     .eq('id', planId)
     .select()
-    .single();
-  return { data, error };
+    .limit(1);
+  return { data: firstRow(data), error };
 }
 
 export async function deletePlan(planId) {
@@ -188,18 +297,31 @@ export async function adminCreatePantryItem({ ingredientName, quantity, unit, ca
       created_by_user_id: userId,
     })
     .select('id, quantity, unit, status, expires_at, created_at, ingredients(canonical_name, category)')
-    .single();
-  return { data, error };
+    .limit(1);
+  return { data: firstRow(data), error };
 }
 
-export async function updatePantryItem(itemId, { quantity, unit, expires_at }) {
+export async function updatePantryItem(itemId, { ingredientName, quantity, unit, category, expires_at }) {
+  const updates = { quantity, unit, expires_at };
+
+  if (ingredientName?.trim()) {
+    const ingredient = await findOrCreateIngredient(ingredientName, unit, category);
+    if (!ingredient) return { data: null, error: { message: 'Failed to find or create ingredient' } };
+    updates.ingredient_id = ingredient.id;
+
+    await supabase
+      .from('ingredients')
+      .update({ default_unit: unit || 'pcs', category: category || null })
+      .eq('id', ingredient.id);
+  }
+
   const { data, error } = await supabase
     .from('pantry_items')
-    .update({ quantity, unit, expires_at })
+    .update(updates)
     .eq('id', itemId)
     .select('id, quantity, unit, status, expires_at, created_at, ingredients(canonical_name, category)')
-    .single();
-  return { data, error };
+    .limit(1);
+  return { data: firstRow(data), error };
 }
 
 export async function deletePantryItem(itemId) {
@@ -217,9 +339,52 @@ export async function updateRecipeTitle(recipeId, title) {
     .from('recipes')
     .update({ title })
     .eq('id', recipeId)
-    .select('id, title, model_provider, created_at')
-    .single();
-  return { data, error };
+    .select('id, title, instructions_json, created_at')
+    .limit(1);
+  return { data: mapAdminRecipe(firstRow(data)), error };
+}
+
+export async function adminCreateRecipe({ userId, title, instructions, ingredientLines }) {
+  const insertPayload = {
+    generated_by_user_id: userId,
+    title,
+    instructions_json: instructions || [],
+    nutrition_json: {},
+    model_provider: 'admin',
+  };
+
+  const { data: createdRows, error: createError } = await supabase
+    .from('recipes')
+    .insert(insertPayload)
+    .select('id')
+    .limit(1);
+
+  if (createError) return { data: null, error: createError };
+
+  const recipeId = firstRow(createdRows)?.id;
+  if (!recipeId) return { data: null, error: { message: 'Recipe was not returned after creation.' } };
+
+  const ingredientError = await replaceRecipeIngredients(recipeId, ingredientLines);
+  if (ingredientError) return { data: null, error: ingredientError };
+
+  return fetchAdminRecipeById(recipeId);
+}
+
+export async function adminUpdateRecipe(recipeId, { title, instructions, ingredientLines }) {
+  const { error: recipeError } = await supabase
+    .from('recipes')
+    .update({
+      title,
+      instructions_json: instructions || [],
+    })
+    .eq('id', recipeId);
+
+  if (recipeError) return { data: null, error: recipeError };
+
+  const ingredientError = await replaceRecipeIngredients(recipeId, ingredientLines);
+  if (ingredientError) return { data: null, error: ingredientError };
+
+  return fetchAdminRecipeById(recipeId);
 }
 
 export async function deleteRecipe(recipeId) {

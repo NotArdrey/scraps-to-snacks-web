@@ -1,12 +1,17 @@
-import { useCallback, useState, useEffect, useContext } from 'react';
-import { Shield, Users, CreditCard, Package, ChefHat, BarChart3, ToggleLeft, ToggleRight, LogOut, Moon, Sun, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { useCallback, useState, useEffect, useContext, useMemo } from 'react';
+import {
+  Shield, Users, CreditCard, Package, ChefHat, BarChart3, ToggleLeft, ToggleRight,
+  LogOut, Moon, Sun, Pencil, Trash2, Plus, RefreshCw, Download, ArrowUpRight,
+  TrendingUp, TrendingDown, AlertTriangle, Clock, PieChart, DollarSign, Activity,
+  Minus, Check, X,
+} from 'lucide-react';
 import {
   fetchAllUsers, fetchAdminStats, fetchAllPlans, togglePlanActive,
   fetchAllPantryItems, fetchAllRecipes, fetchAllHouseholds,
   updateUserRole, deleteUserProfile, updateUserSubscription,
   createPlan, updatePlan, deletePlan,
   adminCreatePantryItem, updatePantryItem, deletePantryItem,
-  updateRecipeTitle, deleteRecipe,
+  adminCreateRecipe, adminUpdateRecipe, deleteRecipe,
 } from '../../services/admin';
 import { formatPlanPrice } from '../../services/subscription';
 import { AppContext } from '../../AppContextValue';
@@ -15,7 +20,6 @@ import ConfirmModal from '../../components/ConfirmModal';
 import AdminFormModal from '../../components/AdminFormModal';
 import LoadingAlert from '../../components/LoadingAlert';
 import { CATEGORIES, UNITS } from '../../constants/categories';
-import { formatModelProvider } from '../../utils/formatters';
 
 const TABS = [
   { key: 'stats', label: 'Dashboard', icon: BarChart3 },
@@ -36,6 +40,7 @@ export default function Admin() {
   const [recipes, setRecipes] = useState([]);
   const [households, setHouseholds] = useState([]);
   const [confirmModal, setConfirmModal] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -66,6 +71,14 @@ export default function Admin() {
     setConfirmModal({ title, message, onConfirm, variant });
   };
   const closeConfirm = () => setConfirmModal(null);
+  const openTab = (tabKey) => {
+    setPendingAction(null);
+    setActiveTab(tabKey);
+  };
+  const triggerAction = (tabKey, action) => {
+    setPendingAction({ tabKey, action, nonce: Date.now() });
+    setActiveTab(tabKey);
+  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
@@ -98,7 +111,7 @@ export default function Admin() {
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => { setPendingAction(null); setActiveTab(tab.key); }}
                 className={`admin-sidebar-link${activeTab === tab.key ? ' active' : ''}`}
                 title={tab.label}
                 aria-label={`Open ${tab.label}`}
@@ -110,6 +123,10 @@ export default function Admin() {
           })}
         </nav>
         <div className="admin-sidebar-footer">
+          <div className="admin-sidebar-profile">
+            <span>Admin</span>
+            <strong>{user?.email || 'Signed in'}</strong>
+          </div>
           <button onClick={toggleTheme} className="admin-sidebar-link" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
@@ -121,11 +138,11 @@ export default function Admin() {
       </aside>
 
       <main className="admin-main">
-        {activeTab === 'stats' && <StatsTab stats={stats} />}
+        {activeTab === 'stats' && <StatsTab stats={stats} users={users} plans={plans} pantryItems={pantryItems} recipes={recipes} onNavigate={openTab} onAction={triggerAction} onRefresh={loadData} />}
         {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} plans={plans} formatDate={formatDate} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} />}
-        {activeTab === 'plans' && <PlansTab plans={plans} setPlans={setPlans} onToggle={handleTogglePlan} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} />}
-        {activeTab === 'pantry' && <PantryTab items={pantryItems} setItems={setPantryItems} households={households} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} />}
-        {activeTab === 'recipes' && <RecipesTab recipes={recipes} setRecipes={setRecipes} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} />}
+        {activeTab === 'plans' && <PlansTab plans={plans} setPlans={setPlans} onToggle={handleTogglePlan} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} pendingAction={pendingAction?.tabKey === 'plans' ? pendingAction : null} />}
+        {activeTab === 'pantry' && <PantryTab items={pantryItems} setItems={setPantryItems} households={households} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} pendingAction={pendingAction?.tabKey === 'pantry' ? pendingAction : null} />}
+        {activeTab === 'recipes' && <RecipesTab recipes={recipes} setRecipes={setRecipes} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} pendingAction={pendingAction?.tabKey === 'recipes' ? pendingAction : null} />}
       </main>
 
       <ConfirmModal
@@ -143,29 +160,388 @@ export default function Admin() {
 
 /* ─── Stats Tab ─────────────────────────────────────────────────── */
 
-function StatsTab({ stats }) {
+const DATE_RANGE_OPTIONS = [
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: 'all', label: 'All time' },
+];
+
+function parseDate(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function countSince(items, dateKey, startDate, endDate = new Date()) {
+  if (!startDate) return items.length;
+  return items.filter(item => {
+    const date = parseDate(item?.[dateKey]);
+    return date && date >= startDate && date <= endDate;
+  }).length;
+}
+
+function percentChange(current, previous) {
+  if (!previous && !current) return 0;
+  if (!previous) return 100;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+function formatCurrencyCents(cents, currency = 'PHP') {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format((cents || 0) / 100);
+}
+
+function formatDashboardDate(value) {
+  const date = parseDate(value);
+  if (!date) return 'No date';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function buildSeries(items, dateKey, selectedDays) {
+  const now = new Date();
+  const windowDays = selectedDays || 120;
+  const bucketCount = 8;
+  const bucketSize = Math.max(1, Math.ceil(windowDays / bucketCount));
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (bucketSize * bucketCount) + 1);
+
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const bucketStart = new Date(start);
+    bucketStart.setDate(start.getDate() + (index * bucketSize));
+    const bucketEnd = new Date(bucketStart);
+    bucketEnd.setDate(bucketStart.getDate() + bucketSize);
+
+    const value = items.filter(item => {
+      const date = parseDate(item?.[dateKey]);
+      return date && date >= bucketStart && date < bucketEnd;
+    }).length;
+
+    return {
+      label: bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      value,
+    };
+  });
+}
+
+function StatsTab({ stats, users, plans, pantryItems, recipes, onNavigate, onAction, onRefresh }) {
+  const [range, setRange] = useState('30');
+
+  const dashboard = useMemo(() => {
+    const now = new Date();
+    const selectedDays = range === 'all' ? null : Number(range);
+    const currentStart = selectedDays ? new Date(now.getTime() - selectedDays * 24 * 60 * 60 * 1000) : null;
+    const previousStart = selectedDays ? new Date(now.getTime() - selectedDays * 2 * 24 * 60 * 60 * 1000) : null;
+
+    const usersCurrent = countSince(users, 'created_at', currentStart, now);
+    const usersPrevious = selectedDays ? countSince(users, 'created_at', previousStart, currentStart) : 0;
+    const recipesCurrent = countSince(recipes, 'created_at', currentStart, now);
+    const recipesPrevious = selectedDays ? countSince(recipes, 'created_at', previousStart, currentStart) : 0;
+
+    const activeUsers = users.filter(u => ['active', 'trialing'].includes(u.subscription_status));
+    const inactiveUsers = Math.max(users.length - activeUsers.length, 0);
+    const planById = new Map(plans.map(plan => [plan.id, plan]));
+    const planCounts = activeUsers.reduce((acc, item) => {
+      const label = item.plan_name || planById.get(item.plan_id)?.display_name || 'No plan name';
+      acc[label] = (acc[label] || 0) + 1;
+      return acc;
+    }, {});
+    const planBreakdown = Object.entries(planCounts)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+
+    const mrrCents = activeUsers.reduce((total, item) => {
+      const plan = planById.get(item.plan_id) || plans.find(p => p.display_name === item.plan_name);
+      if (!plan?.price_cents) return total;
+      const periodDays = plan.billing_period_days || 30;
+      return total + Math.round(plan.price_cents * (30 / periodDays));
+    }, 0);
+
+    const recentUsers = [...users]
+      .sort((a, b) => (parseDate(b.created_at)?.getTime() || 0) - (parseDate(a.created_at)?.getTime() || 0))
+      .slice(0, 5);
+    const recentRecipes = [...recipes]
+      .sort((a, b) => (parseDate(b.created_at)?.getTime() || 0) - (parseDate(a.created_at)?.getTime() || 0))
+      .slice(0, 4);
+    const lowPantry = pantryItems
+      .filter(item => Number(item.quantity) <= 2)
+      .sort((a, b) => Number(a.quantity) - Number(b.quantity))
+      .slice(0, 4);
+
+    return {
+      selectedDays,
+      totalUsers: stats?.total_users ?? users.length,
+      activeSubscriptions: stats?.active_subscriptions ?? activeUsers.length,
+      pantryTotal: stats?.total_pantry_items ?? pantryItems.length,
+      totalRecipes: stats?.total_recipes ?? recipes.length,
+      usersCurrent,
+      recipesCurrent,
+      userTrend: percentChange(usersCurrent, usersPrevious),
+      recipeTrend: percentChange(recipesCurrent, recipesPrevious),
+      activeRate: users.length ? Math.round((activeUsers.length / users.length) * 100) : 0,
+      inactiveUsers,
+      mrrCents,
+      currency: plans[0]?.currency || 'PHP',
+      planBreakdown,
+      popularPlan: planBreakdown[0]?.label || 'None yet',
+      recentUsers,
+      recentRecipes,
+      lowPantry,
+      userSeries: buildSeries(users, 'created_at', selectedDays),
+      recipeSeries: buildSeries(recipes, 'created_at', selectedDays),
+    };
+  }, [range, stats, users, plans, pantryItems, recipes]);
+
+  const exportDashboard = () => {
+    const payload = {
+      exported_at: new Date().toISOString(),
+      range: DATE_RANGE_OPTIONS.find(option => option.value === range)?.label,
+      metrics: {
+        total_users: dashboard.totalUsers,
+        active_subscriptions: dashboard.activeSubscriptions,
+        monthly_revenue: dashboard.mrrCents / 100,
+        pantry_items: dashboard.pantryTotal,
+        total_recipes: dashboard.totalRecipes,
+        popular_plan: dashboard.popularPlan,
+      },
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `scraps-dashboard-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const cards = [
-    { label: 'Total Users', value: stats?.total_users ?? 0, icon: Users, color: '#7a5ed3' },
-    { label: 'Active Subscriptions', value: stats?.active_subscriptions ?? 0, icon: CreditCard, color: '#10b981' },
-    { label: 'Pantry Items', value: stats?.total_pantry_items ?? 0, icon: Package, color: '#f59e0b' },
-    { label: 'Total Recipes', value: stats?.total_recipes ?? 0, icon: ChefHat, color: '#ef4444' },
+    {
+      label: 'Total Users',
+      value: dashboard.totalUsers,
+      detail: `+${dashboard.usersCurrent} in selected period`,
+      trend: dashboard.userTrend,
+      icon: Users,
+      color: '#7a5ed3',
+      target: 'users',
+    },
+    {
+      label: 'Active Subscriptions',
+      value: dashboard.activeSubscriptions,
+      detail: `${dashboard.activeRate}% of users active`,
+      trend: dashboard.activeRate,
+      icon: CreditCard,
+      color: '#10b981',
+      target: 'plans',
+    },
+    {
+      label: 'Monthly Revenue',
+      value: formatCurrencyCents(dashboard.mrrCents, dashboard.currency),
+      detail: `${dashboard.popularPlan} leads plan mix`,
+      trend: dashboard.mrrCents > 0 ? 100 : 0,
+      icon: DollarSign,
+      color: '#06b6d4',
+      target: 'plans',
+    },
+    {
+      label: 'Total Recipes',
+      value: dashboard.totalRecipes,
+      detail: `+${dashboard.recipesCurrent} in selected period`,
+      trend: dashboard.recipeTrend,
+      icon: ChefHat,
+      color: '#ef4444',
+      target: 'recipes',
+    },
   ];
+
+  const maxUserSeries = Math.max(...dashboard.userSeries.map(point => point.value), 1);
+  const maxRecipeSeries = Math.max(...dashboard.recipeSeries.map(point => point.value), 1);
+  const maxPlanCount = Math.max(...dashboard.planBreakdown.map(item => item.value), 1);
+
   return (
-    <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
-      {cards.map(card => {
-        const Icon = card.icon;
-        return (
-          <div key={card.label} className="glass-card admin-stat-card" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${card.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon size={22} color={card.color} />
+    <div className="admin-dashboard">
+      <div className="admin-dashboard-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Overview of users, subscriptions, pantry, and recipes</p>
+        </div>
+        <div className="admin-dashboard-controls">
+          <select value={range} onChange={e => setRange(e.target.value)} aria-label="Dashboard date range">
+            {DATE_RANGE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <button type="button" className="btn-secondary" onClick={onRefresh}>
+            <RefreshCw size={16} /> Refresh
+          </button>
+          <button type="button" className="btn-secondary" onClick={exportDashboard}>
+            <Download size={16} /> Export
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-stats-grid">
+        {cards.map(card => {
+          const Icon = card.icon;
+          const TrendIcon = card.trend >= 0 ? TrendingUp : TrendingDown;
+          return (
+            <button key={card.label} type="button" className="glass-card admin-stat-card admin-stat-card-button" onClick={() => onNavigate(card.target)}>
+              <div className="admin-stat-card-top">
+                <span className="admin-stat-icon" style={{ background: `${card.color}18`, color: card.color }}>
+                  <Icon size={24} />
+                </span>
+                <ArrowUpRight size={17} className="admin-stat-open-icon" />
               </div>
+              <strong>{card.value}</strong>
+              <span className="admin-stat-label">{card.label}</span>
+              <span className={`admin-stat-trend${card.trend < 0 ? ' negative' : ''}`}>
+                <TrendIcon size={15} />
+                {Math.abs(card.trend)}% {card.detail}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="admin-dashboard-grid">
+        <section className="glass-card admin-dashboard-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h2>User Growth</h2>
+              <p>Signups across the selected range</p>
             </div>
-            <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1 }}>{card.value}</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '600' }}>{card.label}</div>
+            <Activity size={18} />
           </div>
-        );
-      })}
+          <div className="admin-bar-chart">
+            {dashboard.userSeries.map(point => (
+              <div key={point.label} className="admin-bar-column">
+                <div className="admin-bar-track">
+                  <span style={{ height: `${Math.max((point.value / maxUserSeries) * 100, point.value ? 12 : 3)}%` }} />
+                </div>
+                <small>{point.label}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="glass-card admin-dashboard-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h2>Subscription Breakdown</h2>
+              <p>{dashboard.activeSubscriptions} active, {dashboard.inactiveUsers} inactive</p>
+            </div>
+            <PieChart size={18} />
+          </div>
+          <div className="admin-breakdown-list">
+            {dashboard.planBreakdown.length === 0 ? (
+              <p className="admin-empty-text">No active plan data yet.</p>
+            ) : dashboard.planBreakdown.map(item => (
+              <div key={item.label} className="admin-breakdown-row">
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+                <div className="admin-progress-track">
+                  <span style={{ width: `${(item.value / maxPlanCount) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="admin-dashboard-grid admin-dashboard-grid-wide">
+        <section className="glass-card admin-dashboard-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h2>Recent Users</h2>
+              <p>Newest accounts in the platform</p>
+            </div>
+            <Clock size={18} />
+          </div>
+          <div className="admin-activity-list">
+            {dashboard.recentUsers.length === 0 ? (
+              <p className="admin-empty-text">No users found yet.</p>
+            ) : dashboard.recentUsers.map(item => (
+              <button key={item.user_id} type="button" onClick={() => onNavigate('users')} className="admin-activity-row">
+                <span>
+                  <strong>{item.display_name || item.email || 'Unnamed user'}</strong>
+                  <small>{item.email || 'No email'}</small>
+                </span>
+                <em>{formatDashboardDate(item.created_at)}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="glass-card admin-dashboard-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h2>Pantry Alerts</h2>
+              <p>{dashboard.pantryTotal} pantry items tracked</p>
+            </div>
+            <AlertTriangle size={18} />
+          </div>
+          <div className="admin-activity-list">
+            {dashboard.lowPantry.length === 0 ? (
+              <p className="admin-empty-text">No low pantry items.</p>
+            ) : dashboard.lowPantry.map(item => (
+              <button key={item.id} type="button" onClick={() => onNavigate('pantry')} className="admin-activity-row">
+                <span>
+                  <strong>{item.ingredients?.canonical_name || 'Pantry item'}</strong>
+                  <small>{item.ingredients?.category || 'Uncategorized'}</small>
+                </span>
+                <em>{item.quantity} {item.unit}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="glass-card admin-dashboard-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h2>Quick Actions</h2>
+              <p>Common admin tasks</p>
+            </div>
+            <Plus size={18} />
+          </div>
+          <div className="admin-quick-actions">
+            <button type="button" onClick={() => onNavigate('users')}><Users size={16} /> Review Users</button>
+            <button type="button" onClick={() => onAction('plans', 'create')}><CreditCard size={16} /> Create Plan</button>
+            <button type="button" onClick={() => onAction('pantry', 'create')}><Package size={16} /> Add Pantry Item</button>
+            <button type="button" onClick={() => onAction('recipes', 'create')}><ChefHat size={16} /> Add Recipe</button>
+          </div>
+        </section>
+      </div>
+
+      <section className="glass-card admin-dashboard-panel admin-dashboard-recipe-strip">
+        <div className="admin-panel-heading">
+          <div>
+            <h2>Recent Recipes</h2>
+            <p>Recipe creation activity in the selected window</p>
+          </div>
+          <ChefHat size={18} />
+        </div>
+        <div className="admin-recipe-strip-content">
+          <div className="admin-mini-chart">
+            {dashboard.recipeSeries.map(point => (
+              <span key={point.label} style={{ height: `${Math.max((point.value / maxRecipeSeries) * 100, point.value ? 16 : 4)}%` }} title={`${point.value} recipes on ${point.label}`} />
+            ))}
+          </div>
+          <div className="admin-activity-list">
+            {dashboard.recentRecipes.length === 0 ? (
+              <p className="admin-empty-text">No recipes found yet.</p>
+            ) : dashboard.recentRecipes.map(item => (
+              <button key={item.id} type="button" onClick={() => onNavigate('recipes')} className="admin-activity-row">
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.ingredients?.length || 0} ingredients, {item.instructions?.length || 0} steps</small>
+                </span>
+                <em>{formatDashboardDate(item.created_at)}</em>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -182,6 +558,8 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
 
   const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const selectStyle = { padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.85rem' };
+  const inputStyle = { width: '100%', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' };
+  const labelStyle = { fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.25rem', display: 'block' };
 
   const startEdit = (u) => {
     setEditingId(u.user_id);
@@ -255,12 +633,8 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
   };
 
   return (
+    <>
     <div className="admin-table-panel" style={panelStyle}>
-      {saveError && (
-        <div style={{ margin: '0.75rem 1rem 0', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600 }}>
-          {saveError}
-        </div>
-      )}
       <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
         <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -277,20 +651,13 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
             {users.length === 0 ? (
               <tr><td className="admin-empty-cell" colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No users found</td></tr>
             ) : users.map(u => {
-              const isEditing = editingId === u.user_id;
+              const isEditing = false;
               return (
                 <tr key={u.user_id}>
                   <td data-label="Email" className="admin-primary-cell" style={tdStyle}>{u.email}</td>
                   <td data-label="Name" style={tdStyle}>{u.display_name || '—'}</td>
                   <td data-label="Role" style={tdStyle}>
-                    {isEditing ? (
-                      <select value={editRole} onChange={e => setEditRole(e.target.value)} style={selectStyle}>
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
-                      </select>
-                    ) : (
-                      <span style={badgeStyle(u.role === 'admin' ? '#7a5ed3' : '#6b7280')}>{u.role}</span>
-                    )}
+                    <span style={badgeStyle(u.role === 'admin' ? '#7a5ed3' : '#6b7280')}>{u.role}</span>
                   </td>
                   <td data-label="Subscription" style={tdStyle}>
                     {isEditing ? (
@@ -334,15 +701,54 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
         </table>
       </div>
     </div>
+    <AdminFormModal open={!!editingId} title="Edit User" onClose={cancelEdit} onSubmit={saveUser} submitText="Update" loading={saving}>
+      {saveError && (
+        <div style={{ padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600 }}>
+          {saveError}
+        </div>
+      )}
+      <div>
+        <label style={labelStyle}>Email</label>
+        <input style={{ ...inputStyle, opacity: 0.72 }} value={users.find(u => u.user_id === editingId)?.email || ''} disabled />
+      </div>
+      <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div>
+          <label style={labelStyle}>Role</label>
+          <select value={editRole} onChange={e => setEditRole(e.target.value)} style={inputStyle}>
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Subscription Status</label>
+          <select value={editSubStatus} onChange={e => setEditSubStatus(e.target.value)} style={inputStyle}>
+            <option value="">None</option>
+            <option value="active">active</option>
+            <option value="trialing">trialing</option>
+            <option value="canceled">canceled</option>
+            <option value="expired">expired</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style={labelStyle}>Plan</label>
+        <select value={editPlanId} onChange={e => setEditPlanId(e.target.value)} style={inputStyle}>
+          <option value="">No Plan</option>
+          {plans.map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
+        </select>
+      </div>
+    </AdminFormModal>
+    </>
   );
 }
 
 /* ─── Plans Tab ─────────────────────────────────────────────────── */
 
-function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm }) {
-  const [showForm, setShowForm] = useState(false);
+function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm, pendingAction }) {
+  const defaultPlanForm = { display_name: '', plan_code: '', price: '', currency: 'PHP', billing_period_days: 30, is_active: true };
+  const [showForm, setShowForm] = useState(pendingAction?.action === 'create');
   const [editingPlan, setEditingPlan] = useState(null);
-  const [formData, setFormData] = useState({ display_name: '', plan_code: '', price: '', currency: 'PHP', billing_period_days: 30, is_active: true });
+  const [formData, setFormData] = useState(defaultPlanForm);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -353,7 +759,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
 
   const openCreate = () => {
     setEditingPlan(null);
-    setFormData({ display_name: '', plan_code: '', price: '', currency: 'PHP', billing_period_days: 30, is_active: true });
+    setFormData(defaultPlanForm);
     setFormError('');
     setShowForm(true);
   };
@@ -500,31 +906,33 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
 
 /* ─── Pantry Tab ────────────────────────────────────────────────── */
 
-function PantryTab({ items, setItems, households, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm }) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: '' });
-  const [formLoading, setFormLoading] = useState(false);
-  const [formError, setFormError] = useState('');
-
+function PantryTab({ items, setItems, households, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm, pendingAction }) {
   const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const inputStyle = { width: '100%', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' };
   const labelStyle = { fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.25rem', display: 'block' };
   const adminHouseholdId = households.find(h => h.user_id === userId)?.household_id || '';
-  const householdOptions = adminHouseholdId
-    ? [...households].sort((a, b) => Number(b.household_id === adminHouseholdId) - Number(a.household_id === adminHouseholdId))
-    : households;
+  const householdOptions = useMemo(() => (
+    adminHouseholdId
+      ? [...households].sort((a, b) => Number(b.household_id === adminHouseholdId) - Number(a.household_id === adminHouseholdId))
+      : households
+  ), [adminHouseholdId, households]);
+  const defaultPantryForm = { ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: adminHouseholdId || householdOptions[0]?.household_id || '' };
+  const [showForm, setShowForm] = useState(pendingAction?.action === 'create');
+  const [editingItem, setEditingItem] = useState(null);
+  const [formData, setFormData] = useState(defaultPantryForm);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const openCreate = () => {
     setEditingItem(null);
-    setFormData({ ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: adminHouseholdId || householdOptions[0]?.household_id || '' });
+    setFormData(defaultPantryForm);
     setFormError('');
     setShowForm(true);
   };
 
   const openEdit = (item) => {
     setEditingItem(item);
-    setFormData({ ingredientName: item.ingredients?.canonical_name || '', quantity: item.quantity, unit: item.unit, category: item.ingredients?.category || '', expiresAt: item.expires_at ? item.expires_at.split('T')[0] : '' , householdId: '' });
+    setFormData({ ingredientName: item.ingredients?.canonical_name || '', quantity: item.quantity, unit: item.unit, category: item.ingredients?.category || CATEGORIES[0], expiresAt: item.expires_at ? item.expires_at.split('T')[0] : '' , householdId: '' });
     setFormError('');
     setShowForm(true);
   };
@@ -536,8 +944,10 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
     setFormLoading(true);
     if (editingItem) {
       const { data, error } = await updatePantryItem(editingItem.id, {
+        ingredientName: formData.ingredientName,
         quantity: parseFloat(formData.quantity),
         unit: formData.unit,
+        category: formData.category,
         expires_at: formData.expiresAt || null,
       });
       if (error) {
@@ -635,12 +1045,10 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
             {formError}
           </div>
         )}
-        {!editingItem && (
-          <div>
-            <label style={labelStyle}>Ingredient Name</label>
-            <input style={inputStyle} value={formData.ingredientName} onChange={e => set('ingredientName', e.target.value)} placeholder="e.g. Chicken Breast" required />
-          </div>
-        )}
+        <div>
+          <label style={labelStyle}>Ingredient Name</label>
+          <input style={inputStyle} value={formData.ingredientName} onChange={e => set('ingredientName', e.target.value)} placeholder="e.g. Chicken Breast" required />
+        </div>
         {!editingItem && households.length > 0 && (
           <div>
             <label style={labelStyle}>Household</label>
@@ -663,14 +1071,12 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
             </select>
           </div>
         </div>
-        {!editingItem && (
-          <div>
-            <label style={labelStyle}>Category</label>
-            <select style={inputStyle} value={formData.category} onChange={e => set('category', e.target.value)}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        )}
+        <div>
+          <label style={labelStyle}>Category</label>
+          <select style={inputStyle} value={formData.category} onChange={e => set('category', e.target.value)}>
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
         <div>
           <label style={labelStyle}>Expiration Date</label>
           <input style={inputStyle} type="date" value={formData.expiresAt} onChange={e => set('expiresAt', e.target.value)} />
@@ -682,35 +1088,90 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
 
 /* ─── Recipes Tab ───────────────────────────────────────────────── */
 
-function RecipesTab({ recipes, setRecipes, formatDate, panelStyle, thStyle, tdStyle, showConfirm }) {
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
+function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm, pendingAction }) {
+  const defaultRecipeForm = { title: '', ingredients: [''], instructions: [''] };
+  const [showForm, setShowForm] = useState(pendingAction?.action === 'create');
+  const [editingRecipe, setEditingRecipe] = useState(null);
+  const [formData, setFormData] = useState(defaultRecipeForm);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const inputStyle = { width: '100%', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' };
+  const labelStyle = { fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.25rem', display: 'block' };
 
-  const startEdit = (r) => { setEditingId(r.id); setEditTitle(r.title); setSaveError(''); };
-  const cancelEdit = () => { setEditingId(null); setEditTitle(''); setSaveError(''); };
+  const openCreate = () => {
+    setEditingRecipe(null);
+    setFormData(defaultRecipeForm);
+    setFormError('');
+    setShowForm(true);
+  };
 
-  const saveTitle = async () => {
-    const title = editTitle.trim();
+  const openEdit = (recipe) => {
+    setEditingRecipe(recipe);
+    setFormData({
+      title: recipe.title || '',
+      ingredients: recipe.ingredients?.length ? [...recipe.ingredients] : [''],
+      instructions: recipe.instructions?.length ? [...recipe.instructions] : [''],
+    });
+    setFormError('');
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingRecipe(null);
+    setFormError('');
+  };
+
+  const updateList = (key, index, value) => {
+    setFormData(prev => {
+      const next = [...prev[key]];
+      next[index] = value;
+      return { ...prev, [key]: next };
+    });
+  };
+
+  const addListItem = (key) => setFormData(prev => ({ ...prev, [key]: [...prev[key], ''] }));
+  const removeListItem = (key, index) => setFormData(prev => ({ ...prev, [key]: prev[key].filter((_, itemIndex) => itemIndex !== index) }));
+
+  const handleSubmit = async () => {
+    const title = formData.title.trim();
     if (!title) {
-      setSaveError('Recipe title cannot be empty.');
+      setFormError('Recipe title cannot be empty.');
+      return;
+    }
+    if (!editingRecipe && !userId) {
+      setFormError('Admin user session is required to create a recipe.');
       return;
     }
 
-    setSaveError('');
-    setSaving(true);
-    const { data, error } = await updateRecipeTitle(editingId, title);
+    const payload = {
+      title,
+      ingredientLines: formData.ingredients.map(item => item.trim()).filter(Boolean),
+      instructions: formData.instructions.map(item => item.trim()).filter(Boolean),
+    };
+
+    setFormError('');
+    setFormLoading(true);
+    const { data, error } = editingRecipe
+      ? await adminUpdateRecipe(editingRecipe.id, payload)
+      : await adminCreateRecipe({ userId, ...payload });
+
     if (error) {
-      setSaveError(error.message || 'Failed to update recipe title.');
-      setSaving(false);
+      setFormError(error.message || 'Failed to save recipe.');
+      setFormLoading(false);
       return;
     }
-    if (data) setRecipes(prev => prev.map(r => r.id === editingId ? data : r));
-    setSaving(false);
-    cancelEdit();
+
+    if (data) {
+      setRecipes(prev => editingRecipe
+        ? prev.map(recipe => recipe.id === editingRecipe.id ? data : recipe)
+        : [data, ...prev]);
+    }
+
+    setFormLoading(false);
+    closeForm();
   };
 
   const handleDelete = (recipe) => {
@@ -721,57 +1182,88 @@ function RecipesTab({ recipes, setRecipes, formatDate, panelStyle, thStyle, tdSt
   };
 
   return (
-    <div className="admin-table-panel" style={panelStyle}>
-      {saveError && (
-        <div style={{ margin: '0.75rem 1rem 0', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600 }}>
-          {saveError}
-        </div>
-      )}
-      <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
-        <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Title</th>
-              <th style={thStyle}>AI Model</th>
-              <th style={thStyle}>Created</th>
-              <th style={thStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recipes.length === 0 ? (
-              <tr><td className="admin-empty-cell" colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No recipes found</td></tr>
-            ) : recipes.map(r => {
-              const isEditing = editingId === r.id;
-              return (
+    <>
+      <div className="admin-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Recipes</h3>
+        <button className="btn-primary admin-add-button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}>
+          <Plus size={16} /> Add Recipe
+        </button>
+      </div>
+
+      <div className="admin-table-panel" style={panelStyle}>
+        <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
+          <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Title</th>
+                <th style={thStyle}>Details</th>
+                <th style={thStyle}>Created</th>
+                <th style={thStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recipes.length === 0 ? (
+                <tr><td className="admin-empty-cell" colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No recipes found</td></tr>
+              ) : recipes.map(r => (
                 <tr key={r.id}>
-                  <td data-label="Title" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>
-                    {isEditing ? (
-                      <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                        style={{ padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', width: '100%', outline: 'none' }}
-                        autoFocus />
-                    ) : r.title}
+                  <td data-label="Title" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>{r.title}</td>
+                  <td data-label="Details" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
+                    {(r.ingredients?.length || 0)} ingredients / {(r.instructions?.length || 0)} steps
                   </td>
-                  <td data-label="AI Model" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatModelProvider(r.model_provider)}</td>
                   <td data-label="Created" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(r.created_at)}</td>
                   <td data-label="Actions" className="admin-actions-cell" style={tdStyle}>
-                    {isEditing ? (
-                      <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button className="admin-action-button" onClick={saveTitle} disabled={saving} style={{ ...actionBtn, color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }} title={`Save ${r.title}`} aria-label={`Save ${r.title}`}><Check size={16} /></button>
-                        <button className="admin-action-button" onClick={cancelEdit} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }} title={`Cancel editing ${r.title}`} aria-label={`Cancel editing ${r.title}`}><X size={16} /></button>
-                      </div>
-                    ) : (
-                      <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button className="admin-action-button" onClick={() => startEdit(r)} style={actionBtn} title={`Edit ${r.title}`} aria-label={`Edit ${r.title}`}><Pencil size={16} /></button>
-                        <button className="admin-action-button" onClick={() => handleDelete(r)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${r.title}`} aria-label={`Delete ${r.title}`}><Trash2 size={16} /></button>
-                      </div>
-                    )}
+                    <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                      <button className="admin-action-button" onClick={() => openEdit(r)} style={actionBtn} title={`Edit ${r.title}`} aria-label={`Edit ${r.title}`}><Pencil size={16} /></button>
+                      <button className="admin-action-button" onClick={() => handleDelete(r)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${r.title}`} aria-label={`Delete ${r.title}`}><Trash2 size={16} /></button>
+                    </div>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      <AdminFormModal open={showForm} title={editingRecipe ? 'Edit Recipe' : 'Add Recipe'} onClose={closeForm} onSubmit={handleSubmit} submitText={editingRecipe ? 'Update' : 'Add'} loading={formLoading} maxWidth="760px">
+        {formError && (
+          <div style={{ padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600 }}>
+            {formError}
+          </div>
+        )}
+        <div>
+          <label style={labelStyle}>Recipe Title</label>
+          <input style={inputStyle} value={formData.title} onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} placeholder="e.g. Vegetable Fried Rice" required />
+        </div>
+        <div className="admin-modal-list-section">
+          <div className="admin-modal-list-heading">
+            <label style={labelStyle}>Ingredients</label>
+            <button type="button" className="btn-secondary" onClick={() => addListItem('ingredients')}><Plus size={14} /> Add</button>
+          </div>
+          {formData.ingredients.map((ingredient, index) => (
+            <div className="admin-modal-list-row" key={`ingredient-${index}`}>
+              <input style={inputStyle} value={ingredient} onChange={e => updateList('ingredients', index, e.target.value)} placeholder="e.g. 2 cups rice" />
+              <button type="button" className="admin-action-button" onClick={() => removeListItem('ingredients', index)} title="Remove ingredient" aria-label="Remove ingredient" disabled={formData.ingredients.length === 1 && !ingredient}>
+                <Minus size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="admin-modal-list-section">
+          <div className="admin-modal-list-heading">
+            <label style={labelStyle}>Instructions</label>
+            <button type="button" className="btn-secondary" onClick={() => addListItem('instructions')}><Plus size={14} /> Add</button>
+          </div>
+          {formData.instructions.map((instruction, index) => (
+            <div className="admin-modal-list-row admin-modal-list-row-top" key={`instruction-${index}`}>
+              <span className="admin-step-number">{index + 1}</span>
+              <textarea style={{ ...inputStyle, minHeight: '76px', resize: 'vertical' }} value={instruction} onChange={e => updateList('instructions', index, e.target.value)} placeholder={`Step ${index + 1}`} />
+              <button type="button" className="admin-action-button" onClick={() => removeListItem('instructions', index)} title="Remove instruction" aria-label="Remove instruction" disabled={formData.instructions.length === 1 && !instruction}>
+                <Minus size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </AdminFormModal>
+    </>
   );
 }

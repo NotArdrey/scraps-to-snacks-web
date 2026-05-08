@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-export default function AdminFormModal({ open, title, onClose, onSubmit, submitText = 'Save', loading = false, children }) {
+export default function AdminFormModal({ open, title, onClose, onSubmit, submitText = 'Save', loading = false, maxWidth = '520px', children }) {
   if (!open) return null;
 
   const handleSubmit = (e) => {
@@ -30,11 +30,14 @@ export default function AdminFormModal({ open, title, onClose, onSubmit, submitT
         className="glass-card admin-form-modal-card"
         style={{
           width: '100%',
-          maxWidth: '520px',
+          maxWidth,
+          maxHeight: 'calc(100svh - 2rem)',
           padding: '0',
           animation: 'slideUpFade 0.25s ease-out',
           position: 'relative',
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         {/* Top accent bar */}
@@ -65,7 +68,7 @@ export default function AdminFormModal({ open, title, onClose, onSubmit, submitT
         </div>
 
         {/* Body */}
-        <div className="admin-form-modal-body" style={{ padding: '1.25rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="admin-form-modal-body" style={{ padding: '1.25rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto' }}>
           {children}
         </div>
 

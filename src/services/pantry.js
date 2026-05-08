@@ -1,21 +1,39 @@
 import { supabase } from '../lib/supabase';
 
+function firstRow(data) {
+  return Array.isArray(data) ? data[0] || null : data || null;
+}
+
 export async function findOrCreateIngredient(name, unit, category) {
-  let { data: ingredient } = await supabase
+  const cleanName = name?.trim();
+  if (!cleanName) return null;
+
+  const { data: existingIngredients, error: findError } = await supabase
     .from('ingredients')
     .select('id')
-    .ilike('canonical_name', name)
-    .maybeSingle();
+    .ilike('canonical_name', cleanName)
+    .limit(1);
+
+  if (findError) {
+    console.error('findOrCreateIngredient lookup error:', findError);
+    return null;
+  }
+
+  let ingredient = existingIngredients?.[0] || null;
 
   if (!ingredient) {
-    const insertData = { canonical_name: name, default_unit: unit || 'pcs' };
+    const insertData = { canonical_name: cleanName, default_unit: unit || 'pcs' };
     if (category) insertData.category = category;
-    const { data: newIng } = await supabase
+    const { data: newIngredients, error: insertError } = await supabase
       .from('ingredients')
       .insert(insertData)
       .select('id')
-      .single();
-    ingredient = newIng;
+      .limit(1);
+    if (insertError) {
+      console.error('findOrCreateIngredient insert error:', insertError);
+      return null;
+    }
+    ingredient = newIngredients?.[0] || null;
   }
 
   return ingredient;
@@ -51,7 +69,7 @@ export async function insertPantryItem(householdId, userId, { name, quantity, un
   const ingredient = await findOrCreateIngredient(name, unit, category);
   if (!ingredient) return null;
 
-  const { data: pantryItem } = await supabase
+  const { data: pantryRows } = await supabase
     .from('pantry_items')
     .insert({
       household_id: householdId,
@@ -64,7 +82,9 @@ export async function insertPantryItem(householdId, userId, { name, quantity, un
       created_by_user_id: userId,
     })
     .select('id')
-    .single();
+    .limit(1);
+
+  const pantryItem = firstRow(pantryRows);
 
   if (pantryItem) {
     await supabase.from('pantry_item_events').insert({
@@ -107,7 +127,7 @@ export async function updatePantryItem(itemId, userId, { name, quantity, unit, c
     })
     .eq('id', itemId)
     .select('id, quantity, unit, expires_at, status, source, ingredients(id, canonical_name, category)')
-    .single();
+    .limit(1);
 
   if (error) throw new Error(error.message);
 
@@ -117,7 +137,8 @@ export async function updatePantryItem(itemId, userId, { name, quantity, unit, c
     actor_user_id: userId,
   });
 
-  return data ? mapPantryItem(data) : null;
+  const updatedItem = firstRow(data);
+  return updatedItem ? mapPantryItem(updatedItem) : null;
 }
 
 export async function discardPantryItem(itemId, userId) {
