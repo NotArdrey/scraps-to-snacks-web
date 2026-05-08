@@ -7,17 +7,19 @@ function isEmailConfirmationRedirect() {
   if (typeof window === 'undefined') return false;
 
   const url = new URL(window.location.href);
-  if (url.pathname !== '/login') return false;
-
   const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
   const type = url.searchParams.get('type') || hashParams.get('type');
+  const hasCallbackParams = (
+    url.searchParams.has('code') ||
+    hashParams.has('access_token') ||
+    hashParams.has('refresh_token')
+  );
 
-  if (type === 'recovery') return false;
+  if (url.pathname === '/reset-password' || type === 'recovery') return false;
   return (
     type === 'signup' ||
     type === 'email_change' ||
-    url.searchParams.has('code') ||
-    hashParams.has('access_token')
+    hasCallbackParams
   );
 }
 

@@ -29,6 +29,22 @@ const isRegistrationPaymentReturn = (location) => (
   new URLSearchParams(location.search).get('flow') === 'registration'
 );
 
+const isEmailConfirmationCallback = (location) => {
+  const searchParams = new URLSearchParams(location.search);
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const type = searchParams.get('type') || hashParams.get('type');
+
+  if (location.pathname === '/reset-password' || type === 'recovery') return false;
+
+  return (
+    type === 'signup' ||
+    type === 'email_change' ||
+    searchParams.has('code') ||
+    hashParams.has('access_token') ||
+    hashParams.has('refresh_token')
+  );
+};
+
 function AppRoutes() {
   const { isAuthenticated, loading, hasActiveSubscription, profileReady, subscriptionReady, isOnboarded, isAdmin } = useContext(AppContext);
   const location = useLocation();
@@ -43,6 +59,7 @@ function AppRoutes() {
   const loginRedirect = <Navigate to="/login" state={{ from: location }} replace />;
   const allowRegistrationCheckout = location.pathname === '/register' && isRegistrationCheckoutPending();
   const allowRegistrationPaymentReturn = isRegistrationPaymentReturn(location);
+  const isConfirmationCallback = isEmailConfirmationCallback(location);
 
   const getDefaultRoute = () => {
     if (isAdmin) return '/admin';
@@ -57,6 +74,10 @@ function AppRoutes() {
     return getDefaultRoute();
   };
 
+  if (isConfirmationCallback && location.pathname !== '/login') {
+    return <Navigate to={{ pathname: '/login', search: location.search, hash: location.hash }} replace />;
+  }
+
   return (
     <div className={onAdminPage ? '' : 'app-container'}>
       {isAuthenticated && !isAdmin && isSubscribed && isFullyOnboarded && <Navigation />}
@@ -68,7 +89,7 @@ function AppRoutes() {
           } />
 
           <Route path="/login" element={
-            isAuthenticated ? <Navigate to={getPostLoginRoute()} replace /> : <Login />
+            isAuthenticated && !isConfirmationCallback ? <Navigate to={getPostLoginRoute()} replace /> : <Login />
           } />
           <Route path="/register" element={
             isAuthenticated && !allowRegistrationCheckout ? <Navigate to={getDefaultRoute()} /> : <Register />

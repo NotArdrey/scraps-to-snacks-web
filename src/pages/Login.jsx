@@ -18,15 +18,20 @@ function getLoginAuthCallback() {
   const url = new URL(window.location.href);
   const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
   const type = url.searchParams.get('type') || hashParams.get('type');
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
   const hasCallbackParams = (
     type === 'signup' ||
     type === 'email_change' ||
     url.searchParams.has('code') ||
-    hashParams.has('access_token')
+    !!accessToken ||
+    !!refreshToken
   );
 
   return {
     code: url.searchParams.get('code'),
+    accessToken,
+    refreshToken,
     isConfirmation: type !== 'recovery' && hasCallbackParams,
   };
 }
@@ -61,7 +66,7 @@ export default function Login() {
     let mounted = true;
 
     const finishEmailConfirmation = async () => {
-      const { code, isConfirmation } = getLoginAuthCallback();
+      const { code, accessToken, refreshToken, isConfirmation } = getLoginAuthCallback();
       const completedByAuthHook = sessionStorage.getItem(EMAIL_CONFIRMATION_COMPLETE_KEY) === 'true';
 
       if (!isConfirmation && !completedByAuthHook) return;
@@ -78,6 +83,17 @@ export default function Login() {
             clearLoginAuthCallback();
             return;
           }
+        }
+      } else if (isConfirmation && accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          if (!mounted) return;
+          setError('This confirmation link is invalid or has expired.');
+          clearLoginAuthCallback();
+          return;
         }
       }
 

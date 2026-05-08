@@ -556,6 +556,9 @@ export const mockSupabase = {
       sessionStorage.setItem('password-recovery-active', 'true');
       return { data: { session: getSession() }, error: null };
     },
+    async setSession() {
+      return { data: { session: getSession() }, error: null };
+    },
   },
   from(tableName) {
     return new MockQuery(tableName);

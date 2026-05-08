@@ -21,10 +21,13 @@ export default function ResetPassword() {
     let mounted = true;
     const url = new URL(window.location.href);
     const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
     const hasRecoveryParams =
       url.searchParams.get('type') === 'recovery' ||
       hashParams.get('type') === 'recovery' ||
-      hashParams.has('access_token') ||
+      !!accessToken ||
+      !!refreshToken ||
       url.searchParams.has('code');
     if (hasRecoveryParams) {
       sessionStorage.setItem('password-recovery-active', 'true');
@@ -38,6 +41,18 @@ export default function ResetPassword() {
             message: exchangeError.message,
             status: exchangeError.status,
             code: exchangeError.code,
+          });
+        }
+      } else if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          console.error('Password reset token session failed', {
+            message: sessionError.message,
+            status: sessionError.status,
+            code: sessionError.code,
           });
         }
       }
