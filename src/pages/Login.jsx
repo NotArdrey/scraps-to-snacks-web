@@ -12,6 +12,29 @@ const getResetPasswordRedirectUrl = () => {
   return `${window.location.origin}/reset-password`;
 };
 
+const EMAIL_CONFIRMATION_COMPLETE_KEY = 'email-confirmation-complete';
+
+function getLoginAuthCallback() {
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+  const type = url.searchParams.get('type') || hashParams.get('type');
+  const hasCallbackParams = (
+    type === 'signup' ||
+    type === 'email_change' ||
+    url.searchParams.has('code') ||
+    hashParams.has('access_token')
+  );
+
+  return {
+    code: url.searchParams.get('code'),
+    isConfirmation: type !== 'recovery' && hasCallbackParams,
+  };
+}
+
+function clearLoginAuthCallback() {
+  window.history.replaceState({}, document.title, '/login');
+}
+
 export default function Login() {
   const location = useLocation();
   const initialEmail = typeof location.state?.email === 'string' ? location.state.email : '';
@@ -32,6 +55,46 @@ export default function Login() {
       setCurrentImageIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
     }, CAROUSEL_INTERVAL_MS);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const finishEmailConfirmation = async () => {
+      const { code, isConfirmation } = getLoginAuthCallback();
+      const completedByAuthHook = sessionStorage.getItem(EMAIL_CONFIRMATION_COMPLETE_KEY) === 'true';
+
+      if (!isConfirmation && !completedByAuthHook) return;
+
+      setError(null);
+
+      if (isConfirmation && code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          const alreadyConsumed = completedByAuthHook || /invalid|expired|used|verifier/i.test(exchangeError.message);
+          if (!alreadyConsumed) {
+            if (!mounted) return;
+            setError('This confirmation link is invalid or has expired.');
+            clearLoginAuthCallback();
+            return;
+          }
+        }
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) await supabase.auth.signOut();
+
+      if (!mounted) return;
+      sessionStorage.removeItem(EMAIL_CONFIRMATION_COMPLETE_KEY);
+      clearLoginAuthCallback();
+      setNotice('Email confirmed. Please log in to continue.');
+    };
+
+    finishEmailConfirmation();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleLogin = async (e) => {
