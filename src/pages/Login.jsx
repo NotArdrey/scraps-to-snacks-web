@@ -4,6 +4,11 @@ import { AlertCircle, CheckCircle, Eye, EyeOff, X } from 'lucide-react';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import { supabase } from '../lib/supabase';
+import {
+  clearPendingEmailConfirmationCallback,
+  EMAIL_CONFIRMATION_COMPLETE_KEY,
+  hasPendingEmailConfirmationCallback,
+} from '../lib/authRedirect';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS } from '../constants/images';
 
 const getResetPasswordRedirectUrl = () => {
@@ -11,8 +16,6 @@ const getResetPasswordRedirectUrl = () => {
   if (configuredUrl) return configuredUrl;
   return `${window.location.origin}/reset-password`;
 };
-
-const EMAIL_CONFIRMATION_COMPLETE_KEY = 'email-confirmation-complete';
 
 function getLoginAuthCallback() {
   const url = new URL(window.location.href);
@@ -84,8 +87,9 @@ export default function Login() {
     const finishEmailConfirmation = async () => {
       const { code, type, tokenHash, accessToken, refreshToken, isConfirmation } = getLoginAuthCallback();
       const completedByAuthHook = sessionStorage.getItem(EMAIL_CONFIRMATION_COMPLETE_KEY) === 'true';
+      const pendingCallback = hasPendingEmailConfirmationCallback();
 
-      if (!isConfirmation && !completedByAuthHook) return;
+      if (!isConfirmation && !completedByAuthHook && !pendingCallback) return;
 
       setError(null);
 
@@ -99,6 +103,7 @@ export default function Login() {
           if (!alreadyConsumed) {
             if (!mounted) return;
             setError('This confirmation link is invalid or has expired.');
+            clearPendingEmailConfirmationCallback();
             clearLoginAuthCallback();
             return;
           }
@@ -110,6 +115,7 @@ export default function Login() {
           if (!alreadyConsumed) {
             if (!mounted) return;
             setError('This confirmation link is invalid or has expired.');
+            clearPendingEmailConfirmationCallback();
             clearLoginAuthCallback();
             return;
           }
@@ -122,6 +128,7 @@ export default function Login() {
         if (sessionError) {
           if (!mounted) return;
           setError('This confirmation link is invalid or has expired.');
+          clearPendingEmailConfirmationCallback();
           clearLoginAuthCallback();
           return;
         }
@@ -129,9 +136,17 @@ export default function Login() {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session) await supabase.auth.signOut();
+      if (!session && pendingCallback && !completedByAuthHook && !isConfirmation) {
+        if (!mounted) return;
+        clearPendingEmailConfirmationCallback();
+        setError('This confirmation link is invalid or has expired.');
+        clearLoginAuthCallback();
+        return;
+      }
 
       if (!mounted) return;
       sessionStorage.removeItem(EMAIL_CONFIRMATION_COMPLETE_KEY);
+      clearPendingEmailConfirmationCallback();
       clearLoginAuthCallback();
       setNotice('Email confirmed. Please log in to continue.');
     };

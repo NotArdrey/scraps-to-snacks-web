@@ -15,6 +15,7 @@ import Account from './pages/Account';
 import Admin from './pages/Admin';
 import LoadingAlert from './components/LoadingAlert';
 import { AppContext } from './AppContextValue';
+import { hasPendingEmailConfirmationCallback, isEmailConfirmationCallback as isEmailConfirmationCallbackUrl } from './lib/authRedirect';
 import './index.css';
 
 const REGISTRATION_CHECKOUT_PENDING_KEY = 'registration-checkout-pending';
@@ -30,21 +31,8 @@ const isRegistrationPaymentReturn = (location) => (
 );
 
 const isEmailConfirmationCallback = (location) => {
-  const searchParams = new URLSearchParams(location.search);
-  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
-  const type = searchParams.get('type') || hashParams.get('type');
-
-  if (location.pathname === '/reset-password' || type === 'recovery') return false;
-
-  return (
-    type === 'signup' ||
-    type === 'email_change' ||
-    searchParams.has('code') ||
-    searchParams.has('token_hash') ||
-    hashParams.has('access_token') ||
-    hashParams.has('refresh_token') ||
-    hashParams.has('token_hash')
-  );
+  if (hasPendingEmailConfirmationCallback()) return true;
+  return isEmailConfirmationCallbackUrl(`${window.location.origin}${location.pathname}${location.search}${location.hash}`);
 };
 
 function AppRoutes() {

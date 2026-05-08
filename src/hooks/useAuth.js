@@ -1,28 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-
-const EMAIL_CONFIRMATION_COMPLETE_KEY = 'email-confirmation-complete';
+import {
+  clearPendingEmailConfirmationCallback,
+  EMAIL_CONFIRMATION_COMPLETE_KEY,
+  hasPendingEmailConfirmationCallback,
+  isEmailConfirmationCallback,
+} from '../lib/authRedirect';
 
 function isEmailConfirmationRedirect() {
-  if (typeof window === 'undefined') return false;
-
-  const url = new URL(window.location.href);
-  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
-  const type = url.searchParams.get('type') || hashParams.get('type');
-  const hasCallbackParams = (
-    url.searchParams.has('code') ||
-    url.searchParams.has('token_hash') ||
-    hashParams.has('access_token') ||
-    hashParams.has('refresh_token') ||
-    hashParams.has('token_hash')
-  );
-
-  if (url.pathname === '/reset-password' || type === 'recovery') return false;
-  return (
-    type === 'signup' ||
-    type === 'email_change' ||
-    hasCallbackParams
-  );
+  return hasPendingEmailConfirmationCallback() || isEmailConfirmationCallback();
 }
 
 function clearAuthRedirectUrl() {
@@ -41,6 +27,7 @@ export function useAuth() {
       if (!nextSession || !isEmailConfirmationRedirect()) return nextSession;
 
       sessionStorage.setItem(EMAIL_CONFIRMATION_COMPLETE_KEY, 'true');
+      clearPendingEmailConfirmationCallback();
       await supabase.auth.signOut();
       clearAuthRedirectUrl();
       return null;
