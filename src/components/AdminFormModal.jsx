@@ -51,6 +51,8 @@ export default function AdminFormModal({ open, title, onClose, onSubmit, submitT
           <button
             type="button"
             onClick={onClose}
+            title="Close"
+            aria-label="Close"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-tertiary)', padding: '0.25rem',

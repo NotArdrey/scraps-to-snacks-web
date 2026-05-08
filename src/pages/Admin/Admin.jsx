@@ -92,22 +92,29 @@ export default function Admin() {
           <Shield size={14} />
           <span>Admin Panel</span>
         </div>
-        <nav className="admin-sidebar-nav">
+        <nav className="admin-sidebar-nav" aria-label="Admin sections">
           {TABS.map(tab => {
             const Icon = tab.icon;
             return (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`admin-sidebar-link${activeTab === tab.key ? ' active' : ''}`}>
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`admin-sidebar-link${activeTab === tab.key ? ' active' : ''}`}
+                title={tab.label}
+                aria-label={`Open ${tab.label}`}
+                aria-current={activeTab === tab.key ? 'page' : undefined}
+              >
                 <Icon size={18} /><span>{tab.label}</span>
               </button>
             );
           })}
         </nav>
         <div className="admin-sidebar-footer">
-          <button onClick={toggleTheme} className="admin-sidebar-link">
+          <button onClick={toggleTheme} className="admin-sidebar-link" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
-          <button onClick={signOut} className="admin-sidebar-link admin-sidebar-logout">
+          <button onClick={signOut} className="admin-sidebar-link admin-sidebar-logout" title="Sign out" aria-label="Sign out">
             <LogOut size={18} /><span>Sign Out</span>
           </button>
         </div>
@@ -144,11 +151,11 @@ function StatsTab({ stats }) {
     { label: 'Total Recipes', value: stats?.total_recipes ?? 0, icon: ChefHat, color: '#ef4444' },
   ];
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+    <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
       {cards.map(card => {
         const Icon = card.icon;
         return (
-          <div key={card.label} className="glass-card" style={{ padding: '1.5rem' }}>
+          <div key={card.label} className="glass-card admin-stat-card" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${card.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon size={22} color={card.color} />
@@ -173,7 +180,7 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  const actionBtn = { background: 'none', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const selectStyle = { padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.85rem' };
 
   const startEdit = (u) => {
@@ -248,14 +255,14 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
   };
 
   return (
-    <div style={panelStyle}>
+    <div className="admin-table-panel" style={panelStyle}>
       {saveError && (
         <div style={{ margin: '0.75rem 1rem 0', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600 }}>
           {saveError}
         </div>
       )}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
+        <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th style={thStyle}>Email</th>
@@ -268,14 +275,14 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
           </thead>
           <tbody>
             {users.length === 0 ? (
-              <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No users found</td></tr>
+              <tr><td className="admin-empty-cell" colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No users found</td></tr>
             ) : users.map(u => {
               const isEditing = editingId === u.user_id;
               return (
                 <tr key={u.user_id}>
-                  <td style={tdStyle}>{u.email}</td>
-                  <td style={tdStyle}>{u.display_name || '—'}</td>
-                  <td style={tdStyle}>
+                  <td data-label="Email" className="admin-primary-cell" style={tdStyle}>{u.email}</td>
+                  <td data-label="Name" style={tdStyle}>{u.display_name || '—'}</td>
+                  <td data-label="Role" style={tdStyle}>
                     {isEditing ? (
                       <select value={editRole} onChange={e => setEditRole(e.target.value)} style={selectStyle}>
                         <option value="user">user</option>
@@ -285,9 +292,9 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
                       <span style={badgeStyle(u.role === 'admin' ? '#7a5ed3' : '#6b7280')}>{u.role}</span>
                     )}
                   </td>
-                  <td style={tdStyle}>
+                  <td data-label="Subscription" style={tdStyle}>
                     {isEditing ? (
-                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <div className="admin-inline-fields" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                         <select value={editPlanId} onChange={e => setEditPlanId(e.target.value)} style={selectStyle}>
                           <option value="">No Plan</option>
                           {plans.map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
@@ -306,17 +313,17 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
                         : <span style={badgeStyle('#6b7280')}>None</span>
                     )}
                   </td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(u.created_at)}</td>
-                  <td style={tdStyle}>
+                  <td data-label="Joined" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(u.created_at)}</td>
+                  <td data-label="Actions" className="admin-actions-cell" style={tdStyle}>
                     {isEditing ? (
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button onClick={saveUser} disabled={saving} style={{ ...actionBtn, color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }}><Check size={16} /></button>
-                        <button onClick={cancelEdit} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}><X size={16} /></button>
+                      <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button className="admin-action-button" onClick={saveUser} disabled={saving} style={{ ...actionBtn, color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }} title={`Save ${u.email}`} aria-label={`Save ${u.email}`}><Check size={16} /></button>
+                        <button className="admin-action-button" onClick={cancelEdit} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }} title={`Cancel editing ${u.email}`} aria-label={`Cancel editing ${u.email}`}><X size={16} /></button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button onClick={() => startEdit(u)} style={actionBtn}><Pencil size={16} /></button>
-                        <button onClick={() => handleDelete(u)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}><Trash2 size={16} /></button>
+                      <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button className="admin-action-button" onClick={() => startEdit(u)} style={actionBtn} title={`Edit ${u.email}`} aria-label={`Edit ${u.email}`}><Pencil size={16} /></button>
+                        <button className="admin-action-button" onClick={() => handleDelete(u)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${u.email}`} aria-label={`Delete ${u.email}`}><Trash2 size={16} /></button>
                       </div>
                     )}
                   </td>
@@ -339,7 +346,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const actionBtn = { background: 'none', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
 
   const inputStyle = { width: '100%', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' };
   const labelStyle = { fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.25rem', display: 'block' };
@@ -404,16 +411,16 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div className="admin-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Subscription Plans</h3>
-        <button className="btn-primary" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}>
+        <button className="btn-primary admin-add-button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}>
           <Plus size={16} /> Add Plan
         </button>
       </div>
 
-      <div style={panelStyle}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="admin-table-panel" style={panelStyle}>
+        <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
+          <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={thStyle}>Plan Name</th>
@@ -426,23 +433,23 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
             </thead>
             <tbody>
               {plans.length === 0 ? (
-                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No plans found</td></tr>
+                <tr><td className="admin-empty-cell" colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No plans found</td></tr>
               ) : plans.map(p => (
                 <tr key={p.id}>
-                  <td style={{ ...tdStyle, fontWeight: '600' }}>{p.display_name}</td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.plan_code}</td>
-                  <td style={tdStyle}>{formatPlanPrice(p)}</td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.billing_period_days} days</td>
-                  <td style={tdStyle}>
+                  <td data-label="Plan Name" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>{p.display_name}</td>
+                  <td data-label="Code" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.plan_code}</td>
+                  <td data-label="Price" style={tdStyle}>{formatPlanPrice(p)}</td>
+                  <td data-label="Period" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.billing_period_days} days</td>
+                  <td data-label="Status" style={tdStyle}>
                     <span style={badgeStyle(p.is_active ? '#10b981' : '#ef4444')}>{p.is_active ? 'Active' : 'Inactive'}</span>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <button onClick={() => onToggle(p.id, p.is_active)} style={{ ...actionBtn, color: p.is_active ? '#10b981' : '#6b7280' }}>
+                  <td data-label="Actions" className="admin-actions-cell" style={tdStyle}>
+                    <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                      <button className="admin-action-button" onClick={() => onToggle(p.id, p.is_active)} style={{ ...actionBtn, color: p.is_active ? '#10b981' : '#6b7280' }} title={`${p.is_active ? 'Deactivate' : 'Activate'} ${p.display_name}`} aria-label={`${p.is_active ? 'Deactivate' : 'Activate'} ${p.display_name}`}>
                         {p.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                       </button>
-                      <button onClick={() => openEdit(p)} style={actionBtn}><Pencil size={16} /></button>
-                      <button onClick={() => handleDelete(p)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}><Trash2 size={16} /></button>
+                      <button className="admin-action-button" onClick={() => openEdit(p)} style={actionBtn} title={`Edit ${p.display_name}`} aria-label={`Edit ${p.display_name}`}><Pencil size={16} /></button>
+                      <button className="admin-action-button" onClick={() => handleDelete(p)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${p.display_name}`} aria-label={`Delete ${p.display_name}`}><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -500,13 +507,17 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const actionBtn = { background: 'none', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const inputStyle = { width: '100%', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' };
   const labelStyle = { fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.25rem', display: 'block' };
+  const adminHouseholdId = households.find(h => h.user_id === userId)?.household_id || '';
+  const householdOptions = adminHouseholdId
+    ? [...households].sort((a, b) => Number(b.household_id === adminHouseholdId) - Number(a.household_id === adminHouseholdId))
+    : households;
 
   const openCreate = () => {
     setEditingItem(null);
-    setFormData({ ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: households[0]?.household_id || '' });
+    setFormData({ ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: adminHouseholdId || householdOptions[0]?.household_id || '' });
     setFormError('');
     setShowForm(true);
   };
@@ -573,16 +584,16 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div className="admin-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Pantry Items</h3>
-        <button className="btn-primary" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}>
+        <button className="btn-primary admin-add-button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}>
           <Plus size={16} /> Add Item
         </button>
       </div>
 
-      <div style={panelStyle}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="admin-table-panel" style={panelStyle}>
+        <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
+          <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={thStyle}>Ingredient</th>
@@ -595,20 +606,20 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
             </thead>
             <tbody>
               {items.length === 0 ? (
-                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No pantry items found</td></tr>
+                <tr><td className="admin-empty-cell" colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No pantry items found</td></tr>
               ) : items.map(item => (
                 <tr key={item.id}>
-                  <td style={{ ...tdStyle, fontWeight: '600' }}>{item.ingredients?.canonical_name || '—'}</td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{item.ingredients?.category || '—'}</td>
-                  <td style={tdStyle}>{item.quantity} {item.unit}</td>
-                  <td style={{ ...tdStyle, color: item.expires_at && new Date(item.expires_at) < new Date() ? '#ef4444' : 'var(--text-secondary)' }}>
+                  <td data-label="Ingredient" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>{item.ingredients?.canonical_name || '—'}</td>
+                  <td data-label="Category" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{item.ingredients?.category || '—'}</td>
+                  <td data-label="Quantity" style={tdStyle}>{item.quantity} {item.unit}</td>
+                  <td data-label="Expires" style={{ ...tdStyle, color: item.expires_at && new Date(item.expires_at) < new Date() ? '#ef4444' : 'var(--text-secondary)' }}>
                     {formatDate(item.expires_at)}
                   </td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(item.created_at)}</td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <button onClick={() => openEdit(item)} style={actionBtn}><Pencil size={16} /></button>
-                      <button onClick={() => handleDelete(item)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}><Trash2 size={16} /></button>
+                  <td data-label="Added" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(item.created_at)}</td>
+                  <td data-label="Actions" className="admin-actions-cell" style={tdStyle}>
+                    <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                      <button className="admin-action-button" onClick={() => openEdit(item)} style={actionBtn} title={`Edit ${item.ingredients?.canonical_name || 'pantry item'}`} aria-label={`Edit ${item.ingredients?.canonical_name || 'pantry item'}`}><Pencil size={16} /></button>
+                      <button className="admin-action-button" onClick={() => handleDelete(item)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${item.ingredients?.canonical_name || 'pantry item'}`} aria-label={`Delete ${item.ingredients?.canonical_name || 'pantry item'}`}><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -634,7 +645,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
           <div>
             <label style={labelStyle}>Household</label>
             <select style={inputStyle} value={formData.householdId} onChange={e => set('householdId', e.target.value)} required>
-              {households.map(h => (
+              {householdOptions.map(h => (
                 <option key={h.household_id} value={h.household_id}>{h.household_id}</option>
               ))}
             </select>
@@ -677,7 +688,7 @@ function RecipesTab({ recipes, setRecipes, formatDate, panelStyle, thStyle, tdSt
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  const actionBtn = { background: 'none', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
 
   const startEdit = (r) => { setEditingId(r.id); setEditTitle(r.title); setSaveError(''); };
   const cancelEdit = () => { setEditingId(null); setEditTitle(''); setSaveError(''); };
@@ -710,14 +721,14 @@ function RecipesTab({ recipes, setRecipes, formatDate, panelStyle, thStyle, tdSt
   };
 
   return (
-    <div style={panelStyle}>
+    <div className="admin-table-panel" style={panelStyle}>
       {saveError && (
         <div style={{ margin: '0.75rem 1rem 0', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600 }}>
           {saveError}
         </div>
       )}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="admin-table-scroll" style={{ overflowX: 'auto' }}>
+        <table className="admin-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th style={thStyle}>Title</th>
@@ -728,30 +739,30 @@ function RecipesTab({ recipes, setRecipes, formatDate, panelStyle, thStyle, tdSt
           </thead>
           <tbody>
             {recipes.length === 0 ? (
-              <tr><td colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No recipes found</td></tr>
+              <tr><td className="admin-empty-cell" colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No recipes found</td></tr>
             ) : recipes.map(r => {
               const isEditing = editingId === r.id;
               return (
                 <tr key={r.id}>
-                  <td style={{ ...tdStyle, fontWeight: '600' }}>
+                  <td data-label="Title" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>
                     {isEditing ? (
                       <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
                         style={{ padding: '0.3rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', width: '100%', outline: 'none' }}
                         autoFocus />
                     ) : r.title}
                   </td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatModelProvider(r.model_provider)}</td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(r.created_at)}</td>
-                  <td style={tdStyle}>
+                  <td data-label="AI Model" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatModelProvider(r.model_provider)}</td>
+                  <td data-label="Created" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(r.created_at)}</td>
+                  <td data-label="Actions" className="admin-actions-cell" style={tdStyle}>
                     {isEditing ? (
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button onClick={saveTitle} disabled={saving} style={{ ...actionBtn, color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }}><Check size={16} /></button>
-                        <button onClick={cancelEdit} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}><X size={16} /></button>
+                      <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button className="admin-action-button" onClick={saveTitle} disabled={saving} style={{ ...actionBtn, color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }} title={`Save ${r.title}`} aria-label={`Save ${r.title}`}><Check size={16} /></button>
+                        <button className="admin-action-button" onClick={cancelEdit} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }} title={`Cancel editing ${r.title}`} aria-label={`Cancel editing ${r.title}`}><X size={16} /></button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button onClick={() => startEdit(r)} style={actionBtn}><Pencil size={16} /></button>
-                        <button onClick={() => handleDelete(r)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}><Trash2 size={16} /></button>
+                      <div className="admin-action-row" style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button className="admin-action-button" onClick={() => startEdit(r)} style={actionBtn} title={`Edit ${r.title}`} aria-label={`Edit ${r.title}`}><Pencil size={16} /></button>
+                        <button className="admin-action-button" onClick={() => handleDelete(r)} style={{ ...actionBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }} title={`Delete ${r.title}`} aria-label={`Delete ${r.title}`}><Trash2 size={16} /></button>
                       </div>
                     )}
                   </td>
