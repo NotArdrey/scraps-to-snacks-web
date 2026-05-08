@@ -2902,11 +2902,13 @@ input[type="date"].input-field {
 }
 
 .admin-main {
-  flex: 1;
+  flex: 1 1 auto;
   width: 100%;
-  max-width: 1240px;
+  max-width: none;
   min-width: 0;
-  padding: 2rem;
+  min-height: 100vh;
+  padding: clamp(1.5rem, 2vw, 3rem);
+  box-sizing: border-box;
   overflow-y: auto;
 }
 
@@ -2914,6 +2916,7 @@ input[type="date"].input-field {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  width: 100%;
   min-width: 0;
 }
 
