@@ -3,6 +3,7 @@ import { Book, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus } from 'luci
 import { AppContext } from '../AppContextValue';
 import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
+import FeedbackModal from '../components/FeedbackModal';
 import BrandIcon from '../components/BrandIcon';
 import CookbookChatbot from '../components/CookbookChatbot';
 import LoadingAlert from '../components/LoadingAlert';
@@ -17,6 +18,8 @@ export default function Cookbook() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(null);
+  const [feedback, setFeedback] = useState(null);
 
   const handleDelete = (recipe) => {
     setConfirmDelete({ id: recipe.id, title: recipe.title });
@@ -24,9 +27,23 @@ export default function Cookbook() {
 
   const confirmDeleteRecipe = async () => {
     if (!confirmDelete) return;
-    await deleteRecipe(confirmDelete.id);
-    if (editingId === confirmDelete.id) setEditingId(null);
-    setSelectedIds(prev => prev.filter(id => id !== confirmDelete.id));
+    const recipeTitle = confirmDelete.title;
+    try {
+      await deleteRecipe(confirmDelete.id);
+      if (editingId === confirmDelete.id) setEditingId(null);
+      setSelectedIds(prev => prev.filter(id => id !== confirmDelete.id));
+      setFeedback({
+        title: 'Recipe deleted',
+        message: `"${recipeTitle}" was removed from your cookbook.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Delete failed',
+        message: err.message || `Unable to delete "${recipeTitle}". Please try again.`,
+        variant: 'error',
+      });
+    }
     setConfirmDelete(null);
   };
 
@@ -48,10 +65,24 @@ export default function Cookbook() {
   };
 
   const confirmBatchDeleteRecipes = async () => {
+    const recipeCount = selectedIds.length;
     setConfirmBatchDelete(false);
-    await deleteRecipes(selectedIds);
-    setSelectedIds([]);
-    setEditingId(null);
+    try {
+      await deleteRecipes(selectedIds);
+      setSelectedIds([]);
+      setEditingId(null);
+      setFeedback({
+        title: 'Recipes deleted',
+        message: `${recipeCount} recipe${recipeCount !== 1 ? 's were' : ' was'} removed from your cookbook.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Delete failed',
+        message: err.message || 'Unable to delete the selected recipes. Please try again.',
+        variant: 'error',
+      });
+    }
   };
 
   const handleEditClick = (recipe) => {
@@ -71,18 +102,41 @@ export default function Cookbook() {
       return ing.replace(/^[\d./\s]+(pcs|kg|g|lbs|oz|L|mL|cups|tbsp|tsp)?\s*/i, '').trim() || ing.trim();
     }).filter(Boolean);
 
-    setSavingId(recipe.id);
-    try {
-      await updateRecipe(recipe.recipeId, recipe.id, {
+    setConfirmEdit({
+      recipe,
+      payload: {
         title,
         instructions: editForm.instructions.map(s => s.trim()).filter(Boolean),
         ingredientNames,
-      });
+      },
+    });
+  };
+
+  const confirmSaveEdit = async () => {
+    if (!confirmEdit) return;
+    const { recipe, payload } = confirmEdit;
+    setConfirmEdit(null);
+    setSavingId(recipe.id);
+    try {
+      await updateRecipe(recipe.recipeId, recipe.id, payload);
       setEditingId(null);
+      setFeedback({
+        title: 'Recipe updated',
+        message: `"${payload.title}" was saved successfully.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Update failed',
+        message: err.message || `Unable to update "${payload.title}". Please try again.`,
+        variant: 'error',
+      });
     } finally {
       setSavingId(null);
     }
   };
+
+  const closeFeedback = () => setFeedback(null);
 
   const updateIngredient = (idx, value) => {
     const updated = [...editForm.ingredients];
@@ -355,6 +409,24 @@ export default function Cookbook() {
         variant="danger"
         onConfirm={confirmBatchDeleteRecipes}
         onCancel={() => setConfirmBatchDelete(false)}
+      />
+
+      <ConfirmModal
+        open={!!confirmEdit}
+        title="Save Recipe Changes"
+        message={`Save your changes to "${confirmEdit?.payload?.title}"?`}
+        confirmText="Save"
+        variant="success"
+        onConfirm={confirmSaveEdit}
+        onCancel={() => setConfirmEdit(null)}
+      />
+
+      <FeedbackModal
+        open={!!feedback}
+        title={feedback?.title}
+        message={feedback?.message}
+        variant={feedback?.variant}
+        onClose={closeFeedback}
       />
 
       <CookbookChatbot recipes={recipes} loading={recipesLoading} />

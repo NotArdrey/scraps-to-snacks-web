@@ -6,6 +6,7 @@ import { usePantry } from '../hooks/usePantry';
 import { usePreferences } from '../hooks/usePreferences';
 import { scanIngredientsFromImage, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
+import FeedbackModal from '../components/FeedbackModal';
 import { UNITS } from '../constants/categories';
 import { HERO_IMAGES } from '../constants/images';
 
@@ -30,6 +31,7 @@ export default function MagicScan() {
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [filteredCount, setFilteredCount] = useState(0);
+  const [feedback, setFeedback] = useState(null);
 
   if (!user || !householdId) {
     return (
@@ -153,13 +155,31 @@ export default function MagicScan() {
     }
     setSaving(false);
     if (failed.length > 0) {
-      setSaveError(`Failed to save: ${failed.join(', ')}. The rest were saved.`);
+      const message = `Failed to save: ${failed.join(', ')}. The rest were saved.`;
+      setSaveError(message);
+      setFeedback({
+        title: 'Some items were not saved',
+        message,
+        variant: 'warning',
+      });
     } else {
       revokePreview();
       setStatus('idle');
       setPreviewUrl(null);
-      navigate('/pantry');
+      setFeedback({
+        title: 'Items saved',
+        message: `${detections.length} scanned item${detections.length !== 1 ? 's were' : ' was'} added to your pantry.`,
+        variant: 'success',
+        actionText: 'Open Pantry',
+        onClose: () => navigate('/pantry'),
+      });
     }
+  };
+
+  const closeFeedback = () => {
+    const afterClose = feedback?.onClose;
+    setFeedback(null);
+    afterClose?.();
   };
 
   const updateDetection = (id, field, value) => {
@@ -405,6 +425,15 @@ export default function MagicScan() {
         variant="success"
         onConfirm={confirmSaveToPantry}
         onCancel={() => setShowSaveConfirm(false)}
+      />
+
+      <FeedbackModal
+        open={!!feedback}
+        title={feedback?.title}
+        message={feedback?.message}
+        variant={feedback?.variant}
+        actionText={feedback?.actionText}
+        onClose={closeFeedback}
       />
     </div>
   );

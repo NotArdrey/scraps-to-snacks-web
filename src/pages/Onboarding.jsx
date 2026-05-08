@@ -5,6 +5,8 @@ import { usePreferences } from '../hooks/usePreferences';
 import BrandIcon from '../components/BrandIcon';
 import ThemeToggle from '../components/ThemeToggle';
 import LoadingAlert from '../components/LoadingAlert';
+import ConfirmModal from '../components/ConfirmModal';
+import FeedbackModal from '../components/FeedbackModal';
 import { ArrowLeft, Check, Leaf, Settings, ShieldAlert } from 'lucide-react';
 import { CAROUSEL_IMAGES, CAROUSEL_INTERVAL_MS, HERO_IMAGES } from '../constants/images';
 
@@ -17,6 +19,8 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [confirmSave, setConfirmSave] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -57,15 +61,58 @@ export default function Onboarding() {
 
   const handleComplete = async () => {
     if (saving) return;
+    setConfirmSave(false);
     setSaving(true);
     try {
       await savePreferences([...selectedDiets], [...selectedAllergies], { refresh: !isOnboarded, markOnboarded: !isOnboarded });
       if (!isOnboarded) await refreshProfile();
-      navigate(isOnboarded ? '/account' : '/pantry');
+      setFeedback({
+        title: isOnboarded ? 'Preferences saved' : 'Onboarding complete',
+        message: isOnboarded
+          ? 'Your diet and allergy preferences were updated.'
+          : 'Your preferences were saved. Your pantry is ready.',
+        variant: 'success',
+        actionText: isOnboarded ? 'Back to Account' : 'Open Pantry',
+        onClose: () => navigate(isOnboarded ? '/account' : '/pantry'),
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Save failed',
+        message: err.message || 'Unable to save preferences. Please try again.',
+        variant: 'error',
+      });
     } finally {
       setSaving(false);
     }
   };
+
+  const closeFeedback = () => {
+    const afterClose = feedback?.onClose;
+    setFeedback(null);
+    afterClose?.();
+  };
+
+  const actionModals = (
+    <>
+      <ConfirmModal
+        open={confirmSave}
+        title={isOnboarded ? 'Save Preferences' : 'Complete Onboarding'}
+        message={isOnboarded ? 'Save these diet and allergy preference changes?' : 'Save your preferences and continue to your pantry?'}
+        confirmText={isOnboarded ? 'Save' : 'Complete'}
+        variant="success"
+        onConfirm={handleComplete}
+        onCancel={() => setConfirmSave(false)}
+      />
+      <FeedbackModal
+        open={!!feedback}
+        title={feedback?.title}
+        message={feedback?.message}
+        variant={feedback?.variant}
+        actionText={feedback?.actionText}
+        onClose={closeFeedback}
+      />
+    </>
+  );
 
   if (prefsLoading) {
     if (isOnboarded) {
@@ -161,6 +208,7 @@ export default function Onboarding() {
     });
 
     return (
+      <>
       <div style={{ maxWidth: '760px', margin: '3rem auto' }}>
         <button onClick={() => navigate('/account')} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -274,7 +322,7 @@ export default function Onboarding() {
             </button>
             <button
               type="button"
-              onClick={handleComplete}
+              onClick={() => setConfirmSave(true)}
               disabled={saving}
               style={{
                 padding: '0.7rem 1.75rem',
@@ -293,10 +341,13 @@ export default function Onboarding() {
           </div>
         </div>
       </div>
+      {actionModals}
+      </>
     );
   }
 
   return (
+    <>
     <div className="split-auth-page split-auth-onboarding" style={{ position: 'absolute', top: 0, left: 0, width: '100vw', minHeight: '100vh', display: 'flex', backgroundColor: 'var(--bg-main)', color: 'var(--theme-text-main)', fontFamily: 'Outfit, sans-serif', zIndex: 50 }}>
       <ThemeToggle className="split-auth-theme-toggle" style={{ right: 'auto', left: '1.5rem' }} />
       {/* Left Side - Form */}
@@ -376,7 +427,7 @@ export default function Onboarding() {
             </div>
           </div>
 
-          <button onClick={handleComplete} disabled={saving} style={{
+          <button onClick={() => setConfirmSave(true)} disabled={saving} style={{
             width: '100%',
             padding: '1rem',
             background: '#7a5ed3',
@@ -428,5 +479,7 @@ export default function Onboarding() {
         </div>
       </div>
     </div>
+    {actionModals}
+    </>
   );
 }

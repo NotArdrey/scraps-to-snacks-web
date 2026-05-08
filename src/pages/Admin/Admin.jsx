@@ -17,6 +17,7 @@ import { formatPlanPrice } from '../../services/subscription';
 import { AppContext } from '../../AppContextValue';
 import BrandIcon from '../../components/BrandIcon';
 import ConfirmModal from '../../components/ConfirmModal';
+import FeedbackModal from '../../components/FeedbackModal';
 import AdminFormModal from '../../components/AdminFormModal';
 import LoadingAlert from '../../components/LoadingAlert';
 import { CATEGORIES, UNITS } from '../../constants/categories';
@@ -40,6 +41,8 @@ export default function Admin() {
   const [recipes, setRecipes] = useState([]);
   const [households, setHouseholds] = useState([]);
   const [confirmModal, setConfirmModal] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
 
   const loadData = useCallback(async () => {
@@ -64,13 +67,40 @@ export default function Admin() {
 
   const handleTogglePlan = async (planId, currentActive) => {
     const { error } = await togglePlanActive(planId, !currentActive);
-    if (!error) setPlans(prev => prev.map(p => p.id === planId ? { ...p, is_active: !currentActive } : p));
+    if (error) {
+      setFeedback({
+        title: 'Plan update failed',
+        message: error.message || 'Unable to update plan status.',
+        variant: 'error',
+      });
+      return;
+    }
+    setPlans(prev => prev.map(p => p.id === planId ? { ...p, is_active: !currentActive } : p));
+    setFeedback({
+      title: 'Plan status updated',
+      message: `The plan was ${currentActive ? 'deactivated' : 'activated'} successfully.`,
+      variant: 'success',
+    });
   };
 
-  const showConfirm = (title, message, onConfirm, variant = 'danger') => {
-    setConfirmModal({ title, message, onConfirm, variant });
+  const showConfirm = (title, message, onConfirm, variant = 'danger', successMessage = 'Action completed successfully.') => {
+    setConfirmModal({ title, message, onConfirm, variant, successMessage });
   };
+  const showFeedback = (nextFeedback) => setFeedback(nextFeedback);
   const closeConfirm = () => setConfirmModal(null);
+  const closeFeedback = () => setFeedback(null);
+  const confirmAdminLogout = async () => {
+    setShowLogoutConfirm(false);
+    try {
+      await signOut();
+    } catch (err) {
+      setFeedback({
+        title: 'Sign out failed',
+        message: err.message || 'Unable to sign out. Please try again.',
+        variant: 'error',
+      });
+    }
+  };
   const openTab = (tabKey) => {
     setPendingAction(null);
     setActiveTab(tabKey);
@@ -131,7 +161,7 @@ export default function Admin() {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
-          <button onClick={signOut} className="admin-sidebar-link admin-sidebar-logout" title="Sign out" aria-label="Sign out">
+          <button onClick={() => setShowLogoutConfirm(true)} className="admin-sidebar-link admin-sidebar-logout" title="Sign out" aria-label="Sign out">
             <LogOut size={18} /><span>Sign Out</span>
           </button>
         </div>
@@ -139,10 +169,10 @@ export default function Admin() {
 
       <main className="admin-main">
         {activeTab === 'stats' && <StatsTab stats={stats} users={users} plans={plans} pantryItems={pantryItems} recipes={recipes} onNavigate={openTab} onAction={triggerAction} onRefresh={loadData} />}
-        {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} plans={plans} formatDate={formatDate} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} />}
-        {activeTab === 'plans' && <PlansTab plans={plans} setPlans={setPlans} onToggle={handleTogglePlan} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} pendingAction={pendingAction?.tabKey === 'plans' ? pendingAction : null} />}
-        {activeTab === 'pantry' && <PantryTab items={pantryItems} setItems={setPantryItems} households={households} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} pendingAction={pendingAction?.tabKey === 'pantry' ? pendingAction : null} />}
-        {activeTab === 'recipes' && <RecipesTab recipes={recipes} setRecipes={setRecipes} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} pendingAction={pendingAction?.tabKey === 'recipes' ? pendingAction : null} />}
+        {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} plans={plans} formatDate={formatDate} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} />}
+        {activeTab === 'plans' && <PlansTab plans={plans} setPlans={setPlans} onToggle={handleTogglePlan} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'plans' ? pendingAction : null} />}
+        {activeTab === 'pantry' && <PantryTab items={pantryItems} setItems={setPantryItems} households={households} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'pantry' ? pendingAction : null} />}
+        {activeTab === 'recipes' && <RecipesTab recipes={recipes} setRecipes={setRecipes} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'recipes' ? pendingAction : null} />}
       </main>
 
       <ConfirmModal
@@ -151,8 +181,44 @@ export default function Admin() {
         message={confirmModal?.message || ''}
         confirmText={confirmModal?.confirmText || 'Delete'}
         variant={confirmModal?.variant || 'danger'}
-        onConfirm={async () => { await confirmModal?.onConfirm?.(); closeConfirm(); }}
+        onConfirm={async () => {
+          try {
+            await confirmModal?.onConfirm?.();
+            const successMessage = confirmModal?.successMessage;
+            closeConfirm();
+            if (successMessage) {
+              setFeedback({
+                title: 'Done',
+                message: successMessage,
+                variant: 'success',
+              });
+            }
+          } catch (err) {
+            closeConfirm();
+            setFeedback({
+              title: 'Action failed',
+              message: err.message || 'Unable to complete this action. Please try again.',
+              variant: 'error',
+            });
+          }
+        }}
         onCancel={closeConfirm}
+      />
+      <ConfirmModal
+        open={showLogoutConfirm}
+        title="Sign Out"
+        message="Are you sure you want to sign out of the admin panel?"
+        confirmText="Sign Out"
+        variant="logout"
+        onConfirm={confirmAdminLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
+      <FeedbackModal
+        open={!!feedback}
+        title={feedback?.title}
+        message={feedback?.message}
+        variant={feedback?.variant}
+        onClose={closeFeedback}
       />
     </div>
   );
@@ -548,7 +614,7 @@ function StatsTab({ stats, users, plans, pantryItems, recipes, onNavigate, onAct
 
 /* ─── Users Tab ─────────────────────────────────────────────────── */
 
-function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm }) {
+function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm, showFeedback }) {
   const [editingId, setEditingId] = useState(null);
   const [editRole, setEditRole] = useState('');
   const [editSubStatus, setEditSubStatus] = useState('');
@@ -590,7 +656,9 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
     if (editRole !== user.role) {
       const { error } = await updateUserRole(editingId, editRole);
       if (error) {
-        setSaveError(error.message || 'Failed to update user role.');
+        const message = error.message || 'Failed to update user role.';
+        setSaveError(message);
+        showFeedback({ title: 'User update failed', message, variant: 'error' });
         setSaving(false);
         return;
       }
@@ -601,7 +669,9 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
     if (subChanged) {
       const { error } = await updateUserSubscription(editingId, editPlanId || null, editSubStatus || null);
       if (error) {
-        setSaveError(error.message || 'Failed to update user subscription.');
+        const message = error.message || 'Failed to update user subscription.';
+        setSaveError(message);
+        showFeedback({ title: 'User update failed', message, variant: 'error' });
         setSaving(false);
         return;
       }
@@ -623,13 +693,19 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
 
     setSaving(false);
     cancelEdit();
+    showFeedback({
+      title: 'User updated',
+      message: 'The user role and subscription settings were saved.',
+      variant: 'success',
+    });
   };
 
   const handleDelete = (u) => {
     showConfirm('Delete User', `Remove the profile for "${u.email}"? This will remove their profile data.`, async () => {
       const { error } = await deleteUserProfile(u.user_id);
-      if (!error) setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
-    });
+      if (error) throw new Error(error.message || 'Failed to delete user profile.');
+      setUsers(prev => prev.filter(x => x.user_id !== u.user_id));
+    }, 'danger', `The profile for "${u.email}" was removed.`);
   };
 
   return (
@@ -744,7 +820,7 @@ function UsersTab({ users, setUsers, plans, formatDate, badgeStyle, panelStyle, 
 
 /* ─── Plans Tab ─────────────────────────────────────────────────── */
 
-function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm, pendingAction }) {
+function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, tdStyle, showConfirm, showFeedback, pendingAction }) {
   const defaultPlanForm = { display_name: '', plan_code: '', price: '', currency: 'PHP', billing_period_days: 30, is_active: true };
   const [showForm, setShowForm] = useState(pendingAction?.action === 'create');
   const [editingPlan, setEditingPlan] = useState(null);
@@ -788,19 +864,33 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
     if (editingPlan) {
       const { data, error } = await updatePlan(editingPlan.id, payload);
       if (error) {
-        setFormError(error.message || 'Failed to update plan.');
+        const message = error.message || 'Failed to update plan.';
+        setFormError(message);
+        showFeedback({ title: 'Plan update failed', message, variant: 'error' });
         setFormLoading(false);
         return;
       }
       if (data) setPlans(prev => prev.map(p => p.id === editingPlan.id ? data : p));
+      showFeedback({
+        title: 'Plan updated',
+        message: `"${payload.display_name}" was saved successfully.`,
+        variant: 'success',
+      });
     } else {
       const { data, error } = await createPlan(payload);
       if (error) {
-        setFormError(error.message || 'Failed to create plan.');
+        const message = error.message || 'Failed to create plan.';
+        setFormError(message);
+        showFeedback({ title: 'Plan creation failed', message, variant: 'error' });
         setFormLoading(false);
         return;
       }
       if (data) setPlans(prev => [...prev, data]);
+      showFeedback({
+        title: 'Plan created',
+        message: `"${payload.display_name}" was added to subscription plans.`,
+        variant: 'success',
+      });
     }
     setFormLoading(false);
     closeForm();
@@ -809,8 +899,9 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
   const handleDelete = (plan) => {
     showConfirm('Delete Plan', `Delete the plan "${plan.display_name}"? Users on this plan will not be affected.`, async () => {
       const { error } = await deletePlan(plan.id);
-      if (!error) setPlans(prev => prev.filter(p => p.id !== plan.id));
-    });
+      if (error) throw new Error(error.message || 'Failed to delete plan.');
+      setPlans(prev => prev.filter(p => p.id !== plan.id));
+    }, 'danger', `"${plan.display_name}" was deleted.`);
   };
 
   const set = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
@@ -906,7 +997,7 @@ function PlansTab({ plans, setPlans, onToggle, badgeStyle, panelStyle, thStyle, 
 
 /* ─── Pantry Tab ────────────────────────────────────────────────── */
 
-function PantryTab({ items, setItems, households, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm, pendingAction }) {
+function PantryTab({ items, setItems, households, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm, showFeedback, pendingAction }) {
   const actionBtn = { background: 'none', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-color)', borderRadius: '8px', padding: '0.35rem', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const inputStyle = { width: '100%', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' };
   const labelStyle = { fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.25rem', display: 'block' };
@@ -951,11 +1042,18 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
         expires_at: formData.expiresAt || null,
       });
       if (error) {
-        setFormError(error.message || 'Failed to update pantry item.');
+        const message = error.message || 'Failed to update pantry item.';
+        setFormError(message);
+        showFeedback({ title: 'Pantry update failed', message, variant: 'error' });
         setFormLoading(false);
         return;
       }
       if (data) setItems(prev => prev.map(i => i.id === editingItem.id ? data : i));
+      showFeedback({
+        title: 'Pantry item updated',
+        message: `"${formData.ingredientName}" was saved successfully.`,
+        variant: 'success',
+      });
     } else {
       if (!formData.householdId) {
         setFormError('Please select a household before adding an item.');
@@ -972,11 +1070,18 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
         userId,
       });
       if (error) {
-        setFormError(error.message || 'Failed to add pantry item.');
+        const message = error.message || 'Failed to add pantry item.';
+        setFormError(message);
+        showFeedback({ title: 'Pantry item creation failed', message, variant: 'error' });
         setFormLoading(false);
         return;
       }
       if (data) setItems(prev => [data, ...prev]);
+      showFeedback({
+        title: 'Pantry item added',
+        message: `"${formData.ingredientName}" was added to the selected household.`,
+        variant: 'success',
+      });
     }
     setFormLoading(false);
     closeForm();
@@ -986,8 +1091,9 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
     const name = item.ingredients?.canonical_name || 'this item';
     showConfirm('Remove Pantry Item', `Remove "${name}" from the pantry?`, async () => {
       const { error } = await deletePantryItem(item.id);
-      if (!error) setItems(prev => prev.filter(i => i.id !== item.id));
-    });
+      if (error) throw new Error(error.message || 'Failed to remove pantry item.');
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    }, 'danger', `"${name}" was removed from the pantry.`);
   };
 
   const set = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
@@ -1088,7 +1194,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
 
 /* ─── Recipes Tab ───────────────────────────────────────────────── */
 
-function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm, pendingAction }) {
+function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thStyle, tdStyle, showConfirm, showFeedback, pendingAction }) {
   const defaultRecipeForm = { title: '', ingredients: [''], instructions: [''] };
   const [showForm, setShowForm] = useState(pendingAction?.action === 'create');
   const [editingRecipe, setEditingRecipe] = useState(null);
@@ -1159,7 +1265,9 @@ function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thSty
       : await adminCreateRecipe({ userId, ...payload });
 
     if (error) {
-      setFormError(error.message || 'Failed to save recipe.');
+      const message = error.message || 'Failed to save recipe.';
+      setFormError(message);
+      showFeedback({ title: 'Recipe save failed', message, variant: 'error' });
       setFormLoading(false);
       return;
     }
@@ -1169,6 +1277,11 @@ function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thSty
         ? prev.map(recipe => recipe.id === editingRecipe.id ? data : recipe)
         : [data, ...prev]);
     }
+    showFeedback({
+      title: editingRecipe ? 'Recipe updated' : 'Recipe added',
+      message: `"${title}" was saved successfully.`,
+      variant: 'success',
+    });
 
     setFormLoading(false);
     closeForm();
@@ -1177,8 +1290,9 @@ function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thSty
   const handleDelete = (recipe) => {
     showConfirm('Delete Recipe', `Delete "${recipe.title}"? This will also remove it from all users' cookbooks.`, async () => {
       const { error } = await deleteRecipe(recipe.id);
-      if (!error) setRecipes(prev => prev.filter(r => r.id !== recipe.id));
-    });
+      if (error) throw new Error(error.message || 'Failed to delete recipe.');
+      setRecipes(prev => prev.filter(r => r.id !== recipe.id));
+    }, 'danger', `"${recipe.title}" was deleted.`);
   };
 
   return (

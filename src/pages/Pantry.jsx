@@ -7,6 +7,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import { usePreferences } from '../hooks/usePreferences';
 import { generateRecipe, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
+import FeedbackModal from '../components/FeedbackModal';
 import LoadingAlert from '../components/LoadingAlert';
 import { CATEGORIES, UNITS } from '../constants/categories';
 import { EXPIRY_WARNING_MS } from '../constants/dietary';
@@ -76,6 +77,8 @@ export default function Pantry() {
   const [genError, setGenError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(null);
+  const [feedback, setFeedback] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', quantity: 1, unit: 'pcs', category: '', expiresAt: '' });
   const [savingEditId, setSavingEditId] = useState(null);
@@ -180,19 +183,41 @@ export default function Pantry() {
       return;
     }
 
-    setSavingEditId(itemId);
-    setEditError(null);
-    try {
-      await editPantryItem(itemId, {
+    setConfirmEdit({
+      itemId,
+      name: cleanName,
+      payload: {
         name: cleanName,
         quantity,
         unit: editForm.unit,
         category: editForm.category || null,
         expiresAt: editForm.expiresAt || null,
-      });
+      },
+    });
+  };
+
+  const confirmSaveEdit = async () => {
+    if (!confirmEdit) return;
+    const { itemId, name, payload } = confirmEdit;
+    setConfirmEdit(null);
+    setSavingEditId(itemId);
+    setEditError(null);
+    try {
+      await editPantryItem(itemId, payload);
       setEditingItemId(null);
+      setFeedback({
+        title: 'Pantry item updated',
+        message: `"${name}" was saved successfully.`,
+        variant: 'success',
+      });
     } catch (err) {
-      setEditError(err.message || 'Failed to update pantry item.');
+      const message = err.message || 'Failed to update pantry item.';
+      setEditError(message);
+      setFeedback({
+        title: 'Update failed',
+        message,
+        variant: 'error',
+      });
     } finally {
       setSavingEditId(null);
     }
@@ -256,9 +281,23 @@ export default function Pantry() {
 
   const handleSaveRecipe = async () => {
     if (!generatedRecipe) return;
-    await saveRecipe(generatedRecipe, 'ai');
-    setGeneratedRecipe(null);
-    navigate('/cookbook');
+    try {
+      await saveRecipe(generatedRecipe, 'ai');
+      setGeneratedRecipe(null);
+      setFeedback({
+        title: 'Recipe saved',
+        message: `"${generatedRecipe.title}" was added to your cookbook.`,
+        variant: 'success',
+        actionText: 'Open Cookbook',
+        onClose: () => navigate('/cookbook'),
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Save failed',
+        message: err.message || 'Unable to save this recipe. Please try again.',
+        variant: 'error',
+      });
+    }
   };
 
   const handleDeleteItem = (itemId) => {
@@ -268,8 +307,22 @@ export default function Pantry() {
 
   const confirmDeleteItem = async () => {
     if (!confirmDelete) return;
-    await removePantryItem(confirmDelete.id);
-    setSelectedItems(prev => prev.filter(id => id !== confirmDelete.id));
+    const itemName = confirmDelete.name;
+    try {
+      await removePantryItem(confirmDelete.id);
+      setSelectedItems(prev => prev.filter(id => id !== confirmDelete.id));
+      setFeedback({
+        title: 'Pantry item removed',
+        message: `"${itemName}" was removed from your pantry.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Remove failed',
+        message: err.message || `Unable to remove "${itemName}". Please try again.`,
+        variant: 'error',
+      });
+    }
     setConfirmDelete(null);
   };
 
@@ -279,9 +332,29 @@ export default function Pantry() {
   };
 
   const confirmBatchDeleteItems = async () => {
+    const itemCount = selectedItems.length;
     setConfirmBatchDelete(false);
-    await removePantryItems(selectedItems);
-    setSelectedItems([]);
+    try {
+      await removePantryItems(selectedItems);
+      setSelectedItems([]);
+      setFeedback({
+        title: 'Selected items removed',
+        message: `${itemCount} pantry item${itemCount !== 1 ? 's were' : ' was'} removed.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Remove failed',
+        message: err.message || 'Unable to remove the selected items. Please try again.',
+        variant: 'error',
+      });
+    }
+  };
+
+  const closeFeedback = () => {
+    const afterClose = feedback?.onClose;
+    setFeedback(null);
+    afterClose?.();
   };
 
   const handleSelectAll = () => {
@@ -618,6 +691,25 @@ export default function Pantry() {
         variant="danger"
         onConfirm={confirmBatchDeleteItems}
         onCancel={() => setConfirmBatchDelete(false)}
+      />
+
+      <ConfirmModal
+        open={!!confirmEdit}
+        title="Save Pantry Changes"
+        message={`Save your changes to "${confirmEdit?.name}"?`}
+        confirmText="Save"
+        variant="success"
+        onConfirm={confirmSaveEdit}
+        onCancel={() => setConfirmEdit(null)}
+      />
+
+      <FeedbackModal
+        open={!!feedback}
+        title={feedback?.title}
+        message={feedback?.message}
+        variant={feedback?.variant}
+        actionText={feedback?.actionText}
+        onClose={closeFeedback}
       />
 
       {generatedRecipe && (

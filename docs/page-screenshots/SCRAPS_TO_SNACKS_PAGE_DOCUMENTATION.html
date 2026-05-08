@@ -1,0 +1,589 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Scraps2Snacks Page Screenshot Documentation</title>
+  <style>
+    @page { size: A4; margin: 0.45in; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #172033;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.45;
+    }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 0 0 12px; page-break-after: avoid; }
+    h3 { font-size: 14px; margin: 14px 0 6px; page-break-after: avoid; }
+    p { margin: 0 0 12px; }
+    ul { margin: 0 0 12px 18px; padding: 0; }
+    li { margin: 0 0 5px; }
+    code {
+      background: #eef2f7;
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.92em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #d9e1ec;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f3f6fa; }
+    dl {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 6px 12px;
+      margin: 0 0 14px;
+      font-size: 12px;
+    }
+    dt { color: #637083; font-weight: 700; }
+    dd { margin: 0; }
+    img {
+      width: 100%;
+      height: auto;
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      display: block;
+    }
+    .cover {
+      border-bottom: 3px solid #7a5ed3;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+    }
+    .page-section {
+      page-break-before: always;
+      margin: 0 0 28px;
+    }
+    .note {
+      background: #f7f5ff;
+      border-left: 4px solid #7a5ed3;
+      padding: 10px 12px;
+      margin: 14px 0;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <h1>Scraps2Snacks Page Screenshot Documentation</h1>
+  </section>
+
+  <p class="note">The root route <code>/</code> redirects guests to <code>/login</code> and signed-in users to the appropriate app area, so the screenshots below focus on the concrete routed screens.</p>
+
+  <h2>Page Index</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Page</th><th>Route</th><th>Access / Routing</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>1</td>
+      <td>Login</td>
+      <td><code>/login</code></td>
+      <td>Guest-only route. Authenticated users are redirected to their default app destination.</td>
+      <td>Public sign-in screen for returning users.</td>
+    </tr>
+  
+    <tr>
+      <td>2</td>
+      <td>Register</td>
+      <td><code>/register</code></td>
+      <td>Guest-only route. Authenticated users are redirected to their app destination.</td>
+      <td>Public account creation and paid plan selection flow.</td>
+    </tr>
+  
+    <tr>
+      <td>3</td>
+      <td>Reset Password</td>
+      <td><code>/reset-password</code></td>
+      <td>Recovery-link route. The real app requires a Supabase password recovery session.</td>
+      <td>Password recovery screen shown from a valid recovery link.</td>
+    </tr>
+  
+    <tr>
+      <td>4</td>
+      <td>Subscription</td>
+      <td><code>/subscription</code></td>
+      <td>Authenticated route. Users without an active subscription land here before onboarding or app access.</td>
+      <td>Plan selection page for authenticated users without active access.</td>
+    </tr>
+  
+    <tr>
+      <td>5</td>
+      <td>Payment Success</td>
+      <td><code>/payment/success</code></td>
+      <td>Authenticated payment-return route. It expects a checkout attempt reference in the URL.</td>
+      <td>PayMongo return page while payment confirmation is pending.</td>
+    </tr>
+  
+    <tr>
+      <td>6</td>
+      <td>Payment Cancel</td>
+      <td><code>/payment/cancel</code></td>
+      <td>Authenticated payment-return route. It expects a checkout attempt or session reference when available.</td>
+      <td>Checkout cancellation page with retry and plan navigation.</td>
+    </tr>
+  
+    <tr>
+      <td>7</td>
+      <td>Onboarding</td>
+      <td><code>/onboarding</code></td>
+      <td>Authenticated and subscribed route. New users see this before the pantry; onboarded users can revisit it from Account.</td>
+      <td>Diet and allergy preference setup before entering the app.</td>
+    </tr>
+  
+    <tr>
+      <td>8</td>
+      <td>Pantry</td>
+      <td><code>/pantry</code></td>
+      <td>Authenticated, subscribed, and onboarded route. Regular users land here after completing setup.</td>
+      <td>Household pantry management and recipe generation workspace.</td>
+    </tr>
+  
+    <tr>
+      <td>9</td>
+      <td>Magic Scan</td>
+      <td><code>/scan</code></td>
+      <td>Authenticated, subscribed, onboarded route. Requires a household in the real app.</td>
+      <td>Image upload and camera entry point for ingredient scanning.</td>
+    </tr>
+  
+    <tr>
+      <td>10</td>
+      <td>Cookbook</td>
+      <td><code>/cookbook</code></td>
+      <td>Authenticated, subscribed, onboarded route.</td>
+      <td>Saved AI recipes and cookbook management.</td>
+    </tr>
+  
+    <tr>
+      <td>11</td>
+      <td>Account</td>
+      <td><code>/account</code></td>
+      <td>Authenticated, subscribed, onboarded route.</td>
+      <td>Profile, password, subscription, preferences, and sign-out controls.</td>
+    </tr>
+  
+    <tr>
+      <td>12</td>
+      <td>Admin Dashboard</td>
+      <td><code>/admin - Dashboard</code></td>
+      <td>Admin-only route. Non-admin users are redirected away from this page.</td>
+      <td>Admin landing section for high-level metrics and operational shortcuts.</td>
+    </tr>
+  
+    <tr>
+      <td>13</td>
+      <td>Admin Users</td>
+      <td><code>/admin - Users section</code></td>
+      <td>Admin-only section inside the /admin route.</td>
+      <td>Admin user-management section reached from the Users item in the sidebar.</td>
+    </tr>
+  
+    <tr>
+      <td>14</td>
+      <td>Admin Plans</td>
+      <td><code>/admin - Plans section</code></td>
+      <td>Admin-only section inside the /admin route.</td>
+      <td>Admin plan-management section reached from the Plans item in the sidebar.</td>
+    </tr>
+  
+    <tr>
+      <td>15</td>
+      <td>Admin Pantry</td>
+      <td><code>/admin - Pantry section</code></td>
+      <td>Admin-only section inside the /admin route.</td>
+      <td>Admin pantry-inspection section reached from the Pantry item in the sidebar.</td>
+    </tr>
+  
+    <tr>
+      <td>16</td>
+      <td>Admin Recipes</td>
+      <td><code>/admin - Recipes section</code></td>
+      <td>Admin-only section inside the /admin route.</td>
+      <td>Admin recipe-maintenance section reached from the Recipes item in the sidebar.</td>
+    </tr>
+  </tbody>
+  </table>
+
+  
+      <section class="page-section">
+        <h2>1. Login</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/login</code></dd>
+          <dt>Captured URL</dt><dd><code>/login?visualRole=guest</code></dd>
+          <dt>Purpose</dt><dd>Public sign-in screen for returning users.</dd>
+          <dt>Access</dt><dd>Guest-only route. Authenticated users are redirected to their default app destination.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>A returning user enters an email and password, optionally uses the remember-me checkbox, and submits the form to start a Supabase password login. The forgot-password action opens the reset request flow.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Split-screen authentication layout with the login form on the left and a branded food image panel on the right.</li><li>Email and password fields, password visibility toggle, remember-me checkbox, forgot-password action, and primary login button.</li><li>Theme toggle is available in the top-left corner for light/dark mode switching.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Log in to your account, Welcome Back, Chef!</dd>
+          <dt>Visible buttons/actions</dt><dd>Forgot password?, Log in</dd>
+          <dt>Inputs/selects</dt><dd>Email, Enter your password, remember</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This page is the main entry point for existing users. Error and notice alerts appear above the form after login or password-reset actions.</p>
+        <img src="./screenshots/01-login.png" alt="Login screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>2. Register</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/register</code></dd>
+          <dt>Captured URL</dt><dd><code>/register?visualRole=guest</code></dd>
+          <dt>Purpose</dt><dd>Public account creation and paid plan selection flow.</dd>
+          <dt>Access</dt><dd>Guest-only route. Authenticated users are redirected to their app destination.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>A new user enters name, email, password, confirms the password, selects a paid subscription plan, accepts the terms, and continues to PayMongo checkout.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Brand image panel introduces the zero-waste cooking theme.</li><li>Account fields collect first name, last name, email, password, and password confirmation.</li><li>Plan cards show available paid plans with billing frequency and price.</li><li>Terms and Conditions opens an in-page dialog before account creation.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Savor the Flavor, Stop the Waste, Create an account</dd>
+          <dt>Visible buttons/actions</dt><dd>Snack Starter Weekly access for small households testing meal planning. Billed weekly ₱..., Kitchen Saver Full pantry tracking, AI recipes, and Magic Scan for a month. Billed mont..., Zero-Waste Pro Annual access for frequent cooks and larger households. Billed annually ..., Terms &amp; Conditions, Create account and pay</dd>
+          <dt>Inputs/selects</dt><dd>First name, Last name, Email, Enter your password, Confirm your password, terms</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>The visual documentation uses seeded plan data so the page can be captured even without a live Supabase subscription_plans table.</p>
+        <img src="./screenshots/02-register.png" alt="Register screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>3. Reset Password</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/reset-password</code></dd>
+          <dt>Captured URL</dt><dd><code>/reset-password</code></dd>
+          <dt>Purpose</dt><dd>Password recovery screen shown from a valid recovery link.</dd>
+          <dt>Access</dt><dd>Recovery-link route. The real app requires a Supabase password recovery session.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>A user arriving from a recovery email enters a new password, confirms it, and submits the update. After success, the app signs the user out and sends them back to login.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Compact centered card keeps the recovery task focused.</li><li>New password and confirmation fields enforce a minimum password length.</li><li>Alert areas communicate invalid links, mismatch errors, or successful password updates.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Reset password</dd>
+          <dt>Visible buttons/actions</dt><dd>Update password</dd>
+          <dt>Inputs/selects</dt><dd>New password, Confirm new password</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>The screenshot is captured with recovery parameters so the form is enabled instead of showing an expired-link state.</p>
+        <img src="./screenshots/03-reset-password.png" alt="Reset Password screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>4. Subscription</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/subscription</code></dd>
+          <dt>Captured URL</dt><dd><code>/subscription?visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Plan selection page for authenticated users without active access.</dd>
+          <dt>Access</dt><dd>Authenticated route. Users without an active subscription land here before onboarding or app access.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>The user chooses a plan, reviews the price and billing period, then continues to PayMongo checkout. Active subscribers see a plan-management version of this screen.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Split-screen plan selection layout mirrors the auth pages for a consistent purchase flow.</li><li>Plan options highlight the selected plan and show price, description, and billing cadence.</li><li>Continue to Payment starts the PayMongo checkout creation flow.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Unlock Culinary Excellence, Choose Your Plan, Snack Starter, Kitchen Saver, Zero-Waste Pro</dd>
+          <dt>Visible buttons/actions</dt><dd>Continue to Payment</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This capture shows the pre-subscription state because it is the most important gated access screen.</p>
+        <img src="./screenshots/04-subscription.png" alt="Subscription screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>5. Payment Success</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/payment/success</code></dd>
+          <dt>Captured URL</dt><dd><code>/payment/success?attempt_id=mock-pending&amp;visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>PayMongo return page while payment confirmation is pending.</dd>
+          <dt>Access</dt><dd>Authenticated payment-return route. It expects a checkout attempt reference in the URL.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>After PayMongo returns the user to the app, this page checks the checkout session. If payment is confirmed, it refreshes the subscription and redirects to onboarding or account.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Status card explains whether the app is still waiting for PayMongo confirmation.</li><li>Plan details appear when the payment attempt is available.</li><li>Check Again lets users manually retry status verification.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Payment pending</dd>
+          <dt>Visible buttons/actions</dt><dd>Check Again</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>The screenshot intentionally shows the pending state because it is visible before automatic verification or redirect completes.</p>
+        <img src="./screenshots/05-payment-success.png" alt="Payment Success screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>6. Payment Cancel</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/payment/cancel</code></dd>
+          <dt>Captured URL</dt><dd><code>/payment/cancel?attempt_id=mock-canceled&amp;visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Checkout cancellation page with retry and plan navigation.</dd>
+          <dt>Access</dt><dd>Authenticated payment-return route. It expects a checkout attempt or session reference when available.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>A user who exits PayMongo without completing payment can return to plan selection or retry checkout for the same plan.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Status card explains that the account exists but access remains locked until payment succeeds.</li><li>Plan details provide context for the canceled checkout.</li><li>Plans and Retry buttons give clear recovery paths.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Checkout canceled</dd>
+          <dt>Visible buttons/actions</dt><dd>Plans, Retry</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This screen prevents users from feeling stuck after leaving the external payment provider.</p>
+        <img src="./screenshots/06-payment-cancel.png" alt="Payment Cancel screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>7. Onboarding</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/onboarding</code></dd>
+          <dt>Captured URL</dt><dd><code>/onboarding?visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Diet and allergy preference setup before entering the app.</dd>
+          <dt>Access</dt><dd>Authenticated and subscribed route. New users see this before the pantry; onboarded users can revisit it from Account.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>The user selects diet preferences and allergies, then completes onboarding. These preferences personalize ingredient validation and recipe generation.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Diet chips capture positive personalization preferences.</li><li>Allergy chips capture exclusions that should be avoided in recipe suggestions.</li><li>Complete Onboarding saves preferences and marks the profile as onboarded.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Diet &amp; Allergies, Curate Your Experience</dd>
+          <dt>Visible buttons/actions</dt><dd>Complete Onboarding</dd>
+          <dt>Inputs/selects</dt><dd>input, input, input, input, input, input, input, input, input, input</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>The app reuses this route later as a preferences editor, but this capture shows the first-run onboarding version.</p>
+        <img src="./screenshots/07-onboarding.png" alt="Onboarding screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>8. Pantry</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/pantry</code></dd>
+          <dt>Captured URL</dt><dd><code>/pantry?visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Household pantry management and recipe generation workspace.</dd>
+          <dt>Access</dt><dd>Authenticated, subscribed, and onboarded route. Regular users land here after completing setup.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Users add pantry items manually, review existing household ingredients, edit or delete items, select ingredients, and generate AI recipes from selected pantry items.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Hero banner gives page context and displays active diet/allergy badges.</li><li>Add-item form captures ingredient name, quantity, unit, category, and optional expiration date.</li><li>Pantry table shows item amount, category, expiration status, and row-level edit/delete actions.</li><li>Batch actions let users delete selected items or generate a recipe from selected ingredients.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Household Pantry</dd>
+          <dt>Visible buttons/actions</dt><dd>Add, Delete Selected (0), Generate Recipe (0)</dd>
+          <dt>Inputs/selects</dt><dd>E.g., Apples..., add-qty, add-unit, add-category, add-expires, input, input, input, input, input</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This is the core productivity page for reducing food waste. Mock pantry data includes varied expiration dates to show table badges and actions.</p>
+        <img src="./screenshots/08-pantry.png" alt="Pantry screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>9. Magic Scan</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/scan</code></dd>
+          <dt>Captured URL</dt><dd><code>/scan?visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Image upload and camera entry point for ingredient scanning.</dd>
+          <dt>Access</dt><dd>Authenticated, subscribed, onboarded route. Requires a household in the real app.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Users upload an image or take a photo. The app sends the image to AI, validates detected food items against preferences, then lets the user confirm items into the pantry.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Hero banner introduces the AI scanning workflow.</li><li>Upload area supports file upload and device camera capture.</li><li>Result state can show detected ingredients, confidence, freshness, quantities, units, warnings, and save actions.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Magic Scan, Upload or Capture Ingredients</dd>
+          <dt>Visible buttons/actions</dt><dd>Upload Image, Take Photo</dd>
+          <dt>Inputs/selects</dt><dd>input, input</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>The screenshot captures the idle upload state. Detection results appear after a user chooses an image.</p>
+        <img src="./screenshots/09-magic-scan.png" alt="Magic Scan screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>10. Cookbook</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/cookbook</code></dd>
+          <dt>Captured URL</dt><dd><code>/cookbook?visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Saved AI recipes and cookbook management.</dd>
+          <dt>Access</dt><dd>Authenticated, subscribed, onboarded route.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Users review saved recipes, select recipes for batch deletion, edit recipe title/ingredients/instructions, remove recipes, and use the cookbook chatbot for recipe help.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Hero banner frames the saved recipe library.</li><li>Recipe cards show saved date, calories when available, ingredients, and instructions.</li><li>Card actions support edit and delete; toolbar actions support select-all and batch delete.</li><li>Cookbook chatbot is available as an assistant for saved recipe questions.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>My Cookbook, Chicken Pantry Bowl, Spinach Tomato Fried Rice</dd>
+          <dt>Visible buttons/actions</dt><dd>None detected</dd>
+          <dt>Inputs/selects</dt><dd>input, input, input</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>Mock saved recipes are included so the documentation shows the populated cookbook state instead of the empty state.</p>
+        <img src="./screenshots/10-cookbook.png" alt="Cookbook screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>11. Account</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/account</code></dd>
+          <dt>Captured URL</dt><dd><code>/account?visualRole=user</code></dd>
+          <dt>Purpose</dt><dd>Profile, password, subscription, preferences, and sign-out controls.</dd>
+          <dt>Access</dt><dd>Authenticated, subscribed, onboarded route.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Users manage email, password, subscription, diet/allergy preferences, and sign out. Inline edit forms open when email or password rows are selected.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Hero banner identifies the account settings area.</li><li>Email and password rows open edit forms for credential updates.</li><li>Subscription row routes to plan management; Diet &amp; Allergies routes to preferences.</li><li>Sign Out opens a confirmation modal before ending the session.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>My Account</dd>
+          <dt>Visible buttons/actions</dt><dd>Edit, Edit</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This page acts as the navigation hub for account-level settings and billing/preferences management.</p>
+        <img src="./screenshots/11-account.png" alt="Account screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>12. Admin Dashboard</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/admin - Dashboard</code></dd>
+          <dt>Captured URL</dt><dd><code>/admin?visualRole=admin</code></dd>
+          <dt>Purpose</dt><dd>Admin landing section for high-level metrics and operational shortcuts.</dd>
+          <dt>Access</dt><dd>Admin-only route. Non-admin users are redirected away from this page.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Admins monitor app metrics, review users and subscriptions, manage plans, inspect pantry records, and maintain recipes from a dedicated dashboard.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Persistent sidebar provides admin section navigation and account controls.</li><li>Metric cards summarize users, active subscriptions, monthly revenue, and recipes.</li><li>Dashboard charts show user growth and plan breakdown.</li><li>Quick actions jump to common admin tasks such as reviewing users, creating plans, and adding pantry or recipe records.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Dashboard, User Growth, Subscription Breakdown, Recent Users, Pantry Alerts, Quick Actions, Recent Recipes</dd>
+          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out, Refresh, Export, 3 TOTAL USERS 100% +3 in selected period, 2 ACTIVE SUBSCRIPTIONS 100% 100% of users active, ₱1,366 MONTHLY REVENUE 100% Kitchen Saver leads plan mix</dd>
+          <dt>Inputs/selects</dt><dd>Dashboard date range</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This is the default admin section shown when an admin opens the /admin route.</p>
+        <img src="./screenshots/12-admin-dashboard.png" alt="Admin Dashboard screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>13. Admin Users</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/admin - Users section</code></dd>
+          <dt>Captured URL</dt><dd><code>/admin?visualRole=admin</code></dd>
+          <dt>Purpose</dt><dd>Admin user-management section reached from the Users item in the sidebar.</dd>
+          <dt>Access</dt><dd>Admin-only section inside the /admin route.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Admins review registered users, inspect subscription status, update roles or subscription assignments, and remove user profiles when needed.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Sidebar remains visible so admins can move between dashboard sections.</li><li>Users table lists account identity, role, subscription status, plan information, and account dates.</li><li>Row actions expose editing and deletion controls for individual user records.</li><li>Role and subscription controls help admins correct access or support account issues.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>None detected</dd>
+          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This section is not a separate React Router page; it is a sidebar-driven tab inside Admin, so the documentation labels it as an admin section.</p>
+        <img src="./screenshots/13-admin-users.png" alt="Admin Users screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>14. Admin Plans</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/admin - Plans section</code></dd>
+          <dt>Captured URL</dt><dd><code>/admin?visualRole=admin</code></dd>
+          <dt>Purpose</dt><dd>Admin plan-management section reached from the Plans item in the sidebar.</dd>
+          <dt>Access</dt><dd>Admin-only section inside the /admin route.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Admins create, edit, activate, deactivate, or delete subscription plans used by registration, checkout, and account billing views.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Plans table shows plan name, code, pricing, billing period, active status, and action controls.</li><li>Add Plan opens a modal for creating a new subscription plan.</li><li>Toggle controls let admins turn plans on or off without deleting them.</li><li>Edit and delete actions support plan maintenance.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Subscription Plans</dd>
+          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out, Add Plan</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>These plan records feed the public registration and subscription pages, so this section is part of the app configuration surface.</p>
+        <img src="./screenshots/14-admin-plans.png" alt="Admin Plans screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>15. Admin Pantry</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/admin - Pantry section</code></dd>
+          <dt>Captured URL</dt><dd><code>/admin?visualRole=admin</code></dd>
+          <dt>Purpose</dt><dd>Admin pantry-inspection section reached from the Pantry item in the sidebar.</dd>
+          <dt>Access</dt><dd>Admin-only section inside the /admin route.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Admins inspect pantry items across households, add items for support/testing, edit item details, and discard records when needed.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Pantry table lists ingredient, category, quantity, expiration, created date, and row actions.</li><li>Add Item opens an admin form for creating pantry items against a household.</li><li>Edit actions allow correction of ingredient name, quantity, unit, category, and expiration date.</li><li>Delete actions mark pantry items as discarded.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Pantry Items</dd>
+          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out, Add Item</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This admin section supports operational review of household pantry data and is separate from the user-facing Pantry page.</p>
+        <img src="./screenshots/15-admin-pantry.png" alt="Admin Pantry screenshot" />
+      </section>
+    
+      <section class="page-section">
+        <h2>16. Admin Recipes</h2>
+        <dl>
+          <dt>Route</dt><dd><code>/admin - Recipes section</code></dd>
+          <dt>Captured URL</dt><dd><code>/admin?visualRole=admin</code></dd>
+          <dt>Purpose</dt><dd>Admin recipe-maintenance section reached from the Recipes item in the sidebar.</dd>
+          <dt>Access</dt><dd>Admin-only section inside the /admin route.</dd>
+        </dl>
+        <h3>User Flow</h3>
+        <p>Admins review generated recipes, add curated recipes, edit ingredients and instructions, and remove recipes from the system.</p>
+        <h3>Main Screen Areas</h3>
+        <ul><li>Recipes table lists title, ingredient/step counts, created date, and row actions.</li><li>Add Recipe opens a modal for recipe title, ingredient lines, and instructions.</li><li>Edit actions update an existing recipe’s details.</li><li>Delete actions remove recipe records and related saved-recipe links.</li></ul>
+        <h3>Detected Page Structure</h3>
+        <dl>
+          <dt>Key headings</dt><dd>Recipes</dd>
+          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out, Add Recipe</dd>
+          <dt>Inputs/selects</dt><dd>None detected</dd>
+        </dl>
+        <h3>Documentation Notes</h3>
+        <p>This section documents the final sidebar destination that was missing from the earlier admin capture.</p>
+        <img src="./screenshots/16-admin-recipes.png" alt="Admin Recipes screenshot" />
+      </section>
+    
+</body>
+</html>

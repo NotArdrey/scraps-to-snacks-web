@@ -4,6 +4,7 @@ import { AppContext } from '../AppContextValue';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
+import FeedbackModal from '../components/FeedbackModal';
 import { HERO_IMAGES } from '../constants/images';
 import { formatDate } from '../utils/formatters';
 
@@ -22,6 +23,8 @@ export default function Account() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(null);
+  const [feedback, setFeedback] = useState(null);
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -29,7 +32,15 @@ export default function Account() {
 
   const confirmLogout = async () => {
     setShowLogoutConfirm(false);
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setFeedback({
+        title: 'Sign out failed',
+        message: error.message || 'Unable to sign out. Please try again.',
+        variant: 'error',
+      });
+      return;
+    }
     navigate('/login', { replace: true, state: null });
   };
 
@@ -49,23 +60,44 @@ export default function Account() {
     setPasswordMsg(null);
   };
 
-  const handleChangeEmail = async (e) => {
+  const requestChangeEmail = async (e) => {
     e.preventDefault();
     if (!newEmail.trim()) return;
+    setConfirmEdit({
+      type: 'email',
+      title: 'Confirm Email Change',
+      message: `Send a confirmation email to ${newEmail.trim()}?`,
+      confirmText: 'Send',
+      value: newEmail.trim(),
+    });
+  };
+
+  const confirmChangeEmail = async (email) => {
     setEmailLoading(true);
     setEmailMsg(null);
-    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    const { error } = await supabase.auth.updateUser({ email });
     if (error) {
       setEmailMsg({ type: 'error', text: error.message });
+      setFeedback({
+        title: 'Email update failed',
+        message: error.message,
+        variant: 'error',
+      });
     } else {
-      setEmailMsg({ type: 'success', text: 'Confirmation sent to your new email. Check your inbox.' });
+      const message = 'Confirmation sent to your new email. Check your inbox.';
+      setEmailMsg({ type: 'success', text: message });
       setNewEmail('');
-      setTimeout(() => setEditingField(null), 2500);
+      setEditingField(null);
+      setFeedback({
+        title: 'Email confirmation sent',
+        message,
+        variant: 'success',
+      });
     }
     setEmailLoading(false);
   };
 
-  const handleChangePassword = async (e) => {
+  const requestChangePassword = async (e) => {
     e.preventDefault();
     setPasswordMsg(null);
     if (newPassword.length < 6) {
@@ -76,18 +108,52 @@ export default function Account() {
       setPasswordMsg({ type: 'error', text: 'Passwords do not match.' });
       return;
     }
+    setConfirmEdit({
+      type: 'password',
+      title: 'Confirm Password Change',
+      message: 'Save this new password for your account?',
+      confirmText: 'Save',
+      value: newPassword,
+    });
+  };
+
+  const confirmChangePassword = async (password) => {
     setPasswordLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       setPasswordMsg({ type: 'error', text: error.message });
+      setFeedback({
+        title: 'Password update failed',
+        message: error.message,
+        variant: 'error',
+      });
     } else {
-      setPasswordMsg({ type: 'success', text: 'Password updated successfully.' });
+      const message = 'Password updated successfully.';
+      setPasswordMsg({ type: 'success', text: message });
       setNewPassword('');
       setConfirmPassword('');
-      setTimeout(() => setEditingField(null), 2500);
+      setEditingField(null);
+      setFeedback({
+        title: 'Password updated',
+        message,
+        variant: 'success',
+      });
     }
     setPasswordLoading(false);
   };
+
+  const handleConfirmEdit = async () => {
+    if (!confirmEdit) return;
+    const pending = confirmEdit;
+    setConfirmEdit(null);
+    if (pending.type === 'email') {
+      await confirmChangeEmail(pending.value);
+    } else if (pending.type === 'password') {
+      await confirmChangePassword(pending.value);
+    }
+  };
+
+  const closeFeedback = () => setFeedback(null);
 
   const planName = subscription?.subscription_plans?.display_name || (subscription ? 'Active subscription' : 'No active subscription');
   const planStatus = subscription?.status || 'none';
@@ -204,7 +270,7 @@ export default function Account() {
         {editingField === 'email' && (
           <div className="account-edit-form" style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
             {emailMsg && <div style={msgStyle(emailMsg.type)}>{emailMsg.text}</div>}
-            <form onSubmit={handleChangeEmail}>
+            <form onSubmit={requestChangeEmail}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Email</label>
                 <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter new email address" style={inputStyle} required autoFocus />
@@ -245,7 +311,7 @@ export default function Account() {
         {editingField === 'password' && (
           <div className="account-edit-form" style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
             {passwordMsg && <div style={msgStyle(passwordMsg.type)}>{passwordMsg.text}</div>}
-            <form onSubmit={handleChangePassword}>
+            <form onSubmit={requestChangePassword}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Password</label>
                 <div style={{ position: 'relative' }}>
@@ -363,6 +429,24 @@ export default function Account() {
         variant="logout"
         onConfirm={confirmLogout}
         onCancel={() => setShowLogoutConfirm(false)}
+      />
+
+      <ConfirmModal
+        open={!!confirmEdit}
+        title={confirmEdit?.title || ''}
+        message={confirmEdit?.message || ''}
+        confirmText={confirmEdit?.confirmText || 'Confirm'}
+        variant="success"
+        onConfirm={handleConfirmEdit}
+        onCancel={() => setConfirmEdit(null)}
+      />
+
+      <FeedbackModal
+        open={!!feedback}
+        title={feedback?.title}
+        message={feedback?.message}
+        variant={feedback?.variant}
+        onClose={closeFeedback}
       />
     </div>
   );
