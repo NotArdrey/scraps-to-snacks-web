@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Book, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus } from 'lucide-react';
+import { Book, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus, ReceiptText } from 'lucide-react';
 import { AppContext } from '../AppContextValue';
 import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
@@ -8,6 +8,14 @@ import BrandIcon from '../components/BrandIcon';
 import CookbookChatbot from '../components/CookbookChatbot';
 import LoadingPanel from '../components/LoadingPanel';
 import { HERO_IMAGES } from '../constants/images';
+
+function formatCurrency(value, currency = 'PHP') {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0);
+}
 
 export default function Cookbook() {
   const { user } = useContext(AppContext);
@@ -289,6 +297,12 @@ export default function Cookbook() {
                     <span>Calories: {recipe.nutrition.cals} kcal</span>
                   </span>
                 )}
+                {recipe.costEstimate && (
+                  <span className="cookbook-meta-item cookbook-cost-meta">
+                    <ReceiptText size={16} />
+                    <span>Est. cost: {formatCurrency(recipe.costEstimate.totalCost, recipe.costEstimate.currency)}</span>
+                  </span>
+                )}
               </div>
 
               <div className={`cookbook-details-panel${editingId === recipe.id ? ' cookbook-details-panel-editing' : ''}${(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) ? ' cookbook-details-panel-empty' : ''}`}>
@@ -376,6 +390,23 @@ export default function Cookbook() {
                         <li key={idx}>{inst}</li>
                       ))}
                     </ol>
+                  </section>
+                )}
+                {recipe.costEstimate && (
+                  <section className="cookbook-section cookbook-cost-section">
+                    <h4 className="cookbook-section-heading">Estimated Cost</h4>
+                    <ul className="cookbook-cost-list">
+                      {recipe.costEstimate.items?.map((item, idx) => (
+                        <li key={`${recipe.id}-cost-${idx}`}>
+                          <span>{item.name}{!item.pantryIngredient ? ' (added)' : ''}</span>
+                          <strong>{formatCurrency(item.estimatedCost, recipe.costEstimate.currency)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="cookbook-cost-total">
+                      <span>Total recipe</span>
+                      <strong>{formatCurrency(recipe.costEstimate.totalCost, recipe.costEstimate.currency)}</strong>
+                    </div>
                   </section>
                 )}
                 {(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) && (

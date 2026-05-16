@@ -71,6 +71,9 @@ const pantryItems = [
     ingredient_id: 'ing-spinach',
     quantity: 250,
     unit: 'g',
+    estimated_unit_price: 0.15,
+    pricing_unit: 'g',
+    currency: 'PHP',
     status: 'available',
     source: 'manual',
     expires_at: '2026-05-10T00:00:00Z',
@@ -84,6 +87,9 @@ const pantryItems = [
     ingredient_id: 'ing-tomatoes',
     quantity: 6,
     unit: 'pcs',
+    estimated_unit_price: 8,
+    pricing_unit: 'pcs',
+    currency: 'PHP',
     status: 'available',
     source: 'scan',
     expires_at: '2026-05-12T00:00:00Z',
@@ -97,6 +103,9 @@ const pantryItems = [
     ingredient_id: 'ing-rice',
     quantity: 2,
     unit: 'cups',
+    estimated_unit_price: 15,
+    pricing_unit: 'cup',
+    currency: 'PHP',
     status: 'available',
     source: 'manual',
     expires_at: '2026-05-09T00:00:00Z',
@@ -110,6 +119,9 @@ const pantryItems = [
     ingredient_id: 'ing-chicken',
     quantity: 500,
     unit: 'g',
+    estimated_unit_price: 0.34,
+    pricing_unit: 'g',
+    currency: 'PHP',
     status: 'available',
     source: 'manual',
     expires_at: '2026-05-11T00:00:00Z',
@@ -118,6 +130,43 @@ const pantryItems = [
     ingredients: ingredients[3],
   },
 ];
+
+const friedRiceCostEstimate = {
+  currency: 'PHP',
+  locale: 'Philippines',
+  asOf: '2026-05-08',
+  totalCost: 84.5,
+  pantryMarketValue: 72.5,
+  addedIngredientCost: 12,
+  confidence: 'medium',
+  items: [
+    { name: 'Cooked Rice', quantity: 2, unit: 'cups', pantryIngredient: true, estimatedUnitPrice: 15, pricingUnit: 'cup', estimatedCost: 30, sourceLabel: 'Demo PH market estimate', notes: 'Converted from common retail rice pricing.' },
+    { name: 'Spinach', quantity: 150, unit: 'g', pantryIngredient: true, estimatedUnitPrice: 0.15, pricingUnit: 'g', estimatedCost: 22.5, sourceLabel: 'Demo PH market estimate', notes: 'Estimated from leafy greens pricing.' },
+    { name: 'Tomatoes', quantity: 3, unit: 'pcs', pantryIngredient: true, estimatedUnitPrice: 6.67, pricingUnit: 'pc', estimatedCost: 20, sourceLabel: 'Demo PH market estimate', notes: 'Piece estimate from per-kilo retail prices.' },
+    { name: 'Cooking Oil', quantity: 1, unit: 'tbsp', pantryIngredient: false, estimatedUnitPrice: 12, pricingUnit: 'tbsp', estimatedCost: 12, sourceLabel: 'Demo grocery estimate', notes: 'Added common staple.' },
+  ],
+  sources: [{ title: 'Demo Philippines price source', url: 'https://www.da.gov.ph/price-monitoring/' }],
+  notes: 'Demo estimate for visual testing.',
+};
+
+const chickenBowlCostEstimate = {
+  currency: 'PHP',
+  locale: 'Philippines',
+  asOf: '2026-05-08',
+  totalCost: 165,
+  pantryMarketValue: 155,
+  addedIngredientCost: 10,
+  confidence: 'medium',
+  items: [
+    { name: 'Chicken Breast', quantity: 250, unit: 'g', pantryIngredient: true, estimatedUnitPrice: 0.34, pricingUnit: 'g', estimatedCost: 85, sourceLabel: 'Demo PH market estimate', notes: 'Converted from per-kilo poultry pricing.' },
+    { name: 'Cooked Rice', quantity: 1, unit: 'cup', pantryIngredient: true, estimatedUnitPrice: 15, pricingUnit: 'cup', estimatedCost: 15, sourceLabel: 'Demo PH market estimate', notes: 'Converted from common retail rice pricing.' },
+    { name: 'Tomatoes', quantity: 2, unit: 'pcs', pantryIngredient: true, estimatedUnitPrice: 7.5, pricingUnit: 'pc', estimatedCost: 15, sourceLabel: 'Demo PH market estimate', notes: 'Piece estimate from per-kilo retail prices.' },
+    { name: 'Soy-calamansi dressing', quantity: 1, unit: 'tbsp', pantryIngredient: false, estimatedUnitPrice: 10, pricingUnit: 'tbsp', estimatedCost: 10, sourceLabel: 'Demo grocery estimate', notes: 'Added common seasoning.' },
+    { name: 'Fresh herbs', quantity: 1, unit: 'tbsp', pantryIngredient: true, estimatedUnitPrice: 40, pricingUnit: 'small bunch', estimatedCost: 40, sourceLabel: 'Demo grocery estimate', notes: 'Estimated small garnish portion.' },
+  ],
+  sources: [{ title: 'Demo Philippines price source', url: 'https://www.da.gov.ph/price-monitoring/' }],
+  notes: 'Demo estimate for visual testing.',
+};
 
 const adminRecipes = [
   {
@@ -129,6 +178,7 @@ const adminRecipes = [
       'Season with salt, pepper, and a squeeze of calamansi.',
     ],
     nutrition_json: { cals: 420, protein: '18g' },
+    metadata_json: { costEstimate: friedRiceCostEstimate },
     created_at: '2026-05-06T10:00:00Z',
     generated_by_user_id: USER_ID,
     recipe_ingredients: [
@@ -146,6 +196,7 @@ const adminRecipes = [
       'Top with herbs and a simple soy-calamansi dressing.',
     ],
     nutrition_json: { cals: 560, protein: '42g' },
+    metadata_json: { costEstimate: chickenBowlCostEstimate },
     created_at: '2026-05-07T13:20:00Z',
     generated_by_user_id: USER_ID,
     recipe_ingredients: [
@@ -493,7 +544,32 @@ class MockQuery {
   execute() {
     if (this.action === 'insert') {
       const rows = Array.isArray(this.payload) ? this.payload : [this.payload];
-      return { data: rows.map((row, index) => ({ id: `mock-insert-${index + 1}`, ...row })), error: null };
+      const insertedRows = rows.map((row, index) => ({ id: `mock-insert-${Date.now()}-${index + 1}`, ...row }));
+      if (this.tableName === 'ingredients') {
+        const normalizedRows = insertedRows.map(row => ({
+          id: row.id,
+          canonical_name: row.canonical_name,
+          category: row.category || 'Other',
+          default_unit: row.default_unit || 'pcs',
+        }));
+        ingredients.push(...normalizedRows);
+        return { data: normalizedRows, error: null };
+      }
+      if (this.tableName === 'pantry_items') {
+        const normalizedRows = insertedRows.map(row => ({
+          ...row,
+          created_at: row.created_at || new Date().toISOString(),
+          ingredients: ingredients.find(ingredient => ingredient.id === row.ingredient_id) || {
+            id: row.ingredient_id,
+            canonical_name: 'Pantry item',
+            category: 'Other',
+            default_unit: row.unit || 'pcs',
+          },
+        }));
+        pantryItems.unshift(...normalizedRows);
+        return { data: normalizedRows, error: null };
+      }
+      return { data: insertedRows, error: null };
     }
 
     if (this.action === 'update') {
@@ -578,7 +654,61 @@ export const mockSupabase = {
   },
   removeChannel() {},
   functions: {
-    async invoke(name) {
+    async invoke(name, options = {}) {
+      if (name === 'ai') {
+        const delayMs = Number(globalThis.__SCRAPS_AI_DELAY_MS || 0);
+        if (delayMs > 0) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+
+        const action = options.body?.action;
+        const payload = options.body?.payload || {};
+
+        if (action === 'validateIngredient') {
+          const cleanName = payload.name || 'Ingredient';
+          const isEgg = /eggs?/i.test(cleanName);
+          return {
+            data: {
+              isFood: true,
+              correctedName: cleanName,
+              category: isEgg ? 'Protein' : 'Other',
+              estimatedExpiryDate: '2026-05-18',
+              freshnessWarning: null,
+              dietConflict: false,
+              allergyConflict: isEgg,
+              warning: isEgg ? 'This ingredient may conflict with an egg allergy.' : null,
+              reason: null,
+            },
+            error: null,
+          };
+        }
+
+        if (action === 'generateRecipe') {
+          return {
+            data: {
+              title: 'Demo Pantry Stir-Fry',
+              ingredients: ['2 cups cooked rice', '150 g spinach', '2 pcs tomatoes', '1 tbsp cooking oil'],
+              ingredientNames: ['Cooked Rice', 'Spinach', 'Tomatoes', 'Cooking Oil'],
+              ingredientDetails: [
+                { name: 'Cooked Rice', quantity: 2, unit: 'cups', pantryIngredient: true },
+                { name: 'Spinach', quantity: 150, unit: 'g', pantryIngredient: true },
+                { name: 'Tomatoes', quantity: 2, unit: 'pcs', pantryIngredient: true },
+                { name: 'Cooking Oil', quantity: 1, unit: 'tbsp', pantryIngredient: false },
+              ],
+              instructions: [
+                'Warm the oil in a pan over medium heat.',
+                'Add tomatoes and cook until softened.',
+                'Stir in rice and spinach until hot and wilted.',
+                'Season to taste and serve warm.',
+              ],
+              nutrition: { cals: 430, protein: 14 },
+            },
+            error: null,
+          };
+        }
+
+        return { data: {}, error: null };
+      }
       if (name === 'verify-paymongo-checkout') {
         return { data: { status: 'pending' }, error: null };
       }

@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useContext, useMemo } from 'react';
 import {
   Shield, Users, CreditCard, Package, ChefHat, BarChart3, ToggleLeft, ToggleRight,
   LogOut, Moon, Sun, Pencil, Trash2, Plus, RefreshCw, Download, ArrowUpRight,
-  TrendingUp, TrendingDown, AlertTriangle, Clock, PieChart, DollarSign, Activity,
+  TrendingUp, TrendingDown, AlertTriangle, Clock, PieChart, WalletCards, Activity,
   Minus, Check, X,
 } from 'lucide-react';
 import {
@@ -260,6 +260,20 @@ function formatCurrencyCents(cents, currency = 'PHP') {
   }).format((cents || 0) / 100);
 }
 
+function formatCurrencyValue(value, currency = 'PHP') {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0);
+}
+
+function formatPantryUnitPrice(item) {
+  const price = Number(item?.estimated_unit_price);
+  if (!Number.isFinite(price) || price <= 0) return '--';
+  return `${formatCurrencyValue(price, item.currency || 'PHP')}/${item.pricing_unit || item.unit || 'unit'}`;
+}
+
 function formatDashboardDate(value) {
   const date = parseDate(value);
   if (!date) return 'No date';
@@ -406,7 +420,7 @@ function StatsTab({ stats, users, plans, pantryItems, recipes, onNavigate, onAct
       value: formatCurrencyCents(dashboard.mrrCents, dashboard.currency),
       detail: `${dashboard.popularPlan} leads plan mix`,
       trend: dashboard.mrrCents > 0 ? 100 : 0,
-      icon: DollarSign,
+      icon: WalletCards,
       color: '#06b6d4',
       target: 'plans',
     },
@@ -1035,7 +1049,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
       ? [...households].sort((a, b) => Number(b.household_id === adminHouseholdId) - Number(a.household_id === adminHouseholdId))
       : households
   ), [adminHouseholdId, households]);
-  const defaultPantryForm = { ingredientName: '', quantity: 1, unit: 'pcs', category: CATEGORIES[0], expiresAt: '', householdId: adminHouseholdId || householdOptions[0]?.household_id || '' };
+  const defaultPantryForm = { ingredientName: '', quantity: 1, unit: 'pcs', estimatedUnitPrice: '', category: CATEGORIES[0], expiresAt: '', householdId: adminHouseholdId || householdOptions[0]?.household_id || '' };
   const [showForm, setShowForm] = useState(pendingAction?.action === 'create');
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState(defaultPantryForm);
@@ -1051,7 +1065,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
 
   const openEdit = (item) => {
     setEditingItem(item);
-    setFormData({ ingredientName: item.ingredients?.canonical_name || '', quantity: item.quantity, unit: item.unit, category: item.ingredients?.category || CATEGORIES[0], expiresAt: item.expires_at ? item.expires_at.split('T')[0] : '' , householdId: '' });
+    setFormData({ ingredientName: item.ingredients?.canonical_name || '', quantity: item.quantity, unit: item.unit, estimatedUnitPrice: item.estimated_unit_price || '', category: item.ingredients?.category || CATEGORIES[0], expiresAt: item.expires_at ? item.expires_at.split('T')[0] : '' , householdId: '' });
     setFormError('');
     setShowForm(true);
   };
@@ -1067,6 +1081,9 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
         quantity: parseFloat(formData.quantity),
         unit: formData.unit,
         category: formData.category,
+        estimatedUnitPrice: formData.estimatedUnitPrice,
+        pricingUnit: formData.unit,
+        currency: 'PHP',
         expires_at: formData.expiresAt || null,
       });
       if (error) {
@@ -1093,6 +1110,9 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
         quantity: parseFloat(formData.quantity),
         unit: formData.unit,
         category: formData.category,
+        estimatedUnitPrice: formData.estimatedUnitPrice,
+        pricingUnit: formData.unit,
+        currency: 'PHP',
         expiresAt: formData.expiresAt || null,
         householdId: formData.householdId,
         userId,
@@ -1143,6 +1163,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
                 <th style={thStyle}>Ingredient</th>
                 <th style={thStyle}>Category</th>
                 <th style={thStyle}>Quantity</th>
+                <th style={thStyle}>Price</th>
                 <th style={thStyle}>Expires</th>
                 <th style={thStyle}>Added</th>
                 <th style={thStyle}>Actions</th>
@@ -1150,12 +1171,15 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
             </thead>
             <tbody>
               {items.length === 0 ? (
-                <tr><td className="admin-empty-cell" colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No pantry items found</td></tr>
+                <tr><td className="admin-empty-cell" colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No pantry items found</td></tr>
               ) : items.map(item => (
                 <tr key={item.id}>
                   <td data-label="Ingredient" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>{item.ingredients?.canonical_name || '—'}</td>
                   <td data-label="Category" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{item.ingredients?.category || '—'}</td>
                   <td data-label="Quantity" style={tdStyle}>{item.quantity} {item.unit}</td>
+                  <td data-label="Price" style={{ ...tdStyle, color: item.estimated_unit_price ? '#34d399' : 'var(--text-tertiary)', fontWeight: item.estimated_unit_price ? '700' : '500' }}>
+                    {formatPantryUnitPrice(item)}
+                  </td>
                   <td data-label="Expires" style={{ ...tdStyle, color: item.expires_at && new Date(item.expires_at) < new Date() ? '#ef4444' : 'var(--text-secondary)' }}>
                     {formatDate(item.expires_at)}
                   </td>
@@ -1204,6 +1228,10 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
               {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Price per unit (PHP, optional)</label>
+          <input style={inputStyle} type="number" min="0" step="0.01" value={formData.estimatedUnitPrice} onChange={e => set('estimatedUnitPrice', e.target.value)} placeholder="e.g. 20.00" />
         </div>
         <div>
           <label style={labelStyle}>Category</label>
@@ -1339,18 +1367,22 @@ function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thSty
               <tr>
                 <th style={thStyle}>Title</th>
                 <th style={thStyle}>Details</th>
+                <th style={thStyle}>Cost</th>
                 <th style={thStyle}>Created</th>
                 <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {recipes.length === 0 ? (
-                <tr><td className="admin-empty-cell" colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No recipes found</td></tr>
+                <tr><td className="admin-empty-cell" colSpan={5} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No recipes found</td></tr>
               ) : recipes.map(r => (
                 <tr key={r.id}>
                   <td data-label="Title" className="admin-primary-cell" style={{ ...tdStyle, fontWeight: '600' }}>{r.title}</td>
                   <td data-label="Details" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
                     {(r.ingredients?.length || 0)} ingredients / {(r.instructions?.length || 0)} steps
+                  </td>
+                  <td data-label="Cost" style={{ ...tdStyle, color: r.costEstimate ? '#34d399' : 'var(--text-tertiary)', fontWeight: r.costEstimate ? '700' : '500' }}>
+                    {r.costEstimate ? formatCurrencyValue(r.costEstimate.totalCost, r.costEstimate.currency) : '--'}
                   </td>
                   <td data-label="Created" style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{formatDate(r.created_at)}</td>
                   <td data-label="Actions" className="admin-actions-cell" style={tdStyle}>
@@ -1405,6 +1437,25 @@ function RecipesTab({ recipes, setRecipes, userId, formatDate, panelStyle, thSty
             </div>
           ))}
         </div>
+        {editingRecipe?.costEstimate && (
+          <div className="admin-recipe-cost-panel">
+            <div className="admin-recipe-cost-heading">
+              <span>Saved ingredient costs</span>
+            </div>
+            <div className="admin-recipe-cost-list">
+              {editingRecipe.costEstimate.items?.map((item, index) => (
+                <div key={`${editingRecipe.id}-cost-${index}`} className="admin-recipe-cost-row">
+                  <span>{item.name}{!item.pantryIngredient ? ' (added)' : ''}</span>
+                  <strong>{formatCurrencyValue(item.estimatedCost, editingRecipe.costEstimate.currency)}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="admin-recipe-cost-row admin-recipe-cost-total">
+              <span>Total recipe</span>
+              <strong>{formatCurrencyValue(editingRecipe.costEstimate.totalCost, editingRecipe.costEstimate.currency)}</strong>
+            </div>
+          </div>
+        )}
       </AdminFormModal>
     </>
   );

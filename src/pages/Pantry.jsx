@@ -1,5 +1,9 @@
-import React, { useState, useContext } from 'react';
-import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck, Pencil, Check } from 'lucide-react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
+import {
+  Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck,
+  Pencil, Check, Search, Filter, Package, Clock3, PackageX, Minus,
+  ReceiptText, CheckCircle2, Utensils,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContextValue';
 import { usePantry } from '../hooks/usePantry';
@@ -10,7 +14,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
 import LoadingPanel from '../components/LoadingPanel';
 import { CATEGORIES, UNITS } from '../constants/categories';
-import { EXPIRY_WARNING_MS } from '../constants/dietary';
+import { ALLERGEN_KEYWORDS, EXPIRY_WARNING_MS } from '../constants/dietary';
 import { HERO_IMAGES } from '../constants/images';
 
 const OBVIOUS_NON_FOOD_ITEMS = new Set([
@@ -48,13 +52,115 @@ function getExpiryState(expires) {
   today.setHours(0, 0, 0, 0);
   const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / MS_PER_DAY);
 
-  return daysUntilExpiry <= EXPIRY_WARNING_MS / MS_PER_DAY ? 'danger' : 'success';
+  if (daysUntilExpiry < 0) return 'danger';
+  if (daysUntilExpiry <= EXPIRY_WARNING_MS / MS_PER_DAY) return 'warning';
+  return 'success';
+}
+
+function getExpiryStatus(expires) {
+  const expiryDate = parseDateOnly(expires);
+  if (!expiryDate) return 'safe';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / MS_PER_DAY);
+
+  if (daysUntilExpiry < 0) return 'expired';
+  if (daysUntilExpiry <= EXPIRY_WARNING_MS / MS_PER_DAY) return 'soon';
+  return 'safe';
+}
+
+function getExpiryLabel(status) {
+  if (status === 'expired') return 'Expired';
+  if (status === 'soon') return 'Expiring soon';
+  return 'Safe';
+}
+
+function normalizeText(value) {
+  return String(value || '').toLowerCase().trim();
+}
+
+function formatCurrency(value, currency = 'PHP') {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0);
+}
+
+function parseOptionalPriceInput(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
+}
+
+function formatPricePerUnit(item) {
+  if (!item.estimatedUnitPrice) return '--';
+  return `${formatCurrency(item.estimatedUnitPrice, item.currency || 'PHP')}/${item.pricingUnit || item.unit || 'unit'}`;
+}
+
+function getQuantityStep(unit) {
+  const normalizedUnit = normalizeText(unit);
+  if (normalizedUnit === 'pcs') return 1;
+  if (['kg', 'l', 'cups'].includes(normalizedUnit)) return 0.25;
+  if (['g', 'ml'].includes(normalizedUnit)) return 50;
+  return 1;
+}
+
+function getLowStockThreshold(unit) {
+  const normalizedUnit = normalizeText(unit);
+  if (normalizedUnit === 'pcs') return 1;
+  if (['kg', 'l', 'cups'].includes(normalizedUnit)) return 0.25;
+  if (['g', 'ml'].includes(normalizedUnit)) return 100;
+  return 1;
+}
+
+function isLowStock(item) {
+  return Number(item.quantity) <= getLowStockThreshold(item.unit);
+}
+
+function matchesAllergy(name, activeAllergyNames) {
+  const normalizedName = normalizeText(name);
+  return activeAllergyNames.some(allergyName => {
+    const normalizedAllergy = normalizeText(allergyName).replace(/s$/, '');
+    const keywords = ALLERGEN_KEYWORDS[normalizedAllergy] || ALLERGEN_KEYWORDS[normalizeText(allergyName)] || [normalizedAllergy];
+    return keywords.some(keyword => normalizedName.includes(normalizeText(keyword)));
+  });
+}
+
+function getDisplayCategory(item) {
+  if (item.category) return item.category;
+  const isEggLike = /\beggs?\b/i.test(item.name || '');
+  return isEggLike ? 'Protein' : '';
+}
+
+function buildRecipeSuggestionIds(items) {
+  return [...items]
+    .sort((a, b) => {
+      const aStatus = getExpiryStatus(a.expires);
+      const bStatus = getExpiryStatus(b.expires);
+      const rank = { expired: 0, soon: 1, safe: 2 };
+      return (rank[aStatus] ?? 2) - (rank[bStatus] ?? 2);
+    })
+    .slice(0, 8)
+    .map(item => item.id);
 }
 
 export default function Pantry() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
-  const { pantryItems: items, loading: pantryLoading, addPantryItem, editPantryItem, removePantryItem, removePantryItems } = usePantry(user, householdId);
+  const {
+    pantryItems: items,
+    loading: pantryLoading,
+    error: pantryError,
+    addPantryItem,
+    editPantryItem,
+    adjustPantryItemQuantity,
+    markPantryItemsUsed,
+    removePantryItem,
+    removePantryItems,
+    refreshPantry,
+  } = usePantry(user, householdId);
   const { saveRecipe } = useRecipes(user);
   const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
 
@@ -65,9 +171,14 @@ export default function Pantry() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemUnit, setNewItemUnit] = useState('pcs');
+  const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemExpires, setNewItemExpires] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [expiryFilter, setExpiryFilter] = useState('all');
+  const [stockFilter, setStockFilter] = useState('available');
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState(null);
@@ -77,12 +188,54 @@ export default function Pantry() {
   const [genError, setGenError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [confirmBatchUsed, setConfirmBatchUsed] = useState(false);
   const [confirmEdit, setConfirmEdit] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', quantity: 1, unit: 'pcs', category: '', expiresAt: '' });
+  const [editForm, setEditForm] = useState({ name: '', quantity: 1, unit: 'pcs', estimatedUnitPrice: '', category: '', expiresAt: '' });
   const [savingEditId, setSavingEditId] = useState(null);
+  const [quantitySavingIds, setQuantitySavingIds] = useState([]);
   const [editError, setEditError] = useState(null);
+
+  const viewItems = useMemo(() => items.map(item => {
+    const expiryStatus = getExpiryStatus(item.expires);
+    return {
+      ...item,
+      displayCategory: getDisplayCategory(item),
+      expiryStatus,
+      expiryBadgeState: getExpiryState(item.expires),
+      lowStock: isLowStock(item),
+      allergyItem: matchesAllergy(item.name, activeAllergyNames),
+    };
+  }), [items, activeAllergyNames]);
+
+  const categoryOptions = useMemo(() => {
+    const detected = viewItems.map(item => item.displayCategory).filter(Boolean);
+    return [...new Set([...CATEGORIES, ...detected])];
+  }, [viewItems]);
+
+  const filteredItems = useMemo(() => {
+    const query = normalizeText(searchQuery);
+    return viewItems.filter(item => {
+      const matchesQuery = !query || normalizeText(`${item.name} ${item.displayCategory} ${item.unit}`).includes(query);
+      const matchesCategory = categoryFilter === 'all' || item.displayCategory === categoryFilter;
+      const matchesExpiry = expiryFilter === 'all' || item.expiryStatus === expiryFilter;
+      const matchesStock = stockFilter === 'available' || (stockFilter === 'low' && item.lowStock);
+      return matchesQuery && matchesCategory && matchesExpiry && matchesStock;
+    });
+  }, [viewItems, searchQuery, categoryFilter, expiryFilter, stockFilter]);
+
+  const pantrySummary = useMemo(() => ({
+    total: viewItems.length,
+    expiringSoon: viewItems.filter(item => item.expiryStatus === 'soon').length,
+    expired: viewItems.filter(item => item.expiryStatus === 'expired').length,
+    lowStock: viewItems.filter(item => item.lowStock).length,
+  }), [viewItems]);
+
+  useEffect(() => {
+    const availableIds = new Set(items.map(item => item.id));
+    setSelectedItems(prev => prev.filter(id => availableIds.has(id)));
+  }, [items]);
 
   const handleAddItem = async (e) => {
     e.preventDefault();
@@ -92,6 +245,13 @@ export default function Pantry() {
     setAddWarning(null);
 
     try {
+      const unitPrice = parseOptionalPriceInput(newItemPrice);
+      if (newItemPrice !== '' && unitPrice === null) {
+        setAddError('Price must be greater than 0 or left blank.');
+        setAdding(false);
+        return;
+      }
+
       const validation = await validateIngredient(newItemName, activeDietNames.join(', ') || 'None', activeAllergyNames);
 
       if (!validation.isFood) {
@@ -107,6 +267,9 @@ export default function Pantry() {
         name: finalName,
         quantity: newItemQuantity,
         unit: newItemUnit,
+        estimatedUnitPrice: unitPrice,
+        pricingUnit: newItemUnit,
+        currency: 'PHP',
         category: finalCategory,
         expiresAt: finalExpiry,
       };
@@ -145,6 +308,7 @@ export default function Pantry() {
     setNewItemName('');
     setNewItemQuantity(1);
     setNewItemUnit('pcs');
+    setNewItemPrice('');
     setNewItemCategory('');
     setNewItemExpires('');
   };
@@ -156,6 +320,7 @@ export default function Pantry() {
       name: item.name || '',
       quantity: item.quantity || 1,
       unit: item.unit || 'pcs',
+      estimatedUnitPrice: item.estimatedUnitPrice || '',
       category: item.category || '',
       expiresAt: item.expires || '',
     });
@@ -182,6 +347,11 @@ export default function Pantry() {
       setEditError('Amount must be greater than 0.');
       return;
     }
+    const price = parseOptionalPriceInput(editForm.estimatedUnitPrice);
+    if (editForm.estimatedUnitPrice !== '' && price === null) {
+      setEditError('Price must be greater than 0 or left blank.');
+      return;
+    }
 
     setConfirmEdit({
       itemId,
@@ -190,6 +360,9 @@ export default function Pantry() {
         name: cleanName,
         quantity,
         unit: editForm.unit,
+        estimatedUnitPrice: price,
+        pricingUnit: editForm.unit,
+        currency: 'PHP',
         category: editForm.category || null,
         expiresAt: editForm.expiresAt || null,
       },
@@ -231,13 +404,14 @@ export default function Pantry() {
     }
   };
 
-  const handleGenerateRecipe = async () => {
-    if (selectedItems.length === 0) return;
+  const handleGenerateRecipe = async (idsOverride = null) => {
+    const targetIds = idsOverride || selectedItems;
+    if (targetIds.length === 0) return;
     setLoading(true);
     setGenError(null);
 
     try {
-      const selectedItemsData = items.filter(i => selectedItems.includes(i.id));
+      const selectedItemsData = viewItems.filter(i => targetIds.includes(i.id));
       const obviousNonFoodItems = selectedItemsData
         .map(item => item.name?.trim())
         .filter(name => OBVIOUS_NON_FOOD_ITEMS.has(name?.toLowerCase()));
@@ -267,9 +441,12 @@ export default function Pantry() {
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,
-        category: item.category,
-        expires: item.expires,
-      }));
+          category: item.displayCategory || item.category,
+          expires: item.expires,
+          estimatedUnitPrice: item.estimatedUnitPrice,
+          pricingUnit: item.pricingUnit || item.unit,
+          currency: item.currency || 'PHP',
+        }));
       const recipe = await generateRecipe(ingredientList, activeDietNames.join(', ') || 'None', activeAllergyNames, pantryItems);
       setGeneratedRecipe(recipe);
     } catch (err) {
@@ -277,6 +454,11 @@ export default function Pantry() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuggestFromPantry = () => {
+    const ids = selectedItems.length > 0 ? selectedItems : buildRecipeSuggestionIds(filteredItems);
+    handleGenerateRecipe(ids);
   };
 
   const handleSaveRecipe = async () => {
@@ -351,6 +533,51 @@ export default function Pantry() {
     }
   };
 
+  const handleBatchMarkUsed = () => {
+    if (selectedItems.length === 0) return;
+    setConfirmBatchUsed(true);
+  };
+
+  const confirmBatchMarkUsed = async () => {
+    const itemCount = selectedItems.length;
+    setConfirmBatchUsed(false);
+    try {
+      await markPantryItemsUsed(selectedItems);
+      setSelectedItems([]);
+      setFeedback({
+        title: 'Selected items marked as used',
+        message: `${itemCount} pantry item${itemCount !== 1 ? 's were' : ' was'} moved out of your available pantry.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      setFeedback({
+        title: 'Update failed',
+        message: err.message || 'Unable to mark the selected items as used. Please try again.',
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleAdjustQuantity = async (item, direction) => {
+    const step = getQuantityStep(item.unit);
+    const nextQuantity = Math.max(0, Number((Number(item.quantity) + direction * step).toFixed(2)));
+    setQuantitySavingIds(prev => [...prev, item.id]);
+    try {
+      await adjustPantryItemQuantity(item.id, nextQuantity);
+      if (nextQuantity <= 0) {
+        setSelectedItems(prev => prev.filter(id => id !== item.id));
+      }
+    } catch (err) {
+      setFeedback({
+        title: 'Quantity update failed',
+        message: err.message || `Unable to update "${item.name}". Please try again.`,
+        variant: 'error',
+      });
+    } finally {
+      setQuantitySavingIds(prev => prev.filter(id => id !== item.id));
+    }
+  };
+
   const closeFeedback = () => {
     const afterClose = feedback?.onClose;
     setFeedback(null);
@@ -358,15 +585,32 @@ export default function Pantry() {
   };
 
   const handleSelectAll = () => {
-    if (selectedItems.length === items.length) {
-      setSelectedItems([]);
+    const visibleIds = filteredItems.map(i => i.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedItems.includes(id));
+    if (allVisibleSelected) {
+      setSelectedItems(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      setSelectedItems(items.map(i => i.id));
+      setSelectedItems(prev => [...new Set([...prev, ...visibleIds])]);
     }
   };
 
   if (pantryLoading) {
     return <LoadingPanel title="Loading pantry" message="Fetching your household ingredients." />;
+  }
+
+  if (pantryError) {
+    return (
+      <div className="hero-container">
+        <div className="glass-panel pantry-state-panel">
+          <AlertTriangle size={42} color="#f87171" />
+          <h3>Unable to load pantry</h3>
+          <p>{pantryError}</p>
+          <button type="button" className="btn-primary" onClick={() => refreshPantry()}>
+            <CheckCircle2 size={18} /> Try again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -428,6 +672,19 @@ export default function Pantry() {
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
+            <div className="input-container" style={{ flex: '0 0 128px', minWidth: '128px', margin: 0 }}>
+              <label htmlFor="add-price" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Price/unit (opt)</label>
+              <input
+                type="number"
+                id="add-price"
+                className="input-field"
+                min="0"
+                step="0.01"
+                placeholder="PHP"
+                value={newItemPrice}
+                onChange={e => setNewItemPrice(e.target.value)}
+              />
+            </div>
             <div className="input-container" style={{ flex: '1 1 160px', minWidth: '160px', margin: 0 }}>
               <label htmlFor="add-category" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Category (opt)</label>
               <select id="add-category" className="input-field" value={newItemCategory} onChange={e => setNewItemCategory(e.target.value)}>
@@ -468,15 +725,100 @@ export default function Pantry() {
         </form>
       </div>
 
+      <div className="pantry-summary-grid" aria-label="Pantry summary">
+        <div className="pantry-summary-card">
+          <Package size={20} />
+          <span>Total Items</span>
+          <strong>{pantrySummary.total}</strong>
+        </div>
+        <div className="pantry-summary-card warning">
+          <Clock3 size={20} />
+          <span>Expiring Soon</span>
+          <strong>{pantrySummary.expiringSoon}</strong>
+        </div>
+        <div className="pantry-summary-card danger">
+          <PackageX size={20} />
+          <span>Expired</span>
+          <strong>{pantrySummary.expired}</strong>
+        </div>
+        <div className="pantry-summary-card low">
+          <AlertTriangle size={20} />
+          <span>Low Stock</span>
+          <strong>{pantrySummary.lowStock}</strong>
+        </div>
+      </div>
+
       <div className="glass-panel pantry-table-panel" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+        <div className="pantry-toolbar">
+          <div className="pantry-search-box">
+            <Search size={18} />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search ingredients..."
+              aria-label="Search ingredients"
+            />
+          </div>
+          <div className="pantry-filter-row" aria-label="Pantry filters">
+            <Filter size={17} />
+            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} aria-label="Filter by category">
+              <option value="all">All categories</option>
+              {categoryOptions.map(category => <option key={category} value={category}>{category}</option>)}
+            </select>
+            <select value={expiryFilter} onChange={e => setExpiryFilter(e.target.value)} aria-label="Filter by expiration">
+              <option value="all">All expiration</option>
+              <option value="soon">Expiring soon</option>
+              <option value="expired">Expired</option>
+              <option value="safe">Safe</option>
+            </select>
+            <select value={stockFilter} onChange={e => setStockFilter(e.target.value)} aria-label="Filter by stock">
+              <option value="available">Available items</option>
+              <option value="low">Low stock</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            className="btn-primary pantry-suggest-button"
+            onClick={handleSuggestFromPantry}
+            disabled={loading || filteredItems.length === 0}
+          >
+            {loading ? <Sparkles size={18} style={{ animation: 'spin 2s linear infinite' }} /> : <ChefHat size={18} />}
+            Suggest Recipes from Pantry
+          </button>
+        </div>
+
+        {selectedItems.length > 0 && (
+          <div className="pantry-bulk-bar">
+            <strong>{selectedItems.length} selected</strong>
+            <span>-</span>
+            <button type="button" onClick={handleBatchDelete} className="btn-danger">
+              <Trash2 size={16} /> Delete
+            </button>
+            <button type="button" onClick={handleBatchMarkUsed} className="btn-secondary">
+              <Utensils size={16} /> Mark as used
+            </button>
+            <button type="button" onClick={() => handleGenerateRecipe()} disabled={loading} className="btn-primary">
+              {loading ? <Sparkles size={16} style={{ animation: 'spin 2s linear infinite' }} /> : <ChefHat size={16} />}
+              Generate recipe
+            </button>
+          </div>
+        )}
+
+        {genError && (
+          <div className="pantry-error-banner">
+            <AlertTriangle size={16} /> {genError}
+          </div>
+        )}
+
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--surface-active)' }}>
               <th className="pantry-select-heading" style={{ padding: '1.25rem', width: '40px' }}>
-                {items.length > 0 && (
+                {filteredItems.length > 0 && (
                   <input
                     type="checkbox"
-                    checked={items.length > 0 && selectedItems.length === items.length}
+                    checked={filteredItems.length > 0 && filteredItems.every(item => selectedItems.includes(item.id))}
                     onChange={handleSelectAll}
                     title="Select all"
                   />
@@ -484,15 +826,18 @@ export default function Pantry() {
               </th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Item Name</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Amount</th>
+              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Price</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Category</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Expires</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {items.map(item => {
-              const expiryState = getExpiryState(item.expires);
+            {filteredItems.map(item => {
+              const expiryState = item.expiryBadgeState;
+              const expiryStatusLabel = getExpiryLabel(item.expiryStatus);
               const isEditing = editingItemId === item.id;
+              const quantitySaving = quantitySavingIds.includes(item.id);
               return (
                 <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td className="pantry-select-cell" data-label="Select" style={{ padding: '1.25rem' }}>
@@ -513,7 +858,13 @@ export default function Pantry() {
                         aria-label="Edit item name"
                       />
                     ) : (
-                      item.name
+                      <div className="pantry-item-title-wrap">
+                        <span>{item.name}</span>
+                        <div className="pantry-item-badges">
+                          {item.allergyItem && <span className="badge badge-danger pantry-mini-badge">Allergy item</span>}
+                          {item.lowStock && <span className="badge badge-warning pantry-mini-badge">Low Stock</span>}
+                        </div>
+                      </div>
                     )}
                   </td>
                   <td data-label="Amount" style={{ padding: '1.25rem', color: 'var(--text-secondary)', minWidth: isEditing ? '160px' : undefined }}>
@@ -540,7 +891,44 @@ export default function Pantry() {
                         </select>
                       </div>
                     ) : (
-                      `${item.quantity} ${item.unit}`
+                      <div className="pantry-quantity-control" aria-label={`Adjust ${item.name} quantity`}>
+                        <button
+                          type="button"
+                          onClick={() => handleAdjustQuantity(item, -1)}
+                          disabled={quantitySaving}
+                          title={`Decrease ${item.name}`}
+                          aria-label={`Decrease ${item.name}`}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span>{item.quantity} {item.unit}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleAdjustQuantity(item, 1)}
+                          disabled={quantitySaving}
+                          title={`Increase ${item.name}`}
+                          aria-label={`Increase ${item.name}`}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td data-label="Price" style={{ padding: '1.25rem', color: 'var(--text-secondary)', minWidth: isEditing ? '130px' : undefined }}>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input-field"
+                        value={editForm.estimatedUnitPrice}
+                        onChange={e => setEditValue('estimatedUnitPrice', e.target.value)}
+                        style={{ minHeight: 40, padding: '0.55rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                        aria-label="Edit unit price"
+                        placeholder="PHP"
+                      />
+                    ) : (
+                      <span>{formatPricePerUnit(item)}</span>
                     )}
                   </td>
                   <td data-label="Category" style={{ padding: '1.25rem', color: 'var(--text-tertiary)', minWidth: isEditing ? '170px' : undefined }}>
@@ -556,7 +944,7 @@ export default function Pantry() {
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     ) : (
-                      item.category || '--'
+                      item.displayCategory || '--'
                     )}
                   </td>
                   <td data-label="Expires" style={{ padding: '1.25rem', minWidth: isEditing ? '170px' : undefined }}>
@@ -571,10 +959,10 @@ export default function Pantry() {
                       />
                     ) : item.expires ? (
                       <span className={`badge pantry-expiry-badge badge-${expiryState}`}>
-                        {item.expires}
+                        {expiryStatusLabel}: {item.expires}
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--text-tertiary)' }}>--</span>
+                      <span style={{ color: 'var(--text-tertiary)' }}>No expiry date</span>
                     )}
                     {isEditing && editError && (
                       <div style={{ marginTop: '0.45rem', color: '#fca5a5', fontSize: '0.78rem', whiteSpace: 'normal' }}>
@@ -630,47 +1018,20 @@ export default function Pantry() {
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  Your pantry is currently empty. Scan a receipt or add items manually!
+                <td colSpan="7" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                  Your pantry is empty. Add your first ingredient to start generating recipes.
+                </td>
+              </tr>
+            )}
+            {items.length > 0 && filteredItems.length === 0 && (
+              <tr>
+                <td colSpan="7" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                  No ingredients match your search or filters.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-
-        {items.length > 0 && (
-          <div className="pantry-table-actions pantry-actions-bar" style={{ padding: '1.5rem', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
-            {genError && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem', flex: 1 }}>
-                <AlertTriangle size={16} /> {genError}
-              </div>
-            )}
-            <button
-              onClick={handleBatchDelete}
-              disabled={selectedItems.length === 0}
-              className="btn-danger"
-              style={{ padding: '0.9rem 1.5rem', opacity: selectedItems.length === 0 ? 0.6 : 1, cursor: selectedItems.length === 0 ? 'not-allowed' : 'pointer' }}
-            >
-              <Trash2 size={18} /> Delete Selected ({selectedItems.length})
-            </button>
-            <button
-              onClick={handleGenerateRecipe}
-              disabled={loading || selectedItems.length === 0}
-              className="btn-primary"
-              style={{ padding: '0.9rem 1.5rem', opacity: selectedItems.length === 0 ? 0.6 : 1, cursor: selectedItems.length === 0 ? 'not-allowed' : 'pointer' }}
-            >
-              {loading ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Sparkles size={18} style={{ animation: 'spin 2s linear infinite' }} /> Generating with AI...
-                </span>
-              ) : (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <ChefHat size={18} /> Generate Recipe ({selectedItems.length})
-                </span>
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
       <ConfirmModal
@@ -694,6 +1055,16 @@ export default function Pantry() {
       />
 
       <ConfirmModal
+        open={confirmBatchUsed}
+        title="Mark Selected as Used"
+        message={`Mark ${selectedItems.length} selected item${selectedItems.length !== 1 ? 's' : ''} as used? They will no longer appear in your available pantry.`}
+        confirmText="Mark Used"
+        variant="success"
+        onConfirm={confirmBatchMarkUsed}
+        onCancel={() => setConfirmBatchUsed(false)}
+      />
+
+      <ConfirmModal
         open={!!confirmEdit}
         title="Save Pantry Changes"
         message={`Save your changes to "${confirmEdit?.name}"?`}
@@ -711,6 +1082,30 @@ export default function Pantry() {
         actionText={feedback?.actionText}
         onClose={closeFeedback}
       />
+
+      {loading && (
+        <div className="recipe-generating-backdrop" role="status" aria-live="polite" aria-label="Generating recipe">
+          <div className="recipe-generating-card">
+            <div className="recipe-generating-loader" aria-hidden="true">
+              <span className="recipe-generating-ring"></span>
+              <span className="recipe-generating-ring secondary"></span>
+              <ChefHat size={34} />
+              <span className="recipe-generating-steam steam-one"></span>
+              <span className="recipe-generating-steam steam-two"></span>
+              <span className="recipe-generating-steam steam-three"></span>
+            </div>
+            <div>
+              <h3>Generating recipe</h3>
+              <p>Checking pantry items, prices, and cooking steps.</p>
+            </div>
+            <div className="recipe-generating-progress" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {generatedRecipe && (
         <div className="recipe-modal-backdrop" style={{
@@ -759,6 +1154,36 @@ export default function Pantry() {
                     </li>
                   ))}
                 </ul>
+                {generatedRecipe.costEstimate && (
+                  <div className="recipe-cost-panel">
+                    <h4><ReceiptText size={18} /> Estimated Cost</h4>
+                    <ul className="recipe-cost-list">
+                      {generatedRecipe.costEstimate.items?.map((item, idx) => (
+                        <li key={`${item.name}-${idx}`}>
+                          <span>
+                            {item.name}
+                            {!item.pantryIngredient && <em>Added</em>}
+                          </span>
+                          <strong>{formatCurrency(item.estimatedCost, generatedRecipe.costEstimate.currency)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="recipe-cost-total">
+                      <span>Total recipe</span>
+                      <strong>{formatCurrency(generatedRecipe.costEstimate.totalCost, generatedRecipe.costEstimate.currency)}</strong>
+                    </div>
+                    <div className="recipe-cost-total secondary">
+                      <span>Added items</span>
+                      <strong>{formatCurrency(generatedRecipe.costEstimate.addedIngredientCost, generatedRecipe.costEstimate.currency)}</strong>
+                    </div>
+                    {generatedRecipe.costEstimate.notes && (
+                      <p>{generatedRecipe.costEstimate.notes}</p>
+                    )}
+                    {generatedRecipe.costEstimate.sources?.length > 0 && (
+                      <p>Sources: {generatedRecipe.costEstimate.sources.map(source => source.title).join(', ')}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

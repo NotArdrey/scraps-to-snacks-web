@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { findOrCreateIngredient } from './pantry';
+import { ensureRecipeCostEstimate } from '../utils/costEstimate';
 
 const QUANTITY_UNITS = [
   'pcs', 'piece', 'pieces', 'kg', 'g', 'gram', 'grams', 'lbs', 'lb', 'oz',
@@ -72,16 +73,31 @@ function normalizeIngredientDetails(recipeData) {
 }
 
 export async function fetchSavedRecipes(userId) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('saved_recipes')
     .select(`
       id, saved_at, source,
-      recipes(id, title, instructions_json, nutrition_json, created_at,
+      recipes(id, title, instructions_json, nutrition_json, metadata_json, created_at,
         recipe_ingredients(quantity, unit, ingredients(canonical_name))
       )
     `)
     .eq('user_id', userId)
     .order('saved_at', { ascending: false });
+
+  if (error) {
+    const fallback = await supabase
+      .from('saved_recipes')
+      .select(`
+        id, saved_at, source,
+        recipes(id, title, instructions_json, nutrition_json, created_at,
+          recipe_ingredients(quantity, unit, ingredients(canonical_name))
+        )
+      `)
+      .eq('user_id', userId)
+      .order('saved_at', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error || !data || data.length === 0) return [];
 
@@ -104,34 +120,59 @@ export async function fetchSavedRecipes(userId) {
     }
   }
 
-  return savedRows.map(sr => ({
-    id: sr.id,
-    recipeId: sr.recipes.id,
-    title: sr.recipes.title,
-    date: sr.saved_at ? sr.saved_at.split('T')[0] : '',
-    ingredients: sr.recipes.recipe_ingredients
-      ? sr.recipes.recipe_ingredients.map(ri =>
-          `${ri.quantity || ''} ${ri.unit || ''} ${ri.ingredients.canonical_name}`.trim()
-        )
-      : [],
-    instructions: sr.recipes.instructions_json || [],
-    nutrition: sr.recipes.nutrition_json || {},
-    rating: ratingMap[sr.recipes.id] || 0,
-  }));
+  return savedRows.map(sr => {
+    const mappedRecipe = {
+      id: sr.id,
+      recipeId: sr.recipes.id,
+      title: sr.recipes.title,
+      date: sr.saved_at ? sr.saved_at.split('T')[0] : '',
+      ingredients: sr.recipes.recipe_ingredients
+        ? sr.recipes.recipe_ingredients.map(ri =>
+            `${ri.quantity || ''} ${ri.unit || ''} ${ri.ingredients.canonical_name}`.trim()
+          )
+        : [],
+      instructions: sr.recipes.instructions_json || [],
+      nutrition: sr.recipes.nutrition_json || {},
+      metadata: sr.recipes.metadata_json || {},
+      costEstimate: sr.recipes.metadata_json?.costEstimate || sr.recipes.nutrition_json?.costEstimate || null,
+      rating: ratingMap[sr.recipes.id] || 0,
+    };
+
+    return ensureRecipeCostEstimate(mappedRecipe);
+  });
 }
 
 export async function insertRecipe(userId, recipeData, modelProvider) {
-  const { data: recipe } = await supabase.from('recipes').insert({
+  const recipeWithCost = ensureRecipeCostEstimate(recipeData);
+  const nutritionJson = {
+    ...(recipeWithCost.nutrition || {}),
+    ...(recipeWithCost.costEstimate ? { costEstimate: recipeWithCost.costEstimate } : {}),
+  };
+
+  let { data: recipe, error: recipeError } = await supabase.from('recipes').insert({
     generated_by_user_id: userId,
-    title: recipeData.title,
-    instructions_json: recipeData.instructions,
-    nutrition_json: recipeData.nutrition,
+    title: recipeWithCost.title,
+    instructions_json: recipeWithCost.instructions,
+    nutrition_json: nutritionJson,
+    metadata_json: recipeWithCost.costEstimate ? { costEstimate: recipeWithCost.costEstimate } : {},
     model_provider: modelProvider,
   }).select('id').single();
 
-  if (!recipe) return null;
+  if (recipeError) {
+    const fallback = await supabase.from('recipes').insert({
+      generated_by_user_id: userId,
+      title: recipeWithCost.title,
+      instructions_json: recipeWithCost.instructions,
+      nutrition_json: nutritionJson,
+      model_provider: modelProvider,
+    }).select('id').single();
+    recipe = fallback.data;
+    recipeError = fallback.error;
+  }
 
-  const ingredientDetails = normalizeIngredientDetails(recipeData);
+  if (recipeError || !recipe) return null;
+
+  const ingredientDetails = normalizeIngredientDetails(recipeWithCost);
 
   if (ingredientDetails.length > 0) {
     const ingredientRows = [];

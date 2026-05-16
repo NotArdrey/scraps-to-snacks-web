@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { findOrCreateIngredient } from './pantry';
+import { ensureRecipeCostEstimate } from '../utils/costEstimate';
 
 const QUANTITY_UNITS = [
   'pcs', 'piece', 'pieces', 'kg', 'g', 'gram', 'grams', 'lbs', 'lb', 'oz',
@@ -9,6 +10,18 @@ const QUANTITY_UNITS = [
 
 function firstRow(data) {
   return Array.isArray(data) ? data[0] || null : data || null;
+}
+
+const ADMIN_PANTRY_SELECT = 'id, quantity, unit, status, expires_at, created_at, estimated_unit_price, pricing_unit, currency, ingredients(canonical_name, category)';
+const ADMIN_PANTRY_SELECT_FALLBACK = 'id, quantity, unit, status, expires_at, created_at, ingredients(canonical_name, category)';
+
+function parseOptionalPrice(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
+}
+
+function isPriceColumnError(error) {
+  return /estimated_unit_price|pricing_unit|currency/i.test(error?.message || '');
 }
 
 function parsePositiveNumber(value) {
@@ -53,24 +66,41 @@ function formatRecipeIngredient(row) {
 
 function mapAdminRecipe(recipe) {
   if (!recipe) return null;
-  return {
+  const mappedRecipe = {
     ...recipe,
     instructions: Array.isArray(recipe.instructions_json) ? recipe.instructions_json : [],
+    metadata: recipe.metadata_json || {},
+    costEstimate: recipe.metadata_json?.costEstimate || recipe.nutrition_json?.costEstimate || null,
     ingredients: Array.isArray(recipe.recipe_ingredients)
       ? recipe.recipe_ingredients.map(formatRecipeIngredient).filter(Boolean)
       : [],
   };
+
+  return ensureRecipeCostEstimate(mappedRecipe);
 }
 
 async function fetchAdminRecipeById(recipeId) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('recipes')
     .select(`
-      id, title, instructions_json, created_at,
+      id, title, instructions_json, nutrition_json, metadata_json, created_at,
       recipe_ingredients(quantity, unit, ingredients(canonical_name))
     `)
     .eq('id', recipeId)
     .limit(1);
+
+  if (error) {
+    const fallback = await supabase
+      .from('recipes')
+      .select(`
+        id, title, instructions_json, nutrition_json, created_at,
+        recipe_ingredients(quantity, unit, ingredients(canonical_name))
+      `)
+      .eq('id', recipeId)
+      .limit(1);
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) return { data: null, error };
   return { data: mapAdminRecipe(firstRow(data)), error: null };
@@ -137,23 +167,47 @@ export async function fetchAllPlans() {
 }
 
 export async function fetchAllPantryItems() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('pantry_items')
-    .select('id, quantity, unit, status, expires_at, created_at, ingredients(canonical_name, category)')
-    .eq('status', 'available')
+    .select(ADMIN_PANTRY_SELECT)
+    .in('status', ['available', 'expired'])
     .order('created_at', { ascending: false });
+
+  if (error && isPriceColumnError(error)) {
+    const fallback = await supabase
+      .from('pantry_items')
+      .select(ADMIN_PANTRY_SELECT_FALLBACK)
+      .in('status', ['available', 'expired'])
+      .order('created_at', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) { console.error('fetchAllPantryItems error:', error); return []; }
   return data || [];
 }
 
 export async function fetchAllRecipes() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('recipes')
     .select(`
-      id, title, instructions_json, created_at,
+      id, title, instructions_json, nutrition_json, metadata_json, created_at,
       recipe_ingredients(quantity, unit, ingredients(canonical_name))
     `)
     .order('created_at', { ascending: false });
+
+  if (error) {
+    const fallback = await supabase
+      .from('recipes')
+      .select(`
+        id, title, instructions_json, nutrition_json, created_at,
+        recipe_ingredients(quantity, unit, ingredients(canonical_name))
+      `)
+      .order('created_at', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) { console.error('fetchAllRecipes error:', error); return []; }
   return (data || []).map(mapAdminRecipe).filter(Boolean);
 }
@@ -283,28 +337,60 @@ export async function deletePlan(planId) {
 
 // ── Pantry CRUD ───────────────────────────────────────────────────
 
-export async function adminCreatePantryItem({ ingredientName, quantity, unit, category, expiresAt, householdId, userId }) {
+export async function adminCreatePantryItem({ ingredientName, quantity, unit, category, expiresAt, householdId, userId, estimatedUnitPrice, pricingUnit, currency }) {
   const ingredient = await findOrCreateIngredient(ingredientName, unit, category);
   if (!ingredient) return { data: null, error: { message: 'Failed to find or create ingredient' } };
 
-  const { data, error } = await supabase
+  const price = parseOptionalPrice(estimatedUnitPrice);
+  const insertPayload = {
+    household_id: householdId,
+    ingredient_id: ingredient.id,
+    quantity: quantity || 1,
+    unit: unit || 'pcs',
+    status: 'available',
+    expires_at: expiresAt || null,
+    created_by_user_id: userId,
+  };
+
+  if (price) {
+    insertPayload.estimated_unit_price = price;
+    insertPayload.pricing_unit = pricingUnit || unit || 'pcs';
+    insertPayload.currency = currency || 'PHP';
+  }
+
+  let { data, error } = await supabase
     .from('pantry_items')
-    .insert({
-      household_id: householdId,
-      ingredient_id: ingredient.id,
-      quantity: quantity || 1,
-      unit: unit || 'pcs',
-      status: 'available',
-      expires_at: expiresAt || null,
-      created_by_user_id: userId,
-    })
-    .select('id, quantity, unit, status, expires_at, created_at, ingredients(canonical_name, category)')
+    .insert(insertPayload)
+    .select(ADMIN_PANTRY_SELECT)
     .limit(1);
+
+  if (error && isPriceColumnError(error)) {
+    const fallbackPayload = { ...insertPayload };
+    delete fallbackPayload.estimated_unit_price;
+    delete fallbackPayload.pricing_unit;
+    delete fallbackPayload.currency;
+    const fallback = await supabase
+      .from('pantry_items')
+      .insert(fallbackPayload)
+      .select(ADMIN_PANTRY_SELECT_FALLBACK)
+      .limit(1);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   return { data: firstRow(data), error };
 }
 
-export async function updatePantryItem(itemId, { ingredientName, quantity, unit, category, expires_at }) {
-  const updates = { quantity, unit, expires_at };
+export async function updatePantryItem(itemId, { ingredientName, quantity, unit, category, expires_at, estimatedUnitPrice, pricingUnit, currency }) {
+  const price = parseOptionalPrice(estimatedUnitPrice);
+  const updates = {
+    quantity,
+    unit,
+    expires_at,
+    estimated_unit_price: price,
+    pricing_unit: price ? pricingUnit || unit || 'pcs' : null,
+    currency: currency || 'PHP',
+  };
 
   if (ingredientName?.trim()) {
     const ingredient = await findOrCreateIngredient(ingredientName, unit, category);
@@ -317,12 +403,28 @@ export async function updatePantryItem(itemId, { ingredientName, quantity, unit,
       .eq('id', ingredient.id);
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('pantry_items')
     .update(updates)
     .eq('id', itemId)
-    .select('id, quantity, unit, status, expires_at, created_at, ingredients(canonical_name, category)')
+    .select(ADMIN_PANTRY_SELECT)
     .limit(1);
+
+  if (error && isPriceColumnError(error)) {
+    const fallbackUpdates = { ...updates };
+    delete fallbackUpdates.estimated_unit_price;
+    delete fallbackUpdates.pricing_unit;
+    delete fallbackUpdates.currency;
+    const fallback = await supabase
+      .from('pantry_items')
+      .update(fallbackUpdates)
+      .eq('id', itemId)
+      .select(ADMIN_PANTRY_SELECT_FALLBACK)
+      .limit(1);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   return { data: firstRow(data), error };
 }
 
@@ -337,12 +439,24 @@ export async function deletePantryItem(itemId) {
 // ── Recipes CRUD ──────────────────────────────────────────────────
 
 export async function updateRecipeTitle(recipeId, title) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('recipes')
     .update({ title })
     .eq('id', recipeId)
-    .select('id, title, instructions_json, created_at')
+    .select('id, title, instructions_json, nutrition_json, metadata_json, created_at')
     .limit(1);
+
+  if (error) {
+    const fallback = await supabase
+      .from('recipes')
+      .update({ title })
+      .eq('id', recipeId)
+      .select('id, title, instructions_json, nutrition_json, created_at')
+      .limit(1);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   return { data: mapAdminRecipe(firstRow(data)), error };
 }
 
@@ -352,6 +466,7 @@ export async function adminCreateRecipe({ userId, title, instructions, ingredien
     title,
     instructions_json: instructions || [],
     nutrition_json: {},
+    metadata_json: {},
     model_provider: 'admin',
   };
 

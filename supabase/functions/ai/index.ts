@@ -7,6 +7,7 @@ const CATEGORIES = [
   "Meat",
   "Seafood",
   "Dairy",
+  "Protein",
   "Grains",
   "Spices",
   "Beverages",
@@ -21,8 +22,13 @@ const CATEGORIES = [
 const GROQ_API_URL = Deno.env.get("GROQ_API_URL") ?? "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_DEFAULT_MODEL = Deno.env.get("GROQ_DEFAULT_MODEL") ?? "llama-3.3-70b-versatile";
 const GROQ_VISION_MODEL = Deno.env.get("GROQ_VISION_MODEL") ?? "meta-llama/llama-4-scout-17b-16e-instruct";
+const GROQ_COST_MODEL = Deno.env.get("GROQ_COST_MODEL") ?? GROQ_DEFAULT_MODEL;
+const GROQ_ENABLE_WEB_PRICE_SEARCH = (Deno.env.get("GROQ_ENABLE_WEB_PRICE_SEARCH") ?? "").toLowerCase() === "true";
 const GROQ_TEMPERATURE = Number(Deno.env.get("GROQ_TEMPERATURE") ?? "0.7");
 const GROQ_MAX_TOKENS = Number(Deno.env.get("GROQ_MAX_TOKENS") ?? "1024");
+const GROQ_COST_MAX_TOKENS = Number(Deno.env.get("GROQ_COST_MAX_TOKENS") ?? "2048");
+const GROQ_TIMEOUT_MS = getPositiveNumber(Number(Deno.env.get("GROQ_TIMEOUT_MS") ?? "30000"), 30000);
+const GROQ_COST_TIMEOUT_MS = getPositiveNumber(Number(Deno.env.get("GROQ_COST_TIMEOUT_MS") ?? "10000"), 10000);
 
 const OBVIOUS_NON_FOOD_ITEMS = new Set([
   "dinosaur",
@@ -42,9 +48,19 @@ const OBVIOUS_NON_FOOD_ITEMS = new Set([
   "stone",
 ]);
 
+function getPositiveNumber(value: number, fallback: number) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 function getRequiredEnv(name: string) {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`${name} is not configured`);
+  return value;
+}
+
+function getGroqApiKey() {
+  const value = Deno.env.get("GROQ_API_KEY") ?? Deno.env.get("VITE_GROQ_API_KEY");
+  if (!value) throw new Error("GROQ_API_KEY is not configured");
   return value;
 }
 
@@ -65,21 +81,55 @@ async function requireUser(authHeader: string) {
   return data.user;
 }
 
-async function callGroq(messages: unknown[], model = GROQ_DEFAULT_MODEL) {
-  const response = await fetch(GROQ_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getRequiredEnv("GROQ_API_KEY")}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: GROQ_TEMPERATURE,
-      max_tokens: GROQ_MAX_TOKENS,
-      response_format: { type: "json_object" },
-    }),
-  });
+async function callGroq(
+  messages: unknown[],
+  model = GROQ_DEFAULT_MODEL,
+  options: { maxTokens?: number; compoundTools?: string[]; timeoutMs?: number } = {},
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${getGroqApiKey()}`,
+  };
+
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    temperature: GROQ_TEMPERATURE,
+    max_tokens: options.maxTokens ?? GROQ_MAX_TOKENS,
+    response_format: { type: "json_object" },
+  };
+
+  if (options.compoundTools?.length) {
+    headers["Groq-Model-Version"] = "latest";
+    body.compound_custom = {
+      tools: {
+        enabled_tools: options.compoundTools,
+      },
+    };
+  }
+
+  const timeoutMs = Number.isFinite(options.timeoutMs) && Number(options.timeoutMs) > 0
+    ? Number(options.timeoutMs)
+    : GROQ_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`AI service timed out after ${Math.round(timeoutMs / 1000)} seconds. Please try again.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const responseBody = await response.text();
   if (!response.ok) {
@@ -87,6 +137,9 @@ async function callGroq(messages: unknown[], model = GROQ_DEFAULT_MODEL) {
       status: response.status,
       responseBody,
     });
+    if (response.status === 401) {
+      throw new Error("Groq API key is invalid or expired. Create a new Groq API key and update the Supabase GROQ_API_KEY secret.");
+    }
     throw new Error(`AI service error (${response.status}). Please try again.`);
   }
 
@@ -118,8 +171,11 @@ function getPantryItems(value: unknown) {
     const category = typeof pantryItem.category === "string" ? truncateText(pantryItem.category.trim(), 80) : "";
     const expires = typeof pantryItem.expires === "string" ? truncateText(pantryItem.expires.trim(), 40) : "";
     const quantity = getNumber(pantryItem.quantity, 0);
+    const estimatedUnitPrice = roundMoney(pantryItem.estimatedUnitPrice);
+    const pricingUnit = typeof pantryItem.pricingUnit === "string" ? truncateText(pantryItem.pricingUnit.trim(), 40) : unit;
+    const currency = typeof pantryItem.currency === "string" ? truncateText(pantryItem.currency.trim().toUpperCase(), 8) : "PHP";
 
-    return { name, quantity, unit, category, expires };
+    return { name, quantity, unit, category, expires, estimatedUnitPrice, pricingUnit, currency };
   }).filter((item) => item.name);
 }
 
@@ -208,6 +264,240 @@ function normalizeGeneratedRecipe(value: unknown) {
   };
 }
 
+function getFiniteNumber(value: unknown, fallback = 0) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function roundMoney(value: unknown, fallback = 0) {
+  const number = Math.max(0, getFiniteNumber(value, fallback));
+  return Math.round(number * 100) / 100;
+}
+
+function normalizeConfidence(value: unknown) {
+  return value === "high" || value === "medium" || value === "low" ? value : "low";
+}
+
+function normalizeCostSources(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value.slice(0, 8).map((item) => {
+    const source = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    const title = typeof source.title === "string" ? truncateText(source.title.trim(), 140) : "";
+    const url = typeof source.url === "string" ? truncateText(source.url.trim(), 320) : "";
+    return title || url ? { title: title || url, url } : null;
+  }).filter((source): source is { title: string; url: string } => source !== null);
+}
+
+function normalizeCostName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function findPantryPrice(name: string, pantryItems: ReturnType<typeof getPantryItems>) {
+  const normalizedName = normalizeCostName(name);
+  return pantryItems.find((item) => {
+    const itemName = normalizeCostName(item.name);
+    return itemName === normalizedName || itemName.includes(normalizedName) || normalizedName.includes(itemName);
+  });
+}
+
+function fallbackUnitCost(name: string, pantryIngredient: boolean) {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("egg")) return 10;
+  if (lowerName.includes("chicken")) return 80;
+  if (lowerName.includes("pork") || lowerName.includes("beef")) return 95;
+  if (lowerName.includes("fish") || lowerName.includes("tilapia") || lowerName.includes("bangus")) return 75;
+  if (lowerName.includes("rice")) return 15;
+  if (lowerName.includes("tomato") || lowerName.includes("onion")) return 8;
+  if (lowerName.includes("garlic")) return 5;
+  if (lowerName.includes("oil")) return 6;
+  if (lowerName.includes("salt") || lowerName.includes("pepper") || lowerName.includes("spice")) return 2;
+  return pantryIngredient ? 20 : 12;
+}
+
+function fallbackCostEstimate(
+  recipe: ReturnType<typeof normalizeGeneratedRecipe>,
+  asOf: string,
+  reason = "Low-confidence Philippines planning estimate shown because live price lookup was unavailable.",
+  pantryItems: ReturnType<typeof getPantryItems> = [],
+) {
+  const items = recipe.ingredientDetails.map((ingredient) => {
+    const quantity = ingredient.quantity || 1;
+    const pantryPrice = ingredient.pantryIngredient ? findPantryPrice(ingredient.name, pantryItems) : undefined;
+    const savedUnitCost = roundMoney(pantryPrice?.estimatedUnitPrice);
+    const unitCost = savedUnitCost > 0 ? savedUnitCost : fallbackUnitCost(ingredient.name, ingredient.pantryIngredient);
+    return {
+      name: ingredient.name,
+      quantity,
+      unit: ingredient.unit,
+      pantryIngredient: ingredient.pantryIngredient,
+      estimatedUnitPrice: roundMoney(unitCost),
+      pricingUnit: savedUnitCost > 0 ? pantryPrice?.pricingUnit || ingredient.unit || "item" : ingredient.unit || "item",
+      estimatedCost: roundMoney(unitCost * Math.max(quantity, 1)),
+      sourceLabel: savedUnitCost > 0 ? "Pantry price" : "Fallback estimate",
+      notes: savedUnitCost > 0 ? "Uses the unit price saved on this pantry item." : reason,
+    };
+  });
+  const pantryMarketValue = roundMoney(items.filter((item) => item.pantryIngredient).reduce((sum, item) => sum + item.estimatedCost, 0));
+  const addedIngredientCost = roundMoney(items.filter((item) => !item.pantryIngredient).reduce((sum, item) => sum + item.estimatedCost, 0));
+
+  return {
+    currency: "PHP",
+    locale: "Philippines",
+    asOf,
+    totalCost: roundMoney(pantryMarketValue + addedIngredientCost),
+    pantryMarketValue,
+    addedIngredientCost,
+    confidence: "low",
+    items,
+    sources: [],
+    notes: reason,
+  };
+}
+
+function normalizeCostEstimate(value: unknown, recipe: ReturnType<typeof normalizeGeneratedRecipe>, asOf: string, pantryItems: ReturnType<typeof getPantryItems> = []) {
+  const estimate = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const rawItems = Array.isArray(estimate.items) ? estimate.items : [];
+
+  const items = recipe.ingredientDetails.map((ingredient, index) => {
+    const item = rawItems[index] && typeof rawItems[index] === "object"
+      ? rawItems[index] as Record<string, unknown>
+      : {};
+    const name = typeof item.name === "string" && item.name.trim()
+      ? truncateText(item.name.trim(), 120)
+      : ingredient.name;
+    const quantity = roundMoney(item.quantity, ingredient.quantity || 0);
+    const unit = typeof item.unit === "string" ? truncateText(item.unit.trim(), 40) : ingredient.unit;
+    const pantryIngredient = typeof item.pantryIngredient === "boolean"
+      ? item.pantryIngredient
+      : ingredient.pantryIngredient;
+    const pantryPrice = pantryIngredient ? findPantryPrice(name, pantryItems) : undefined;
+    const savedUnitCost = roundMoney(pantryPrice?.estimatedUnitPrice);
+    const fallbackUnitPrice = savedUnitCost > 0 ? savedUnitCost : fallbackUnitCost(name, pantryIngredient);
+    const fallbackCost = fallbackUnitPrice * Math.max(quantity || ingredient.quantity || 1, 1);
+    const providedUnitPrice = roundMoney(item.estimatedUnitPrice);
+    const estimatedUnitPrice = providedUnitPrice > 0 ? providedUnitPrice : roundMoney(fallbackCost / Math.max(quantity || ingredient.quantity || 1, 1));
+    const providedCost = roundMoney(item.estimatedCost);
+    const estimatedCost = providedCost > 0 ? providedCost : roundMoney(fallbackCost);
+
+    return {
+      name,
+      quantity,
+      unit,
+      pantryIngredient,
+      estimatedUnitPrice,
+      pricingUnit: typeof item.pricingUnit === "string" ? truncateText(item.pricingUnit.trim(), 60) : pantryPrice?.pricingUnit || unit,
+      estimatedCost,
+      sourceLabel: typeof item.sourceLabel === "string" ? truncateText(item.sourceLabel.trim(), 160) : savedUnitCost > 0 ? "Pantry price" : "",
+      notes: typeof item.notes === "string" ? truncateText(item.notes.trim(), 220) : savedUnitCost > 0 ? "Uses the unit price saved on this pantry item." : "",
+    };
+  });
+
+  const calculatedTotal = roundMoney(items.reduce((sum, item) => sum + item.estimatedCost, 0));
+  const calculatedPantryValue = roundMoney(items.filter((item) => item.pantryIngredient).reduce((sum, item) => sum + item.estimatedCost, 0));
+  const calculatedAddedCost = roundMoney(items.filter((item) => !item.pantryIngredient).reduce((sum, item) => sum + item.estimatedCost, 0));
+  const totalCost = roundMoney(estimate.totalCost, calculatedTotal);
+  const pantryMarketValue = roundMoney(estimate.pantryMarketValue, calculatedPantryValue);
+  const addedIngredientCost = roundMoney(estimate.addedIngredientCost, calculatedAddedCost);
+  const sources = normalizeCostSources(estimate.sources);
+
+  if (items.length === 0 || totalCost <= 0) {
+    return fallbackCostEstimate(recipe, asOf, "AI price estimate did not return usable costs.", pantryItems);
+  }
+
+  return {
+    currency: typeof estimate.currency === "string" && estimate.currency.trim() ? estimate.currency.trim().toUpperCase() : "PHP",
+    locale: typeof estimate.locale === "string" && estimate.locale.trim() ? truncateText(estimate.locale.trim(), 80) : "Philippines",
+    asOf: typeof estimate.asOf === "string" && estimate.asOf.trim() ? truncateText(estimate.asOf.trim(), 40) : asOf,
+    totalCost,
+    pantryMarketValue,
+    addedIngredientCost,
+    confidence: normalizeConfidence(estimate.confidence),
+    items,
+    sources,
+    notes: typeof estimate.notes === "string" ? truncateText(estimate.notes.trim(), 260) : "",
+  };
+}
+
+async function estimateRecipeCost(recipe: ReturnType<typeof normalizeGeneratedRecipe>, pantryItems: ReturnType<typeof getPantryItems>) {
+  const today = new Date().toISOString().split("T")[0];
+  const priceResearchInstruction = GROQ_ENABLE_WEB_PRICE_SEARCH
+    ? "Use web search for Philippines prices. Prefer official or market-monitoring sources such as the Department of Agriculture price monitoring when applicable, then major Philippine grocery or supermarket sources for packaged goods. If a direct match is unavailable, use the closest common grocery equivalent and mark confidence lower."
+    : "Use any saved pantry estimatedUnitPrice/pricingUnit values first for matching pantry ingredients. For ingredients without saved prices, use reasonable current Philippines retail grocery planning estimates. Mark confidence lower when you are using common market assumptions instead of a direct source.";
+
+  const prompt = `Estimate the current Philippines retail market cost for this recipe as of ${today}.
+
+Recipe:
+${JSON.stringify({
+  title: recipe.title,
+  ingredients: recipe.ingredients,
+  ingredientDetails: recipe.ingredientDetails,
+  pantryItems,
+}, null, 2)}
+
+${priceResearchInstruction}
+
+Return a JSON object with exactly this shape:
+{
+  "currency": "PHP",
+  "locale": "Philippines",
+  "asOf": "${today}",
+  "totalCost": number,
+  "pantryMarketValue": number,
+  "addedIngredientCost": number,
+  "confidence": "low" | "medium" | "high",
+  "items": [
+    {
+      "name": "ingredient name",
+      "quantity": number,
+      "unit": "recipe unit",
+      "pantryIngredient": true_or_false,
+      "estimatedUnitPrice": number,
+      "pricingUnit": "source pricing unit, e.g. kg, pc, pack",
+      "estimatedCost": number,
+      "sourceLabel": "short source name",
+      "notes": "short conversion or estimate note"
+    }
+  ],
+  "sources": [{ "title": "source title", "url": "https://..." }],
+  "notes": "short overall caveat"
+}
+
+Rules:
+- Include one cost item for every recipe ingredient detail in the same order.
+- Estimate the full recipe market value, including pantry ingredients and added common staples.
+- If a matching pantry item includes estimatedUnitPrice, pricingUnit, and currency, use that saved pantry price for the pantry ingredient before estimating.
+- addedIngredientCost is only items where pantryIngredient=false.
+- Use realistic quantity conversions and round costs to two decimals.
+- Do not return markdown.`;
+
+  try {
+    const compoundTools = GROQ_ENABLE_WEB_PRICE_SEARCH ? ["web_search", "visit_website"] : undefined;
+    const result = await callGroq([
+      {
+        role: "system",
+        content: GROQ_ENABLE_WEB_PRICE_SEARCH
+          ? "You estimate grocery costs with current web research and return strict JSON only."
+          : "You estimate grocery costs for recipe planning and return strict JSON only.",
+      },
+      { role: "user", content: prompt },
+    ], GROQ_COST_MODEL, {
+      maxTokens: GROQ_COST_MAX_TOKENS,
+      timeoutMs: GROQ_COST_TIMEOUT_MS,
+      compoundTools,
+    });
+
+    return normalizeCostEstimate(result, recipe, today, pantryItems);
+  } catch (error) {
+    console.error("recipe cost estimate failed", error);
+    return fallbackCostEstimate(recipe, today, undefined, pantryItems);
+  }
+}
+
 function getSavedRecipeContext(value: unknown) {
   if (!Array.isArray(value)) return [];
 
@@ -290,12 +580,18 @@ Rules:
 - ingredientDetails must match the ingredients list. Use pantryIngredient=false only for added pantry staples.
 - Estimate realistic nutrition values for one recipe batch.`;
 
-  const recipe = await callGroq([
+  const recipeResponse = await callGroq([
     { role: "system", content: "You are a professional chef assistant. Always respond with valid JSON." },
     { role: "user", content: prompt },
   ]);
 
-  return normalizeGeneratedRecipe(recipe);
+  const recipe = normalizeGeneratedRecipe(recipeResponse);
+  const costEstimate = await estimateRecipeCost(recipe, pantryItems);
+
+  return {
+    ...recipe,
+    costEstimate,
+  };
 }
 
 async function scanIngredientsFromImage(payload: Record<string, unknown>) {

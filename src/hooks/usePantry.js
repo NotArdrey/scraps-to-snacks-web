@@ -1,10 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { fetchPantryItems, insertPantryItem, updatePantryItem, discardPantryItem } from '../services/pantry';
+import {
+  fetchPantryItems,
+  insertPantryItem,
+  updatePantryItem,
+  updatePantryItemQuantity,
+  markPantryItemUsed,
+  discardPantryItem,
+} from '../services/pantry';
 
 export function usePantry(user, householdId) {
   const [pantryItems, setPantryItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const mutatingRef = useRef(false);
   const fetchRequestRef = useRef(0);
 
@@ -14,17 +22,27 @@ export function usePantry(user, householdId) {
 
     if (!householdId) {
       setPantryItems([]);
+      setError(null);
       setLoading(false);
       return;
     }
     if (!silent) {
       setPantryItems([]);
+      setError(null);
       setLoading(true);
     }
-    const items = await fetchPantryItems(householdId);
-    if (fetchRequestRef.current !== requestId) return;
-    setPantryItems(items);
-    setLoading(false);
+    try {
+      const items = await fetchPantryItems(householdId);
+      if (fetchRequestRef.current !== requestId) return;
+      setPantryItems(items);
+      setError(null);
+    } catch (err) {
+      if (fetchRequestRef.current !== requestId) return;
+      setPantryItems([]);
+      setError(err.message || 'Failed to load pantry.');
+    } finally {
+      if (fetchRequestRef.current === requestId) setLoading(false);
+    }
   }, [householdId]);
 
   useEffect(() => {
@@ -85,6 +103,31 @@ export function usePantry(user, householdId) {
     }
   }, [user, fetchPantry]);
 
+  const adjustPantryItemQuantity = useCallback(async (itemId, quantity) => {
+    if (!user) return null;
+    mutatingRef.current = true;
+    try {
+      const updatedItem = await updatePantryItemQuantity(itemId, user.id, quantity);
+      await fetchPantry({ silent: true });
+      return updatedItem;
+    } finally {
+      mutatingRef.current = false;
+    }
+  }, [user, fetchPantry]);
+
+  const markPantryItemsUsed = useCallback(async (itemIds) => {
+    if (!user || itemIds.length === 0) return;
+    mutatingRef.current = true;
+    try {
+      for (const id of itemIds) {
+        await markPantryItemUsed(id, user.id);
+      }
+      await fetchPantry({ silent: true });
+    } finally {
+      mutatingRef.current = false;
+    }
+  }, [user, fetchPantry]);
+
   const removePantryItems = useCallback(async (itemIds) => {
     if (!user || itemIds.length === 0) return;
     mutatingRef.current = true;
@@ -98,5 +141,16 @@ export function usePantry(user, householdId) {
     }
   }, [user, fetchPantry]);
 
-  return { pantryItems, loading, addPantryItem, editPantryItem, removePantryItem, removePantryItems, refreshPantry: fetchPantry };
+  return {
+    pantryItems,
+    loading,
+    error,
+    addPantryItem,
+    editPantryItem,
+    adjustPantryItemQuantity,
+    markPantryItemsUsed,
+    removePantryItem,
+    removePantryItems,
+    refreshPantry: fetchPantry,
+  };
 }
