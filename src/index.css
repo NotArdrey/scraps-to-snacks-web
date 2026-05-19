@@ -7012,6 +7012,10 @@ button:disabled,
   gap: 1rem;
 }
 
+.scan-rule-panel {
+  align-content: start;
+}
+
 .scan-capture-dropzone {
   position: relative;
   display: grid;
