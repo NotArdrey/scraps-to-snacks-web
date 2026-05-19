@@ -177,6 +177,42 @@ export async function updatePantryItem(itemId, userId, { name, quantity, unit, c
   return updatedItem ? mapPantryItem(updatedItem) : null;
 }
 
+export async function updatePantryItemQuantity(itemId, userId, quantity) {
+  const cleanQuantity = Math.max(0, Number(quantity) || 0);
+
+  const { data, error } = await supabase
+    .from('pantry_items')
+    .update({ quantity: cleanQuantity })
+    .eq('id', itemId)
+    .select('id, quantity, unit, expires_at, status, source, ingredients(id, canonical_name, category)')
+    .limit(1);
+
+  if (error) throw new Error(error.message);
+
+  await supabase.from('pantry_item_events').insert({
+    pantry_item_id: itemId,
+    event_type: 'update',
+    delta_quantity: cleanQuantity,
+    actor_user_id: userId,
+  });
+
+  const updatedItem = firstRow(data);
+  return updatedItem ? mapPantryItem(updatedItem) : null;
+}
+
+export async function markPantryItemUsed(itemId, userId) {
+  await supabase
+    .from('pantry_items')
+    .update({ status: 'used' })
+    .eq('id', itemId);
+
+  await supabase.from('pantry_item_events').insert({
+    pantry_item_id: itemId,
+    event_type: 'use',
+    actor_user_id: userId,
+  });
+}
+
 export async function discardPantryItem(itemId, userId) {
   await supabase
     .from('pantry_items')

@@ -6985,9 +6985,9 @@ button:disabled,
 
 .scan-workspace {
   display: grid;
-  grid-template-columns: minmax(300px, 0.68fr) minmax(240px, 0.52fr) minmax(0, 1.8fr);
+  grid-template-columns: repeat(2, minmax(300px, 0.68fr)) minmax(0, 1.8fr);
   gap: var(--app-wide-gap);
-  align-items: start;
+  align-items: stretch;
 }
 
 .scan-capture-panel,
@@ -7106,6 +7106,7 @@ button:disabled,
 .scan-results-panel {
   display: grid;
   gap: 1rem;
+  align-content: start;
 }
 
 .scan-results-heading {
@@ -7449,7 +7450,7 @@ button:disabled,
   }
 
   .scan-workspace {
-    grid-template-columns: minmax(330px, 0.68fr) minmax(260px, 0.5fr) minmax(0, 1.95fr);
+    grid-template-columns: repeat(2, minmax(330px, 0.68fr)) minmax(0, 1.95fr);
   }
 
   .account-settings-layout {
