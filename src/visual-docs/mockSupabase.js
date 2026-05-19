@@ -62,6 +62,7 @@ const ingredients = [
   { id: 'ing-rice', canonical_name: 'Cooked Rice', category: 'Grains', default_unit: 'cups' },
   { id: 'ing-chicken', canonical_name: 'Chicken Breast', category: 'Protein', default_unit: 'g' },
   { id: 'ing-banana', canonical_name: 'Bananas', category: 'Fruits', default_unit: 'pcs' },
+  { id: 'ing-eggs', canonical_name: 'egg', category: null, default_unit: 'pcs' },
 ];
 
 const pantryItems = [
@@ -71,9 +72,6 @@ const pantryItems = [
     ingredient_id: 'ing-spinach',
     quantity: 250,
     unit: 'g',
-    estimated_unit_price: 0.15,
-    pricing_unit: 'g',
-    currency: 'PHP',
     status: 'available',
     source: 'manual',
     expires_at: '2026-05-10T00:00:00Z',
@@ -87,9 +85,6 @@ const pantryItems = [
     ingredient_id: 'ing-tomatoes',
     quantity: 6,
     unit: 'pcs',
-    estimated_unit_price: 8,
-    pricing_unit: 'pcs',
-    currency: 'PHP',
     status: 'available',
     source: 'scan',
     expires_at: '2026-05-12T00:00:00Z',
@@ -103,9 +98,6 @@ const pantryItems = [
     ingredient_id: 'ing-rice',
     quantity: 2,
     unit: 'cups',
-    estimated_unit_price: 15,
-    pricing_unit: 'cup',
-    currency: 'PHP',
     status: 'available',
     source: 'manual',
     expires_at: '2026-05-09T00:00:00Z',
@@ -119,9 +111,6 @@ const pantryItems = [
     ingredient_id: 'ing-chicken',
     quantity: 500,
     unit: 'g',
-    estimated_unit_price: 0.34,
-    pricing_unit: 'g',
-    currency: 'PHP',
     status: 'available',
     source: 'manual',
     expires_at: '2026-05-11T00:00:00Z',
@@ -129,44 +118,20 @@ const pantryItems = [
     created_by_user_id: USER_ID,
     ingredients: ingredients[3],
   },
+  {
+    id: 'pantry-eggs',
+    household_id: HOUSEHOLD_ID,
+    ingredient_id: 'ing-eggs',
+    quantity: 3,
+    unit: 'pcs',
+    status: 'available',
+    source: 'manual',
+    expires_at: '2026-05-19T00:00:00Z',
+    created_at: '2026-05-08T08:45:00Z',
+    created_by_user_id: USER_ID,
+    ingredients: ingredients[5],
+  },
 ];
-
-const friedRiceCostEstimate = {
-  currency: 'PHP',
-  locale: 'Philippines',
-  asOf: '2026-05-08',
-  totalCost: 84.5,
-  pantryMarketValue: 72.5,
-  addedIngredientCost: 12,
-  confidence: 'medium',
-  items: [
-    { name: 'Cooked Rice', quantity: 2, unit: 'cups', pantryIngredient: true, estimatedUnitPrice: 15, pricingUnit: 'cup', estimatedCost: 30, sourceLabel: 'Demo PH market estimate', notes: 'Converted from common retail rice pricing.' },
-    { name: 'Spinach', quantity: 150, unit: 'g', pantryIngredient: true, estimatedUnitPrice: 0.15, pricingUnit: 'g', estimatedCost: 22.5, sourceLabel: 'Demo PH market estimate', notes: 'Estimated from leafy greens pricing.' },
-    { name: 'Tomatoes', quantity: 3, unit: 'pcs', pantryIngredient: true, estimatedUnitPrice: 6.67, pricingUnit: 'pc', estimatedCost: 20, sourceLabel: 'Demo PH market estimate', notes: 'Piece estimate from per-kilo retail prices.' },
-    { name: 'Cooking Oil', quantity: 1, unit: 'tbsp', pantryIngredient: false, estimatedUnitPrice: 12, pricingUnit: 'tbsp', estimatedCost: 12, sourceLabel: 'Demo grocery estimate', notes: 'Added common staple.' },
-  ],
-  sources: [{ title: 'Demo Philippines price source', url: 'https://www.da.gov.ph/price-monitoring/' }],
-  notes: 'Demo estimate for visual testing.',
-};
-
-const chickenBowlCostEstimate = {
-  currency: 'PHP',
-  locale: 'Philippines',
-  asOf: '2026-05-08',
-  totalCost: 165,
-  pantryMarketValue: 155,
-  addedIngredientCost: 10,
-  confidence: 'medium',
-  items: [
-    { name: 'Chicken Breast', quantity: 250, unit: 'g', pantryIngredient: true, estimatedUnitPrice: 0.34, pricingUnit: 'g', estimatedCost: 85, sourceLabel: 'Demo PH market estimate', notes: 'Converted from per-kilo poultry pricing.' },
-    { name: 'Cooked Rice', quantity: 1, unit: 'cup', pantryIngredient: true, estimatedUnitPrice: 15, pricingUnit: 'cup', estimatedCost: 15, sourceLabel: 'Demo PH market estimate', notes: 'Converted from common retail rice pricing.' },
-    { name: 'Tomatoes', quantity: 2, unit: 'pcs', pantryIngredient: true, estimatedUnitPrice: 7.5, pricingUnit: 'pc', estimatedCost: 15, sourceLabel: 'Demo PH market estimate', notes: 'Piece estimate from per-kilo retail prices.' },
-    { name: 'Soy-calamansi dressing', quantity: 1, unit: 'tbsp', pantryIngredient: false, estimatedUnitPrice: 10, pricingUnit: 'tbsp', estimatedCost: 10, sourceLabel: 'Demo grocery estimate', notes: 'Added common seasoning.' },
-    { name: 'Fresh herbs', quantity: 1, unit: 'tbsp', pantryIngredient: true, estimatedUnitPrice: 40, pricingUnit: 'small bunch', estimatedCost: 40, sourceLabel: 'Demo grocery estimate', notes: 'Estimated small garnish portion.' },
-  ],
-  sources: [{ title: 'Demo Philippines price source', url: 'https://www.da.gov.ph/price-monitoring/' }],
-  notes: 'Demo estimate for visual testing.',
-};
 
 const adminRecipes = [
   {
@@ -178,7 +143,6 @@ const adminRecipes = [
       'Season with salt, pepper, and a squeeze of calamansi.',
     ],
     nutrition_json: { cals: 420, protein: '18g' },
-    metadata_json: { costEstimate: friedRiceCostEstimate },
     created_at: '2026-05-06T10:00:00Z',
     generated_by_user_id: USER_ID,
     recipe_ingredients: [
@@ -196,7 +160,6 @@ const adminRecipes = [
       'Top with herbs and a simple soy-calamansi dressing.',
     ],
     nutrition_json: { cals: 560, protein: '42g' },
-    metadata_json: { costEstimate: chickenBowlCostEstimate },
     created_at: '2026-05-07T13:20:00Z',
     generated_by_user_id: USER_ID,
     recipe_ingredients: [
@@ -256,6 +219,327 @@ let userRows = [
     plan_name: 'Snack Starter',
   },
 ];
+
+let mockSequence = 1;
+
+const pantryItemEvents = [];
+
+const cookingEvents = [
+  { user_id: USER_ID, recipe_id: 'recipe-fried-rice', event_type: 'rated', rating_value: 5 },
+  { user_id: USER_ID, recipe_id: 'recipe-chicken-bowl', event_type: 'rated', rating_value: 4 },
+];
+
+const recipeIngredientRows = adminRecipes.flatMap(recipe => (
+  recipe.recipe_ingredients.map((row, index) => {
+    const ingredientName = row.ingredients?.canonical_name || '';
+    const ingredient = ingredients.find(item => item.canonical_name.toLowerCase() === ingredientName.toLowerCase());
+    return {
+      id: `${recipe.id}-ingredient-${index + 1}`,
+      recipe_id: recipe.id,
+      ingredient_id: ingredient?.id || 'ing-rice',
+      quantity: row.quantity || null,
+      unit: row.unit || '',
+    };
+  })
+));
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function nextId(prefix) {
+  mockSequence += 1;
+  return `${prefix}-${mockSequence}`;
+}
+
+function nextTimestamp() {
+  mockSequence += 1;
+  return new Date(now.getTime() + mockSequence * 60_000).toISOString();
+}
+
+function titleCaseIngredientName(name) {
+  const cleanName = name?.trim().replace(/\s+/g, ' ');
+  if (!cleanName) return '';
+
+  const lower = cleanName.toLowerCase();
+  if (lower === 'egg' || lower === 'eggs') return 'Eggs';
+
+  return lower.replace(/\b[a-z]/g, letter => letter.toUpperCase());
+}
+
+function inferMockCategory(name) {
+  const lowerName = name?.toLowerCase() || '';
+  const categoryMap = [
+    { category: 'Fruits', keywords: ['apple', 'banana', 'grape', 'orange', 'mango', 'berry', 'pear'] },
+    { category: 'Vegetables', keywords: ['spinach', 'tomato', 'onion', 'garlic', 'carrot', 'lettuce', 'kale', 'pepper', 'mushroom'] },
+    { category: 'Meat', keywords: ['chicken', 'beef', 'pork', 'turkey', 'ham'] },
+    { category: 'Seafood', keywords: ['fish', 'shrimp', 'crab', 'tuna', 'salmon'] },
+    { category: 'Protein', keywords: ['egg', 'tofu', 'tempeh'] },
+    { category: 'Dairy', keywords: ['milk', 'cheese', 'butter', 'cream', 'yogurt'] },
+    { category: 'Grains', keywords: ['rice', 'pasta', 'bread', 'flour', 'oats', 'lentil'] },
+  ];
+  return categoryMap.find(({ keywords }) => keywords.some(keyword => lowerName.includes(keyword)))?.category || 'Other';
+}
+
+function ingredientById(ingredientId) {
+  return ingredients.find(ingredient => ingredient.id === ingredientId) || null;
+}
+
+function recipeById(recipeId) {
+  return adminRecipes.find(recipe => recipe.id === recipeId) || null;
+}
+
+function hydratePantryItem(item) {
+  return {
+    ...item,
+    ingredients: ingredientById(item.ingredient_id) || item.ingredients || null,
+  };
+}
+
+function hydrateRecipeIngredient(row) {
+  return {
+    ...row,
+    ingredients: ingredientById(row.ingredient_id) || null,
+  };
+}
+
+function hydrateRecipe(recipe) {
+  if (!recipe) return null;
+  return {
+    ...recipe,
+    recipe_ingredients: recipeIngredientRows
+      .filter(row => row.recipe_id === recipe.id)
+      .map(hydrateRecipeIngredient),
+  };
+}
+
+function savedRecipeRecipeId(savedRecipe) {
+  return savedRecipe.recipe_id || savedRecipe.recipes?.id || null;
+}
+
+function hydrateSavedRecipe(savedRecipe) {
+  const recipe = hydrateRecipe(recipeById(savedRecipeRecipeId(savedRecipe)));
+  return {
+    ...savedRecipe,
+    recipe_id: recipe?.id || savedRecipeRecipeId(savedRecipe),
+    recipes: recipe,
+  };
+}
+
+function normalizeRows(payload) {
+  return Array.isArray(payload) ? payload : [payload];
+}
+
+function matchesFilters(row, filters) {
+  return filters.every(filter => filter(row));
+}
+
+function insertRows(tableName, payload) {
+  return normalizeRows(payload).map(row => insertRow(tableName, row));
+}
+
+function insertRow(tableName, row) {
+  if (tableName === 'ingredients') {
+    const canonicalName = titleCaseIngredientName(row.canonical_name || row.name);
+    const existing = ingredients.find(ingredient => ingredient.canonical_name.toLowerCase() === canonicalName.toLowerCase());
+    if (existing) return clone(existing);
+
+    const ingredient = {
+      id: row.id || nextId('ing'),
+      canonical_name: canonicalName,
+      category: row.category || inferMockCategory(canonicalName),
+      default_unit: row.default_unit || row.unit || 'pcs',
+    };
+    ingredients.push(ingredient);
+    return clone(ingredient);
+  }
+
+  if (tableName === 'pantry_items') {
+    const pantryItem = {
+      id: row.id || nextId('pantry'),
+      household_id: row.household_id || HOUSEHOLD_ID,
+      ingredient_id: row.ingredient_id,
+      quantity: row.quantity || 1,
+      unit: row.unit || 'pcs',
+      status: row.status || 'available',
+      source: row.source || 'manual',
+      expires_at: row.expires_at || null,
+      created_at: row.created_at || nextTimestamp(),
+      created_by_user_id: row.created_by_user_id || USER_ID,
+    };
+    pantryItems.push(pantryItem);
+    return clone(hydratePantryItem(pantryItem));
+  }
+
+  if (tableName === 'pantry_item_events') {
+    const event = { id: row.id || nextId('pantry-event'), created_at: row.created_at || nextTimestamp(), ...row };
+    pantryItemEvents.push(event);
+    return clone(event);
+  }
+
+  if (tableName === 'subscription_plans') {
+    const plan = {
+      id: row.id || nextId('plan'),
+      currency: row.currency || 'PHP',
+      created_at: row.created_at || nextTimestamp(),
+      ...row,
+    };
+    subscriptionPlans.push(plan);
+    return clone(plan);
+  }
+
+  if (tableName === 'recipes') {
+    const recipe = {
+      id: row.id || nextId('recipe'),
+      title: row.title || 'Untitled Recipe',
+      instructions_json: row.instructions_json || [],
+      nutrition_json: row.nutrition_json || {},
+      created_at: row.created_at || nextTimestamp(),
+      generated_by_user_id: row.generated_by_user_id || USER_ID,
+      model_provider: row.model_provider || 'mock',
+    };
+    adminRecipes.push(recipe);
+    return clone(hydrateRecipe(recipe));
+  }
+
+  if (tableName === 'recipe_ingredients') {
+    const recipeIngredient = {
+      id: row.id || nextId('recipe-ingredient'),
+      recipe_id: row.recipe_id,
+      ingredient_id: row.ingredient_id,
+      quantity: row.quantity || null,
+      unit: row.unit || '',
+    };
+    recipeIngredientRows.push(recipeIngredient);
+    return clone(hydrateRecipeIngredient(recipeIngredient));
+  }
+
+  if (tableName === 'saved_recipes') {
+    const savedRecipe = {
+      id: row.id || nextId('saved'),
+      user_id: row.user_id || USER_ID,
+      recipe_id: row.recipe_id,
+      saved_at: row.saved_at || nextTimestamp(),
+      source: row.source || 'generated',
+    };
+    savedRecipes.push(savedRecipe);
+    return clone(hydrateSavedRecipe(savedRecipe));
+  }
+
+  if (tableName === 'cooking_events') {
+    const event = { id: row.id || nextId('cooking-event'), created_at: row.created_at || nextTimestamp(), ...row };
+    cookingEvents.push(event);
+    return clone(event);
+  }
+
+  return { id: row.id || nextId('mock-insert'), ...row };
+}
+
+function updateRows(tableName, filters, payload) {
+  if (tableName === 'subscription_plans') {
+    const updated = subscriptionPlans.filter(row => matchesFilters(row, filters));
+    updated.forEach(row => Object.assign(row, payload));
+    return updated.map(clone);
+  }
+
+  if (tableName === 'ingredients') {
+    const updated = ingredients.filter(row => matchesFilters(row, filters));
+    updated.forEach(row => Object.assign(row, payload));
+    return updated.map(clone);
+  }
+
+  if (tableName === 'pantry_items') {
+    const updated = pantryItems.filter(row => matchesFilters(hydratePantryItem(row), filters));
+    updated.forEach(row => Object.assign(row, payload));
+    return updated.map(row => clone(hydratePantryItem(row)));
+  }
+
+  if (tableName === 'recipes') {
+    const updated = adminRecipes.filter(row => matchesFilters(hydrateRecipe(row), filters));
+    updated.forEach(row => Object.assign(row, payload));
+    return updated.map(row => clone(hydrateRecipe(row)));
+  }
+
+  if (tableName === 'app_user_profiles') {
+    const updated = userRows.filter(row => matchesFilters({ user_id: row.user_id, role: row.role, display_name: row.display_name }, filters));
+    updated.forEach(row => {
+      if (payload.role !== undefined) row.role = payload.role;
+      if (payload.display_name !== undefined) row.display_name = payload.display_name;
+    });
+    return updated.map(row => clone({ user_id: row.user_id, role: row.role, display_name: row.display_name }));
+  }
+
+  if (tableName === 'user_subscriptions') {
+    const matchedSubscriptions = subscriptionRows().filter(row => matchesFilters(row, filters));
+    matchedSubscriptions.forEach(subscription => {
+      const user = userRows.find(row => row.user_id === subscription.user_id);
+      if (!user) return;
+      if (payload.status !== undefined) user.subscription_status = payload.status;
+      if (payload.plan_id !== undefined) {
+        user.plan_id = payload.plan_id;
+        user.plan_name = subscriptionPlans.find(plan => plan.id === payload.plan_id)?.display_name || null;
+      }
+    });
+    return matchedSubscriptions.map(row => clone({ ...row, ...payload }));
+  }
+
+  return [];
+}
+
+function deleteRows(tableName, filters) {
+  if (tableName === 'subscription_plans') {
+    const deleted = subscriptionPlans.filter(row => matchesFilters(row, filters));
+    for (const row of deleted) {
+      const index = subscriptionPlans.findIndex(plan => plan.id === row.id);
+      if (index >= 0) subscriptionPlans.splice(index, 1);
+    }
+    return deleted.map(clone);
+  }
+
+  if (tableName === 'saved_recipes') {
+    const deleted = savedRecipes.filter(row => matchesFilters(hydrateSavedRecipe(row), filters));
+    for (const row of deleted) {
+      const index = savedRecipes.findIndex(savedRecipe => savedRecipe.id === row.id);
+      if (index >= 0) savedRecipes.splice(index, 1);
+    }
+    return deleted.map(row => clone(hydrateSavedRecipe(row)));
+  }
+
+  if (tableName === 'recipe_ingredients') {
+    const deleted = recipeIngredientRows.filter(row => matchesFilters(hydrateRecipeIngredient(row), filters));
+    for (const row of deleted) {
+      const index = recipeIngredientRows.findIndex(recipeIngredient => recipeIngredient.id === row.id);
+      if (index >= 0) recipeIngredientRows.splice(index, 1);
+    }
+    return deleted.map(row => clone(hydrateRecipeIngredient(row)));
+  }
+
+  if (tableName === 'recipes') {
+    const deleted = adminRecipes.filter(row => matchesFilters(hydrateRecipe(row), filters));
+    for (const row of deleted) {
+      const recipeIndex = adminRecipes.findIndex(recipe => recipe.id === row.id);
+      if (recipeIndex >= 0) adminRecipes.splice(recipeIndex, 1);
+      for (let index = recipeIngredientRows.length - 1; index >= 0; index -= 1) {
+        if (recipeIngredientRows[index].recipe_id === row.id) recipeIngredientRows.splice(index, 1);
+      }
+      for (let index = savedRecipes.length - 1; index >= 0; index -= 1) {
+        if (savedRecipeRecipeId(savedRecipes[index]) === row.id) savedRecipes.splice(index, 1);
+      }
+    }
+    return deleted.map(row => clone(hydrateRecipe(row)));
+  }
+
+  if (tableName === 'cooking_events') {
+    const deleted = cookingEvents.filter(row => matchesFilters(row, filters));
+    for (const row of deleted) {
+      const index = cookingEvents.findIndex(event => event.id === row.id);
+      if (index >= 0) cookingEvents.splice(index, 1);
+    }
+    return deleted.map(clone);
+  }
+
+  return [];
+}
 
 function getUrl() {
   if (typeof window === 'undefined') {
@@ -339,6 +623,25 @@ function profileRows() {
       display_name: isAdmin ? 'Demo Admin' : 'Demo Cook',
       onboarding_completed_at: isAdmin || isOnboardedPage() ? '2026-04-25T10:00:00Z' : null,
       created_at: '2026-04-20T08:00:00Z',
+      recipe_preferences: isAdmin ? {} : {
+        customDiets: ['Low-sodium', 'No pork'],
+        customAllergies: [{ name: 'Sesame', severity: 'mild' }],
+        noAllergies: false,
+        avoidCrossContamination: true,
+        exclusions: ['Alcohol', 'Mushrooms'],
+        cuisines: ['Filipino', 'Japanese'],
+        favoriteIngredients: ['Tofu', 'Garlic'],
+        dislikedIngredients: ['Bitter melon'],
+        mealTypes: ['Dinner', 'Meal prep'],
+        cookingTime: '30-min',
+        budget: 'budget',
+        skillLevel: 'beginner',
+        servings: 3,
+        calorieTarget: '500 per meal',
+        proteinTarget: '30g+',
+        carbTarget: 'under 45g',
+        notes: 'Keep recipes practical for weeknights.',
+      },
     },
   ];
 }
@@ -354,20 +657,21 @@ function subscriptionRows() {
   const user = getSessionUser();
   if (!user || !hasActiveSubscriptionForRoute()) return [];
 
-  const plan = user.id === ADMIN_ID ? subscriptionPlans[2] : subscriptionPlans[1];
-
-  return [
-    {
-      id: user.id === ADMIN_ID ? 'sub-admin' : 'sub-user',
-      user_id: user.id,
-      plan_id: plan.id,
-      status: 'active',
-      starts_at: '2026-04-25T00:00:00Z',
-      ends_at: '2026-06-25T00:00:00Z',
-      created_at: '2026-04-25T00:00:00Z',
-      subscription_plans: plan,
-    },
-  ];
+  return userRows
+    .filter(row => row.user_id === user.id && row.subscription_status)
+    .map(row => {
+      const plan = subscriptionPlans.find(item => item.id === row.plan_id) || subscriptionPlans[1];
+      return {
+        id: `sub-${row.user_id}`,
+        user_id: row.user_id,
+        plan_id: plan?.id || row.plan_id,
+        status: row.subscription_status,
+        starts_at: '2026-04-25T00:00:00Z',
+        ends_at: '2026-06-25T00:00:00Z',
+        created_at: '2026-04-25T00:00:00Z',
+        subscription_plans: plan,
+      };
+    });
 }
 
 function paymentAttemptRows() {
@@ -416,21 +720,20 @@ function tableRows(tableName) {
       ];
     case 'user_allergy_preferences':
       return [
-        { user_id: USER_ID, allergy_type_id: 'allergy-peanuts', severity: 'medium' },
+        { user_id: USER_ID, allergy_type_id: 'allergy-eggs', severity: 'severe' },
       ];
     case 'ingredients':
-      return ingredients;
+      return ingredients.map(clone);
     case 'pantry_items':
-      return pantryItems;
+      return pantryItems.map(item => clone(hydratePantryItem(item)));
     case 'saved_recipes':
-      return savedRecipes;
+      return savedRecipes.map(hydrateSavedRecipe).filter(row => row.recipes).map(clone);
     case 'recipes':
-      return adminRecipes;
+      return adminRecipes.map(recipe => clone(hydrateRecipe(recipe)));
+    case 'recipe_ingredients':
+      return recipeIngredientRows.map(row => clone(hydrateRecipeIngredient(row)));
     case 'cooking_events':
-      return [
-        { user_id: USER_ID, recipe_id: 'recipe-fried-rice', event_type: 'rated', rating_value: 5 },
-        { user_id: USER_ID, recipe_id: 'recipe-chicken-bowl', event_type: 'rated', rating_value: 4 },
-      ];
+      return cookingEvents.map(clone);
     case 'paymongo_checkout_sessions':
       return paymentAttemptRows();
     default:
@@ -541,67 +844,112 @@ class MockQuery {
     return Promise.resolve(this.execute());
   }
 
-  execute() {
-    if (this.action === 'insert') {
-      const rows = Array.isArray(this.payload) ? this.payload : [this.payload];
-      const insertedRows = rows.map((row, index) => ({ id: `mock-insert-${Date.now()}-${index + 1}`, ...row }));
-      if (this.tableName === 'ingredients') {
-        const normalizedRows = insertedRows.map(row => ({
-          id: row.id,
-          canonical_name: row.canonical_name,
-          category: row.category || 'Other',
-          default_unit: row.default_unit || 'pcs',
-        }));
-        ingredients.push(...normalizedRows);
-        return { data: normalizedRows, error: null };
-      }
-      if (this.tableName === 'pantry_items') {
-        const normalizedRows = insertedRows.map(row => ({
-          ...row,
-          created_at: row.created_at || new Date().toISOString(),
-          ingredients: ingredients.find(ingredient => ingredient.id === row.ingredient_id) || {
-            id: row.ingredient_id,
-            canonical_name: 'Pantry item',
-            category: 'Other',
-            default_unit: row.unit || 'pcs',
-          },
-        }));
-        pantryItems.unshift(...normalizedRows);
-        return { data: normalizedRows, error: null };
-      }
-      return { data: insertedRows, error: null };
-    }
-
-    if (this.action === 'update') {
-      return { data: [], error: null };
-    }
-
-    if (this.action === 'delete') {
-      return { data: [], error: null };
-    }
-
-    let rows = [...tableRows(this.tableName)];
-    for (const filter of this.filters) {
-      rows = rows.filter(filter);
-    }
+  formatResult(rows) {
+    let resultRows = [...rows];
 
     if (this.orderBy) {
-      rows.sort((a, b) => {
+      resultRows.sort((a, b) => {
         const result = compareValues(readField(a, this.orderBy.field), readField(b, this.orderBy.field));
         return this.orderBy.ascending ? result : -result;
       });
     }
 
     if (this.limitCount !== null) {
-      rows = rows.slice(0, this.limitCount);
+      resultRows = resultRows.slice(0, this.limitCount);
     }
 
     if (this.singleResult || this.maybeSingleResult) {
-      return { data: rows[0] ?? null, error: null };
+      return { data: resultRows[0] ?? null, error: null };
     }
 
-    return { data: rows, error: null };
+    return { data: resultRows, error: null };
   }
+
+  execute() {
+    let rows;
+
+    if (this.action === 'insert') {
+      rows = insertRows(this.tableName, this.payload);
+      return this.formatResult(rows);
+    }
+
+    if (this.action === 'update') {
+      rows = updateRows(this.tableName, this.filters, this.payload);
+      return this.formatResult(rows);
+    }
+
+    if (this.action === 'delete') {
+      rows = deleteRows(this.tableName, this.filters);
+      return this.formatResult(rows);
+    }
+
+    rows = [...tableRows(this.tableName)];
+    for (const filter of this.filters) {
+      rows = rows.filter(filter);
+    }
+
+    return this.formatResult(rows);
+  }
+}
+
+function mockValidateIngredient(payload = {}) {
+  const name = titleCaseIngredientName(payload.name);
+  const lowerName = name.toLowerCase();
+  const nonFoodTerms = ['phone', 'laptop', 'soap', 'chair', 'plastic', 'paper', 'rock'];
+  const isFood = !!name && !nonFoodTerms.some(term => lowerName.includes(term));
+  const allergyList = Array.isArray(payload.allergyList) ? payload.allergyList.map(item => String(item).toLowerCase()) : [];
+  const allergyConflict = allergyList.some(allergy => allergy && lowerName.includes(allergy.replace(/s$/, '')));
+
+  return {
+    isFood,
+    correctedName: name,
+    category: inferMockCategory(name),
+    estimatedExpiryDate: '2026-06-30',
+    dietConflict: false,
+    allergyConflict,
+    warning: allergyConflict ? `${name} may conflict with your allergy preferences.` : null,
+    reason: isFood ? null : `"${payload.name}" is not a valid food ingredient.`,
+  };
+}
+
+function mockGenerateRecipe(payload = {}) {
+  const pantryItems = Array.isArray(payload.pantryItems) ? payload.pantryItems : [];
+  const ingredientList = Array.isArray(payload.ingredientList) ? payload.ingredientList : [];
+  const firstItemName = pantryItems[0]?.name || ingredientList[0]?.replace(/^[\d.\s]+[a-zA-Z]*\s*/, '') || 'Pantry';
+  const title = `${titleCaseIngredientName(firstItemName)} Pantry Recipe`;
+
+  return {
+    title,
+    ingredients: ingredientList.length > 0 ? ingredientList : pantryItems.map(item => `${item.quantity} ${item.unit} ${item.name}`),
+    ingredientDetails: pantryItems.map(item => ({
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+    })),
+    instructions: [
+      'Prep the selected ingredients and keep everything within reach.',
+      'Cook over medium heat until the ingredients are tender and well seasoned.',
+      'Serve warm and adjust seasoning to taste.',
+    ],
+    nutrition: { cals: 420, protein: '22g' },
+  };
+}
+
+function mockAiResponse(action, payload = {}) {
+  if (action === 'validateIngredient') return mockValidateIngredient(payload);
+  if (action === 'generateRecipe') return mockGenerateRecipe(payload);
+  if (action === 'scanIngredientsFromImage' || action === 'scanIngredientsFromText') {
+    return {
+      ingredients: [
+        { name: 'Tomatoes', quantity: 3, unit: 'pcs', category: 'Vegetables' },
+        { name: 'Cooked Rice', quantity: 2, unit: 'cups', category: 'Grains' },
+      ],
+    };
+  }
+  if (action === 'chatAboutSavedIngredients') {
+    return { answer: 'Use the saved recipes as a base and adjust seasoning to taste.' };
+  }
+  return {};
 }
 
 export const mockSupabase = {
@@ -656,58 +1004,8 @@ export const mockSupabase = {
   functions: {
     async invoke(name, options = {}) {
       if (name === 'ai') {
-        const delayMs = Number(globalThis.__SCRAPS_AI_DELAY_MS || 0);
-        if (delayMs > 0) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-        }
-
-        const action = options.body?.action;
-        const payload = options.body?.payload || {};
-
-        if (action === 'validateIngredient') {
-          const cleanName = payload.name || 'Ingredient';
-          const isEgg = /eggs?/i.test(cleanName);
-          return {
-            data: {
-              isFood: true,
-              correctedName: cleanName,
-              category: isEgg ? 'Protein' : 'Other',
-              estimatedExpiryDate: '2026-05-18',
-              freshnessWarning: null,
-              dietConflict: false,
-              allergyConflict: isEgg,
-              warning: isEgg ? 'This ingredient may conflict with an egg allergy.' : null,
-              reason: null,
-            },
-            error: null,
-          };
-        }
-
-        if (action === 'generateRecipe') {
-          return {
-            data: {
-              title: 'Demo Pantry Stir-Fry',
-              ingredients: ['2 cups cooked rice', '150 g spinach', '2 pcs tomatoes', '1 tbsp cooking oil'],
-              ingredientNames: ['Cooked Rice', 'Spinach', 'Tomatoes', 'Cooking Oil'],
-              ingredientDetails: [
-                { name: 'Cooked Rice', quantity: 2, unit: 'cups', pantryIngredient: true },
-                { name: 'Spinach', quantity: 150, unit: 'g', pantryIngredient: true },
-                { name: 'Tomatoes', quantity: 2, unit: 'pcs', pantryIngredient: true },
-                { name: 'Cooking Oil', quantity: 1, unit: 'tbsp', pantryIngredient: false },
-              ],
-              instructions: [
-                'Warm the oil in a pan over medium heat.',
-                'Add tomatoes and cook until softened.',
-                'Stir in rice and spinach until hot and wilted.',
-                'Season to taste and serve warm.',
-              ],
-              nutrition: { cals: 430, protein: 14 },
-            },
-            error: null,
-          };
-        }
-
-        return { data: {}, error: null };
+        const { action, payload } = options.body || {};
+        return { data: mockAiResponse(action, payload), error: null };
       }
       if (name === 'verify-paymongo-checkout') {
         return { data: { status: 'pending' }, error: null };

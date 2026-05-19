@@ -1,21 +1,17 @@
-import React, { useState, useContext, useMemo, useEffect } from 'react';
-import {
-  Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck,
-  Pencil, Check, Search, Filter, Package, Clock3, PackageX, Minus,
-  ReceiptText, CheckCircle2, Utensils,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState, useContext } from 'react';
+import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck, Pencil, Check, Search, Filter, CalendarDays, PackageCheck, ShieldAlert, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContextValue';
 import { usePantry } from '../hooks/usePantry';
 import { useRecipes } from '../hooks/useRecipes';
 import { usePreferences } from '../hooks/usePreferences';
 import { generateRecipe, validateIngredient } from '../services/ai';
+import { inferIngredientCategory } from '../services/pantry';
 import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
 import LoadingPanel from '../components/LoadingPanel';
 import { CATEGORIES, UNITS } from '../constants/categories';
-import { ALLERGEN_KEYWORDS, EXPIRY_WARNING_MS } from '../constants/dietary';
-import { HERO_IMAGES } from '../constants/images';
+import { EXPIRY_WARNING_MS } from '../constants/dietary';
 
 const OBVIOUS_NON_FOOD_ITEMS = new Set([
   'dinosaur',
@@ -44,141 +40,138 @@ function parseDateOnly(date) {
   return new Date(year, month - 1, day);
 }
 
-function getExpiryState(expires) {
+function getExpiryInfo(expires) {
   const expiryDate = parseDateOnly(expires);
-  if (!expiryDate) return 'success';
-
+  if (!expiryDate) {
+    return {
+      state: 'neutral',
+      label: 'No expiration set',
+      detail: 'Add a date for freshness tracking',
+      daysUntilExpiry: null,
+      isExpired: false,
+      isToday: false,
+      isExpiringSoon: false,
+    };
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / MS_PER_DAY);
 
-  if (daysUntilExpiry < 0) return 'danger';
-  if (daysUntilExpiry <= EXPIRY_WARNING_MS / MS_PER_DAY) return 'warning';
-  return 'success';
+  if (daysUntilExpiry < 0) {
+    const daysAgo = Math.abs(daysUntilExpiry);
+    return {
+      state: 'danger',
+      label: daysAgo === 1 ? 'Expired yesterday' : `Expired ${daysAgo} days ago`,
+      detail: expires,
+      daysUntilExpiry,
+      isExpired: true,
+      isToday: false,
+      isExpiringSoon: true,
+    };
+  }
+
+  if (daysUntilExpiry === 0) {
+    return {
+      state: 'danger',
+      label: 'Expires today',
+      detail: expires,
+      daysUntilExpiry,
+      isExpired: false,
+      isToday: true,
+      isExpiringSoon: true,
+    };
+  }
+
+  const warningDays = EXPIRY_WARNING_MS / MS_PER_DAY;
+  if (daysUntilExpiry <= warningDays) {
+    return {
+      state: 'warning',
+      label: `In ${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'}`,
+      detail: expires,
+      daysUntilExpiry,
+      isExpired: false,
+      isToday: false,
+      isExpiringSoon: true,
+    };
+  }
+
+  return {
+    state: 'success',
+    label: `In ${daysUntilExpiry} days`,
+    detail: expires,
+    daysUntilExpiry,
+    isExpired: false,
+    isToday: false,
+    isExpiringSoon: false,
+  };
 }
 
-function getExpiryStatus(expires) {
-  const expiryDate = parseDateOnly(expires);
-  if (!expiryDate) return 'safe';
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / MS_PER_DAY);
-
-  if (daysUntilExpiry < 0) return 'expired';
-  if (daysUntilExpiry <= EXPIRY_WARNING_MS / MS_PER_DAY) return 'soon';
-  return 'safe';
+function normalizeTerm(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, '')
+    .replace(/^avoid ingredient:\s*/i, '')
+    .replace(/^no\s+/i, '')
+    .trim();
 }
 
-function getExpiryLabel(status) {
-  if (status === 'expired') return 'Expired';
-  if (status === 'soon') return 'Expiring soon';
-  return 'Safe';
+function singularize(value) {
+  return value.endsWith('s') ? value.slice(0, -1) : value;
 }
 
-function normalizeText(value) {
-  return String(value || '').toLowerCase().trim();
+function formatConflictLabel(value) {
+  const normalized = normalizeTerm(value);
+  if (normalized === 'egg' || normalized === 'eggs') return 'Eggs';
+  return normalized.replace(/\b[a-z]/g, letter => letter.toUpperCase());
 }
 
-function formatCurrency(value, currency = 'PHP') {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
-}
-
-function parseOptionalPriceInput(value) {
-  if (value === '' || value === null || value === undefined) return null;
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
-}
-
-function formatPricePerUnit(item) {
-  if (!item.estimatedUnitPrice) return '--';
-  return `${formatCurrency(item.estimatedUnitPrice, item.currency || 'PHP')}/${item.pricingUnit || item.unit || 'unit'}`;
-}
-
-function getQuantityStep(unit) {
-  const normalizedUnit = normalizeText(unit);
-  if (normalizedUnit === 'pcs') return 1;
-  if (['kg', 'l', 'cups'].includes(normalizedUnit)) return 0.25;
-  if (['g', 'ml'].includes(normalizedUnit)) return 50;
-  return 1;
-}
-
-function getLowStockThreshold(unit) {
-  const normalizedUnit = normalizeText(unit);
-  if (normalizedUnit === 'pcs') return 1;
-  if (['kg', 'l', 'cups'].includes(normalizedUnit)) return 0.25;
-  if (['g', 'ml'].includes(normalizedUnit)) return 100;
-  return 1;
-}
-
-function isLowStock(item) {
-  return Number(item.quantity) <= getLowStockThreshold(item.unit);
-}
-
-function matchesAllergy(name, activeAllergyNames) {
-  const normalizedName = normalizeText(name);
-  return activeAllergyNames.some(allergyName => {
-    const normalizedAllergy = normalizeText(allergyName).replace(/s$/, '');
-    const keywords = ALLERGEN_KEYWORDS[normalizedAllergy] || ALLERGEN_KEYWORDS[normalizeText(allergyName)] || [normalizedAllergy];
-    return keywords.some(keyword => normalizedName.includes(normalizeText(keyword)));
+function getAllergyConflicts(itemName, category, allergyTerms) {
+  const haystack = `${itemName} ${category || ''}`.toLowerCase();
+  const conflicts = allergyTerms.filter(term => {
+    const normalized = normalizeTerm(term);
+    if (!normalized) return false;
+    const singular = singularize(normalized);
+    return haystack.includes(normalized) || haystack.includes(singular);
   });
+  return [...new Set(conflicts.map(formatConflictLabel))];
 }
 
-function getDisplayCategory(item) {
-  if (item.category) return item.category;
-  const isEggLike = /\beggs?\b/i.test(item.name || '');
-  return isEggLike ? 'Protein' : '';
+function getFreshnessLabel(expiryInfo) {
+  if (expiryInfo.isExpired) return 'Do not use';
+  if (expiryInfo.isToday) return 'Use today';
+  if (expiryInfo.isExpiringSoon) return 'Use soon';
+  if (expiryInfo.daysUntilExpiry === null) return 'Unknown freshness';
+  return 'Fresh';
 }
 
-function buildRecipeSuggestionIds(items) {
-  return [...items]
-    .sort((a, b) => {
-      const aStatus = getExpiryStatus(a.expires);
-      const bStatus = getExpiryStatus(b.expires);
-      const rank = { expired: 0, soon: 1, safe: 2 };
-      return (rank[aStatus] ?? 2) - (rank[bStatus] ?? 2);
-    })
-    .slice(0, 8)
-    .map(item => item.id);
+function getStorageSuggestion(category) {
+  if (['Dairy', 'Meat', 'Seafood'].includes(category)) return 'Fridge';
+  if (category === 'Frozen') return 'Freezer';
+  if (['Fruits', 'Vegetables'].includes(category)) return 'Fridge or counter';
+  return 'Pantry';
+}
+
+function formatQuantity(quantity) {
+  return Number.isInteger(quantity) ? quantity : Number(quantity).toFixed(1).replace(/\.0$/, '');
+}
+
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 export default function Pantry() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
-  const {
-    pantryItems: items,
-    loading: pantryLoading,
-    error: pantryError,
-    addPantryItem,
-    editPantryItem,
-    adjustPantryItemQuantity,
-    markPantryItemsUsed,
-    removePantryItem,
-    removePantryItems,
-    refreshPantry,
-  } = usePantry(user, householdId);
+  const { pantryItems: items, loading: pantryLoading, addPantryItem, editPantryItem, removePantryItem, removePantryItems } = usePantry(user, householdId);
   const { saveRecipe } = useRecipes(user);
-  const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
-
-  const activeAllergyNames = allergyTypes
-    .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
-    .map(a => a.name);
+  const { activeAllergyNames, allergyDisplayNames, preferenceTags, recipePreferenceText } = usePreferences(user);
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemUnit, setNewItemUnit] = useState('pcs');
-  const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemExpires, setNewItemExpires] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [expiryFilter, setExpiryFilter] = useState('all');
-  const [stockFilter, setStockFilter] = useState('available');
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState(null);
@@ -188,53 +181,156 @@ export default function Pantry() {
   const [genError, setGenError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
-  const [confirmBatchUsed, setConfirmBatchUsed] = useState(false);
   const [confirmEdit, setConfirmEdit] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', quantity: 1, unit: 'pcs', estimatedUnitPrice: '', category: '', expiresAt: '' });
+  const [editForm, setEditForm] = useState({ name: '', quantity: 1, unit: 'pcs', category: '', expiresAt: '' });
   const [savingEditId, setSavingEditId] = useState(null);
-  const [quantitySavingIds, setQuantitySavingIds] = useState([]);
   const [editError, setEditError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortMode, setSortMode] = useState('expires-asc');
 
-  const viewItems = useMemo(() => items.map(item => {
-    const expiryStatus = getExpiryStatus(item.expires);
+  const allergyTerms = useMemo(() => (
+    [...new Set(
+      [...activeAllergyNames, ...allergyDisplayNames]
+        .map(normalizeTerm)
+        .filter(Boolean)
+    )]
+  ), [activeAllergyNames, allergyDisplayNames]);
+
+  const enrichedItems = useMemo(() => items.map(item => {
+    const displayName = item.name || '';
+    const category = item.category || inferIngredientCategory(displayName) || 'Uncategorized';
+    const expiryInfo = getExpiryInfo(item.expires);
+    const allergyConflicts = getAllergyConflicts(displayName, category, allergyTerms);
+    const hasAllergyConflict = allergyConflicts.length > 0;
+    const statusInfo = hasAllergyConflict
+      ? {
+          state: 'danger',
+          label: 'Allergy conflict',
+          detail: `${allergyConflicts.join(', ')} excluded`,
+        }
+      : expiryInfo;
+
     return {
       ...item,
-      displayCategory: getDisplayCategory(item),
-      expiryStatus,
-      expiryBadgeState: getExpiryState(item.expires),
-      lowStock: isLowStock(item),
-      allergyItem: matchesAllergy(item.name, activeAllergyNames),
+      displayName,
+      category,
+      expiryInfo,
+      statusInfo,
+      allergyConflicts,
+      freshnessLabel: hasAllergyConflict ? 'Blocked by allergy' : getFreshnessLabel(expiryInfo),
+      storageSuggestion: getStorageSuggestion(category),
     };
-  }), [items, activeAllergyNames]);
+  }), [items, allergyTerms]);
 
-  const categoryOptions = useMemo(() => {
-    const detected = viewItems.map(item => item.displayCategory).filter(Boolean);
-    return [...new Set([...CATEGORIES, ...detected])];
-  }, [viewItems]);
+  const availableCategories = useMemo(() => (
+    [...new Set(enrichedItems.map(item => item.category).filter(Boolean))].sort()
+  ), [enrichedItems]);
 
   const filteredItems = useMemo(() => {
-    const query = normalizeText(searchQuery);
-    return viewItems.filter(item => {
-      const matchesQuery = !query || normalizeText(`${item.name} ${item.displayCategory} ${item.unit}`).includes(query);
-      const matchesCategory = categoryFilter === 'all' || item.displayCategory === categoryFilter;
-      const matchesExpiry = expiryFilter === 'all' || item.expiryStatus === expiryFilter;
-      const matchesStock = stockFilter === 'available' || (stockFilter === 'low' && item.lowStock);
-      return matchesQuery && matchesCategory && matchesExpiry && matchesStock;
+    const query = searchTerm.trim().toLowerCase();
+    const nextItems = enrichedItems.filter(item => {
+      const matchesSearch = !query || `${item.displayName} ${item.category}`.toLowerCase().includes(query);
+      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      const matchesStatus = (
+        statusFilter === 'all' ||
+        (statusFilter === 'expiring' && item.expiryInfo.isExpiringSoon && !item.expiryInfo.isExpired) ||
+        (statusFilter === 'expired' && item.expiryInfo.isExpired) ||
+        (statusFilter === 'fresh' && !item.expiryInfo.isExpiringSoon && item.expiryInfo.daysUntilExpiry !== null && item.allergyConflicts.length === 0) ||
+        (statusFilter === 'no-expiration' && item.expiryInfo.daysUntilExpiry === null) ||
+        (statusFilter === 'allergy-conflict' && item.allergyConflicts.length > 0) ||
+        (statusFilter === 'selected' && selectedItems.includes(item.id))
+      );
+      return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [viewItems, searchQuery, categoryFilter, expiryFilter, stockFilter]);
 
-  const pantrySummary = useMemo(() => ({
-    total: viewItems.length,
-    expiringSoon: viewItems.filter(item => item.expiryStatus === 'soon').length,
-    expired: viewItems.filter(item => item.expiryStatus === 'expired').length,
-    lowStock: viewItems.filter(item => item.lowStock).length,
-  }), [viewItems]);
+    return nextItems.sort((a, b) => {
+      if (sortMode === 'name-asc') return a.displayName.localeCompare(b.displayName);
+      if (sortMode === 'category-asc') return a.category.localeCompare(b.category) || a.displayName.localeCompare(b.displayName);
+      if (sortMode === 'conflicts-first') return b.allergyConflicts.length - a.allergyConflicts.length || a.displayName.localeCompare(b.displayName);
+      const aDays = a.expiryInfo.daysUntilExpiry ?? Number.POSITIVE_INFINITY;
+      const bDays = b.expiryInfo.daysUntilExpiry ?? Number.POSITIVE_INFINITY;
+      return aDays - bDays || a.displayName.localeCompare(b.displayName);
+    });
+  }, [categoryFilter, enrichedItems, searchTerm, selectedItems, sortMode, statusFilter]);
+
+  const pantryStats = useMemo(() => {
+    const expiringToday = enrichedItems.filter(item => item.expiryInfo.isToday).length;
+    const expired = enrichedItems.filter(item => item.expiryInfo.isExpired).length;
+    const allergyConflicts = enrichedItems.filter(item => item.allergyConflicts.length > 0).length;
+    const expiringSoon = enrichedItems.filter(item => item.expiryInfo.isExpiringSoon && !item.expiryInfo.isToday && !item.expiryInfo.isExpired).length;
+    const recipeReady = enrichedItems.filter(item => !item.expiryInfo.isExpired && item.allergyConflicts.length === 0).length;
+
+    return {
+      total: enrichedItems.length,
+      expiringToday,
+      expired,
+      allergyConflicts,
+      expiringSoon,
+      recipeReady,
+      selected: selectedItems.length,
+    };
+  }, [enrichedItems, selectedItems.length]);
+
+  const selectedRecipeItems = useMemo(() => (
+    enrichedItems.filter(item => selectedItems.includes(item.id))
+  ), [enrichedItems, selectedItems]);
+
+  const blockedSelectedCount = selectedRecipeItems.filter(item => (
+    item.expiryInfo.isExpired || item.allergyConflicts.length > 0
+  )).length;
+  const recipeReadySelectedCount = Math.max(0, selectedRecipeItems.length - blockedSelectedCount);
+  const attentionCount = enrichedItems.filter(item => (
+    item.expiryInfo.isExpired || item.expiryInfo.isToday || item.allergyConflicts.length > 0
+  )).length;
+  const activeFilterCount = [
+    searchTerm.trim(),
+    categoryFilter !== 'all',
+    statusFilter !== 'all',
+    sortMode !== 'expires-asc',
+  ].filter(Boolean).length;
+  const quickAddCategoryPreview = newItemCategory || inferIngredientCategory(newItemName) || 'Auto-detect';
+  const quickAddStoragePreview = quickAddCategoryPreview === 'Auto-detect'
+    ? 'Storage suggestion appears after category detection'
+    : getStorageSuggestion(quickAddCategoryPreview);
+  const freshnessAttentionParts = [
+    pantryStats.expired > 0 ? pluralize(pantryStats.expired, 'expired item') : null,
+    pantryStats.expiringToday > 0 ? pluralize(pantryStats.expiringToday, 'due today item', 'due today items') : null,
+    pantryStats.expiringSoon > 0 ? pluralize(pantryStats.expiringSoon, 'expiring soon item') : null,
+  ].filter(Boolean);
+  const attentionSummary = [
+    freshnessAttentionParts.join(', '),
+    pantryStats.allergyConflicts > 0
+      ? `${freshnessAttentionParts.length > 0 ? 'includes ' : ''}${pluralize(pantryStats.allergyConflicts, 'allergy conflict')}`
+      : null,
+  ].filter(Boolean).join('; ') || 'No urgent items';
+  const selectedRecipeSummary = selectedItems.length === 0
+    ? 'No items selected yet'
+    : `${pluralize(selectedItems.length, 'selected item')} - ${pluralize(recipeReadySelectedCount, 'recipe-ready item')} - ${pluralize(blockedSelectedCount, 'blocked item')}`;
+  const recipeActionRule = selectedItems.length === 0
+    ? `Select rows to generate a recipe from chosen pantry items. ${pluralize(pantryStats.recipeReady, 'safe pantry item')} available.`
+    : `Generate selected uses ${pluralize(recipeReadySelectedCount, 'safe selected item')} and skips ${pluralize(blockedSelectedCount, 'blocked selected item')}.`;
+  const allergyConflictSummary = enrichedItems
+    .filter(item => item.allergyConflicts.length > 0)
+    .map(item => {
+      const itemName = normalizeTerm(item.displayName);
+      const itemSingular = singularize(itemName);
+      const matchesItemName = item.allergyConflicts.some(conflict => singularize(normalizeTerm(conflict)) === itemSingular);
+      return matchesItemName
+        ? `${item.displayName} are in your pantry`
+        : `${item.displayName} conflicts with ${item.allergyConflicts.join(', ')}`;
+    })
+    .join('; ');
 
   useEffect(() => {
-    const availableIds = new Set(items.map(item => item.id));
-    setSelectedItems(prev => prev.filter(id => availableIds.has(id)));
+    const validIds = new Set(items.map(item => item.id));
+    setSelectedItems(prev => {
+      const next = prev.filter(id => validIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [items]);
 
   const handleAddItem = async (e) => {
@@ -245,14 +341,7 @@ export default function Pantry() {
     setAddWarning(null);
 
     try {
-      const unitPrice = parseOptionalPriceInput(newItemPrice);
-      if (newItemPrice !== '' && unitPrice === null) {
-        setAddError('Price must be greater than 0 or left blank.');
-        setAdding(false);
-        return;
-      }
-
-      const validation = await validateIngredient(newItemName, activeDietNames.join(', ') || 'None', activeAllergyNames);
+      const validation = await validateIngredient(newItemName, recipePreferenceText, activeAllergyNames);
 
       if (!validation.isFood) {
         setAddError(validation.reason || `"${newItemName}" is not a valid food ingredient.`);
@@ -267,9 +356,6 @@ export default function Pantry() {
         name: finalName,
         quantity: newItemQuantity,
         unit: newItemUnit,
-        estimatedUnitPrice: unitPrice,
-        pricingUnit: newItemUnit,
-        currency: 'PHP',
         category: finalCategory,
         expiresAt: finalExpiry,
       };
@@ -308,7 +394,6 @@ export default function Pantry() {
     setNewItemName('');
     setNewItemQuantity(1);
     setNewItemUnit('pcs');
-    setNewItemPrice('');
     setNewItemCategory('');
     setNewItemExpires('');
   };
@@ -320,7 +405,6 @@ export default function Pantry() {
       name: item.name || '',
       quantity: item.quantity || 1,
       unit: item.unit || 'pcs',
-      estimatedUnitPrice: item.estimatedUnitPrice || '',
       category: item.category || '',
       expiresAt: item.expires || '',
     });
@@ -347,11 +431,6 @@ export default function Pantry() {
       setEditError('Amount must be greater than 0.');
       return;
     }
-    const price = parseOptionalPriceInput(editForm.estimatedUnitPrice);
-    if (editForm.estimatedUnitPrice !== '' && price === null) {
-      setEditError('Price must be greater than 0 or left blank.');
-      return;
-    }
 
     setConfirmEdit({
       itemId,
@@ -360,9 +439,6 @@ export default function Pantry() {
         name: cleanName,
         quantity,
         unit: editForm.unit,
-        estimatedUnitPrice: price,
-        pricingUnit: editForm.unit,
-        currency: 'PHP',
         category: editForm.category || null,
         expiresAt: editForm.expiresAt || null,
       },
@@ -404,16 +480,27 @@ export default function Pantry() {
     }
   };
 
-  const handleGenerateRecipe = async (idsOverride = null) => {
-    const targetIds = idsOverride || selectedItems;
-    if (targetIds.length === 0) return;
+  const handleGenerateRecipe = async (mode = 'selected') => {
+    const candidateItems = mode === 'all' ? enrichedItems : selectedRecipeItems;
+    if (candidateItems.length === 0) return;
     setLoading(true);
     setGenError(null);
 
     try {
-      const selectedItemsData = viewItems.filter(i => targetIds.includes(i.id));
+      const excludedItems = candidateItems.filter(item => item.expiryInfo.isExpired || item.allergyConflicts.length > 0);
+      const selectedItemsData = candidateItems.filter(item => !item.expiryInfo.isExpired && item.allergyConflicts.length === 0);
+
+      if (selectedItemsData.length === 0) {
+        setGenError('No recipe-ready items found. Expired and allergy-conflicting items are excluded automatically.');
+        return;
+      }
+
+      if (excludedItems.length > 0) {
+        setGenError(`Excluded ${excludedItems.length} expired or allergy-conflicting item${excludedItems.length !== 1 ? 's' : ''} from recipe generation.`);
+      }
+
       const obviousNonFoodItems = selectedItemsData
-        .map(item => item.name?.trim())
+        .map(item => item.displayName?.trim())
         .filter(name => OBVIOUS_NON_FOOD_ITEMS.has(name?.toLowerCase()));
 
       if (obviousNonFoodItems.length > 0) {
@@ -424,41 +511,33 @@ export default function Pantry() {
       const validationResults = await Promise.all(
         selectedItemsData.map(async item => ({
           item,
-          validation: await validateIngredient(item.name, activeDietNames.join(', ') || 'None', activeAllergyNames),
+          validation: await validateIngredient(item.displayName, recipePreferenceText, activeAllergyNames),
         }))
       );
       const invalidItems = validationResults
         .filter(({ validation }) => !validation.isFood)
-        .map(({ item }) => item.name);
+        .map(({ item }) => item.displayName);
 
       if (invalidItems.length > 0) {
         setGenError(`Remove non-food item${invalidItems.length === 1 ? '' : 's'} before generating a recipe: ${invalidItems.join(', ')}.`);
         return;
       }
 
-      const ingredientList = selectedItemsData.map(i => `${i.quantity} ${i.unit} ${i.name}`);
+      const ingredientList = selectedItemsData.map(i => `${i.quantity} ${i.unit} ${i.displayName}`);
       const pantryItems = selectedItemsData.map(item => ({
-        name: item.name,
+        name: item.displayName,
         quantity: item.quantity,
         unit: item.unit,
-          category: item.displayCategory || item.category,
-          expires: item.expires,
-          estimatedUnitPrice: item.estimatedUnitPrice,
-          pricingUnit: item.pricingUnit || item.unit,
-          currency: item.currency || 'PHP',
-        }));
-      const recipe = await generateRecipe(ingredientList, activeDietNames.join(', ') || 'None', activeAllergyNames, pantryItems);
+        category: item.category,
+        expires: item.expires,
+      }));
+      const recipe = await generateRecipe(ingredientList, recipePreferenceText, activeAllergyNames, pantryItems);
       setGeneratedRecipe(recipe);
     } catch (err) {
       setGenError(err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSuggestFromPantry = () => {
-    const ids = selectedItems.length > 0 ? selectedItems : buildRecipeSuggestionIds(filteredItems);
-    handleGenerateRecipe(ids);
   };
 
   const handleSaveRecipe = async () => {
@@ -533,51 +612,6 @@ export default function Pantry() {
     }
   };
 
-  const handleBatchMarkUsed = () => {
-    if (selectedItems.length === 0) return;
-    setConfirmBatchUsed(true);
-  };
-
-  const confirmBatchMarkUsed = async () => {
-    const itemCount = selectedItems.length;
-    setConfirmBatchUsed(false);
-    try {
-      await markPantryItemsUsed(selectedItems);
-      setSelectedItems([]);
-      setFeedback({
-        title: 'Selected items marked as used',
-        message: `${itemCount} pantry item${itemCount !== 1 ? 's were' : ' was'} moved out of your available pantry.`,
-        variant: 'success',
-      });
-    } catch (err) {
-      setFeedback({
-        title: 'Update failed',
-        message: err.message || 'Unable to mark the selected items as used. Please try again.',
-        variant: 'error',
-      });
-    }
-  };
-
-  const handleAdjustQuantity = async (item, direction) => {
-    const step = getQuantityStep(item.unit);
-    const nextQuantity = Math.max(0, Number((Number(item.quantity) + direction * step).toFixed(2)));
-    setQuantitySavingIds(prev => [...prev, item.id]);
-    try {
-      await adjustPantryItemQuantity(item.id, nextQuantity);
-      if (nextQuantity <= 0) {
-        setSelectedItems(prev => prev.filter(id => id !== item.id));
-      }
-    } catch (err) {
-      setFeedback({
-        title: 'Quantity update failed',
-        message: err.message || `Unable to update "${item.name}". Please try again.`,
-        variant: 'error',
-      });
-    } finally {
-      setQuantitySavingIds(prev => prev.filter(id => id !== item.id));
-    }
-  };
-
   const closeFeedback = () => {
     const afterClose = feedback?.onClose;
     setFeedback(null);
@@ -585,7 +619,7 @@ export default function Pantry() {
   };
 
   const handleSelectAll = () => {
-    const visibleIds = filteredItems.map(i => i.id);
+    const visibleIds = filteredItems.map(item => item.id);
     const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedItems.includes(id));
     if (allVisibleSelected) {
       setSelectedItems(prev => prev.filter(id => !visibleIds.includes(id)));
@@ -598,92 +632,84 @@ export default function Pantry() {
     return <LoadingPanel title="Loading pantry" message="Fetching your household ingredients." />;
   }
 
-  if (pantryError) {
-    return (
-      <div className="hero-container">
-        <div className="glass-panel pantry-state-panel">
-          <AlertTriangle size={42} color="#f87171" />
-          <h3>Unable to load pantry</h3>
-          <p>{pantryError}</p>
-          <button type="button" className="btn-primary" onClick={() => refreshPantry()}>
-            <CheckCircle2 size={18} /> Try again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="hero-container">
-      
-      <div className="hero-banner">
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          backgroundImage: `url("${HERO_IMAGES.pantry}")`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          zIndex: 1
-        }} />
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.2))',
-          zIndex: 2
-        }} />
-        <div className="hero-content">
-          <div className="hero-icon-box">
-            <Plus size={40} color="white" />
-          </div>
-          <div>
-            <h2 className="hero-title">Household Pantry</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
-              <p className="hero-subtitle">Manage your ingredients and generate recipes.</p>
-              {activeDietNames.length > 0 && (
-                <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  Diet: {activeDietNames.join(', ')}
-                </span>
-              )}
-              {activeAllergyNames.length > 0 && (
-                <span style={{ background: '#f43f5e', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  Allergies: {activeAllergyNames.join(', ')}
-                </span>
-              )}
-            </div>
+    <div className="pantry-page">
+      <section className="pantry-command-header" aria-labelledby="pantry-title">
+        <div className="pantry-command-icon" aria-hidden="true">
+          <PackageCheck size={28} />
+        </div>
+        <div className="pantry-command-copy">
+          <span className="pantry-kicker">Inventory workbench</span>
+          <h1 id="pantry-title">Pantry</h1>
+          <p>Track freshness, catch allergy conflicts, and generate recipes from ingredients that are safe to use.</p>
+          <div className="pantry-chip-row" aria-label="Active recipe constraints">
+            {preferenceTags.length > 0 && (
+              <span>Preferences: {preferenceTags.slice(0, 4).join(', ')}</span>
+            )}
+            {allergyDisplayNames.length > 0 && (
+              <span className="danger">Avoid: {allergyDisplayNames.slice(0, 4).join(', ')}</span>
+            )}
+            {preferenceTags.length === 0 && allergyDisplayNames.length === 0 && (
+              <span>No recipe constraints set</span>
+            )}
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
-        <form onSubmit={handleAddItem}>
+      <section className="pantry-overview-grid" aria-label="Pantry overview">
+        <div className="pantry-stat-card">
+          <span>Total items</span>
+          <strong>{pantryStats.total}</strong>
+          <small>{filteredItems.length} visible after filters</small>
+        </div>
+        <div className={`pantry-stat-card ${attentionCount > 0 ? 'warning' : ''}`}>
+          <span>Needs attention</span>
+          <strong>{attentionCount}</strong>
+          <small>{attentionSummary}</small>
+        </div>
+        <div className={`pantry-stat-card ${pantryStats.allergyConflicts > 0 ? 'danger' : ''}`}>
+          <span>Allergy conflicts</span>
+          <strong>{pantryStats.allergyConflicts}</strong>
+          <small>{allergyDisplayNames.length > 0 ? `Avoiding ${allergyDisplayNames.join(', ')}` : 'No allergies selected'}</small>
+        </div>
+        <div className="pantry-stat-card">
+          <span>Recipe-ready</span>
+          <strong>{pantryStats.recipeReady}</strong>
+          <small>{pluralize(pantryStats.recipeReady, 'safe item')} available</small>
+        </div>
+      </section>
+
+      {pantryStats.allergyConflicts > 0 && (
+        <div className="pantry-safety-alert" role="alert">
+          <ShieldAlert size={20} />
+          <div>
+            <strong>Allergy conflict detected</strong>
+            <span>{allergyConflictSummary}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="glass-panel pantry-side-panel">
+        <div className="pantry-panel-heading">
+          <span>Quick add</span>
+          <h2>Add pantry item</h2>
+          <p>Validation checks food type, likely category, expiry, and diet or allergy conflicts.</p>
+        </div>
+        <form id="pantry-add-form" className="pantry-quick-add-form" onSubmit={handleAddItem}>
           <div className="pantry-add-fields">
             <div className="input-container" style={{ flex: 2, minWidth: '180px', margin: 0 }}>
               <label htmlFor="add-item" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Ingredient Name</label>
-              <input type="text" id="add-item" className="input-field" placeholder="E.g., Apples..." value={newItemName} onChange={e => { setNewItemName(e.target.value); setAddError(null); }} />
+              <input type="text" id="add-item" className="input-field" placeholder="E.g., apples, eggs, red grapes..." value={newItemName} onChange={e => { setNewItemName(e.target.value); setAddError(null); }} />
             </div>
             <div className="input-container" style={{ flex: '0 0 88px', minWidth: '88px', margin: 0 }}>
               <label htmlFor="add-qty" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Qty</label>
-              <input type="number" id="add-qty" className="input-field" min="0.1" step="0.1" value={newItemQuantity} onChange={e => setNewItemQuantity(Number(e.target.value))} />
+              <input type="number" id="add-qty" className="input-field" min="0.1" step="0.1" value={newItemQuantity} onChange={e => setNewItemQuantity(Math.max(0.1, Number(e.target.value) || 0.1))} />
             </div>
             <div className="input-container" style={{ flex: '0 0 100px', minWidth: '100px', margin: 0 }}>
               <label htmlFor="add-unit" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Unit</label>
               <select id="add-unit" className="input-field" value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}>
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
-            </div>
-            <div className="input-container" style={{ flex: '0 0 128px', minWidth: '128px', margin: 0 }}>
-              <label htmlFor="add-price" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Price/unit (opt)</label>
-              <input
-                type="number"
-                id="add-price"
-                className="input-field"
-                min="0"
-                step="0.01"
-                placeholder="PHP"
-                value={newItemPrice}
-                onChange={e => setNewItemPrice(e.target.value)}
-              />
             </div>
             <div className="input-container" style={{ flex: '1 1 160px', minWidth: '160px', margin: 0 }}>
               <label htmlFor="add-category" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Category (opt)</label>
@@ -706,6 +732,14 @@ export default function Pantry() {
               )}
             </button>
           </div>
+          <p className="pantry-add-help">
+            Auto-detect fills category and expiration when possible. Recipes exclude expired and allergy-conflicting items automatically.
+          </p>
+          <div className="pantry-storage-preview">
+            <span>Storage suggestion</span>
+            <strong>{quickAddStoragePreview}</strong>
+            <small>Based on the selected or detected category.</small>
+          </div>
           {addError && (
             <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem', background: 'rgba(239,68,68,0.08)', padding: '0.6rem 1rem', borderRadius: 'var(--radius-md)' }}>
               <AlertTriangle size={16} /> {addError}
@@ -723,95 +757,84 @@ export default function Pantry() {
             </div>
           )}
         </form>
-      </div>
-
-      <div className="pantry-summary-grid" aria-label="Pantry summary">
-        <div className="pantry-summary-card">
-          <Package size={20} />
-          <span>Total Items</span>
-          <strong>{pantrySummary.total}</strong>
-        </div>
-        <div className="pantry-summary-card warning">
-          <Clock3 size={20} />
-          <span>Expiring Soon</span>
-          <strong>{pantrySummary.expiringSoon}</strong>
-        </div>
-        <div className="pantry-summary-card danger">
-          <PackageX size={20} />
-          <span>Expired</span>
-          <strong>{pantrySummary.expired}</strong>
-        </div>
-        <div className="pantry-summary-card low">
-          <AlertTriangle size={20} />
-          <span>Low Stock</span>
-          <strong>{pantrySummary.lowStock}</strong>
+        <div className="pantry-rule-card">
+          <span>Recipe rules</span>
+          <strong>Keto and allergen-safe generation</strong>
+          <p>Recipe actions skip expired ingredients and exclude allergy conflicts automatically.</p>
         </div>
       </div>
 
-      <div className="glass-panel pantry-table-panel" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-        <div className="pantry-toolbar">
-          <div className="pantry-search-box">
-            <Search size={18} />
+      <div className="pantry-main-panel">
+        <section className="pantry-inventory-heading" aria-labelledby="pantry-inventory-title">
+          <div>
+            <span>Inventory</span>
+            <h2 id="pantry-inventory-title">{filteredItems.length} visible item{filteredItems.length === 1 ? '' : 's'}</h2>
+            <p>{selectedRecipeSummary}</p>
+          </div>
+          <div className="pantry-filter-pill">
+            {activeFilterCount} active filter{activeFilterCount === 1 ? '' : 's'}
+          </div>
+        </section>
+
+        <section className="pantry-controls" aria-label="Pantry search and filters">
+          <label className="pantry-control-field pantry-search-control">
+            <span className="pantry-control-label">
+              <Search size={16} /> Search
+            </span>
             <input
               type="search"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search ingredients..."
-              aria-label="Search ingredients"
+              value={searchTerm}
+              onChange={event => setSearchTerm(event.target.value)}
+              placeholder="Search ingredients"
             />
-          </div>
-          <div className="pantry-filter-row" aria-label="Pantry filters">
-            <Filter size={17} />
-            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} aria-label="Filter by category">
+          </label>
+          <label className="pantry-control-field">
+            <span className="pantry-control-label">
+              <Filter size={16} /> Category
+            </span>
+            <select value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)}>
               <option value="all">All categories</option>
-              {categoryOptions.map(category => <option key={category} value={category}>{category}</option>)}
+              {availableCategories.map(category => <option key={category} value={category}>{category}</option>)}
             </select>
-            <select value={expiryFilter} onChange={e => setExpiryFilter(e.target.value)} aria-label="Filter by expiration">
-              <option value="all">All expiration</option>
-              <option value="soon">Expiring soon</option>
+          </label>
+          <label className="pantry-control-field">
+            <span className="pantry-control-label">
+              <CalendarDays size={16} /> Status
+            </span>
+            <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="expiring">Expiring soon</option>
               <option value="expired">Expired</option>
-              <option value="safe">Safe</option>
+              <option value="fresh">Fresh and recipe-safe</option>
+              <option value="no-expiration">No expiration</option>
+              <option value="allergy-conflict">Allergy conflicts</option>
+              <option value="selected">Selected only</option>
             </select>
-            <select value={stockFilter} onChange={e => setStockFilter(e.target.value)} aria-label="Filter by stock">
-              <option value="available">Available items</option>
-              <option value="low">Low stock</option>
+          </label>
+          <label className="pantry-control-field">
+            <span className="pantry-control-label">
+              <ArrowUpDown size={16} /> Sort
+            </span>
+            <select value={sortMode} onChange={event => setSortMode(event.target.value)}>
+              <option value="expires-asc">Expiration date</option>
+              <option value="name-asc">Name</option>
+              <option value="category-asc">Category</option>
+              <option value="conflicts-first">Conflicts first</option>
             </select>
-          </div>
-          <button
-            type="button"
-            className="btn-primary pantry-suggest-button"
-            onClick={handleSuggestFromPantry}
-            disabled={loading || filteredItems.length === 0}
-          >
-            {loading ? <Sparkles size={18} style={{ animation: 'spin 2s linear infinite' }} /> : <ChefHat size={18} />}
-            Suggest Recipes from Pantry
-          </button>
-        </div>
+          </label>
+        </section>
 
-        {selectedItems.length > 0 && (
-          <div className="pantry-bulk-bar">
-            <strong>{selectedItems.length} selected</strong>
-            <span>-</span>
-            <button type="button" onClick={handleBatchDelete} className="btn-danger">
-              <Trash2 size={16} /> Delete
-            </button>
-            <button type="button" onClick={handleBatchMarkUsed} className="btn-secondary">
-              <Utensils size={16} /> Mark as used
-            </button>
-            <button type="button" onClick={() => handleGenerateRecipe()} disabled={loading} className="btn-primary">
-              {loading ? <Sparkles size={16} style={{ animation: 'spin 2s linear infinite' }} /> : <ChefHat size={16} />}
-              Generate recipe
-            </button>
-          </div>
-        )}
-
-        {genError && (
-          <div className="pantry-error-banner">
-            <AlertTriangle size={16} /> {genError}
-          </div>
-        )}
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="glass-panel pantry-table-panel" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+          <table className="pantry-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <colgroup>
+            <col className="pantry-col-select" />
+            <col className="pantry-col-item" />
+            <col className="pantry-col-amount" />
+            <col className="pantry-col-category" />
+            <col className="pantry-col-storage" />
+            <col className="pantry-col-status" />
+            <col className="pantry-col-actions" />
+          </colgroup>
           <thead>
             <tr style={{ background: 'var(--surface-active)' }}>
               <th className="pantry-select-heading" style={{ padding: '1.25rem', width: '40px' }}>
@@ -820,31 +843,38 @@ export default function Pantry() {
                     type="checkbox"
                     checked={filteredItems.length > 0 && filteredItems.every(item => selectedItems.includes(item.id))}
                     onChange={handleSelectAll}
-                    title="Select all"
+                    title="Select all visible items"
+                    aria-label="Select all visible pantry items"
                   />
                 )}
               </th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Item Name</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Amount</th>
-              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Price</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Category</th>
-              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Expires</th>
+              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Storage</th>
+              <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Recipe status</th>
               <th style={{ padding: '1.25rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredItems.map(item => {
-              const expiryState = item.expiryBadgeState;
-              const expiryStatusLabel = getExpiryLabel(item.expiryStatus);
+              const statusState = item.statusInfo.state;
               const isEditing = editingItemId === item.id;
-              const quantitySaving = quantitySavingIds.includes(item.id);
+              const isSelected = selectedItems.includes(item.id);
+              const rowClassName = [
+                'pantry-row',
+                isSelected ? 'selected' : '',
+                item.allergyConflicts.length > 0 ? 'allergy-conflict' : '',
+                item.expiryInfo.isExpired ? 'expired' : '',
+              ].filter(Boolean).join(' ');
               return (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)', background: 'transparent' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={item.id} className={rowClassName} style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background var(--transition-fast)' }}>
                   <td className="pantry-select-cell" data-label="Select" style={{ padding: '1.25rem' }}>
                     <input
                       type="checkbox"
-                      checked={selectedItems.includes(item.id)}
+                      checked={isSelected}
                       onChange={() => handleToggleSelect(item.id)}
+                      aria-label={`Select ${item.displayName}`}
                     />
                   </td>
                   <td className="pantry-item-name-cell" data-label="Item" style={{ padding: '1.25rem', fontWeight: '500', minWidth: isEditing ? '180px' : undefined }}>
@@ -858,12 +888,9 @@ export default function Pantry() {
                         aria-label="Edit item name"
                       />
                     ) : (
-                      <div className="pantry-item-title-wrap">
-                        <span>{item.name}</span>
-                        <div className="pantry-item-badges">
-                          {item.allergyItem && <span className="badge badge-danger pantry-mini-badge">Allergy item</span>}
-                          {item.lowStock && <span className="badge badge-warning pantry-mini-badge">Low Stock</span>}
-                        </div>
+                      <div className="pantry-item-stack">
+                        <strong>{item.displayName}</strong>
+                        <span className={item.allergyConflicts.length > 0 ? 'blocked' : undefined}>{item.freshnessLabel}</span>
                       </div>
                     )}
                   </td>
@@ -891,44 +918,7 @@ export default function Pantry() {
                         </select>
                       </div>
                     ) : (
-                      <div className="pantry-quantity-control" aria-label={`Adjust ${item.name} quantity`}>
-                        <button
-                          type="button"
-                          onClick={() => handleAdjustQuantity(item, -1)}
-                          disabled={quantitySaving}
-                          title={`Decrease ${item.name}`}
-                          aria-label={`Decrease ${item.name}`}
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span>{item.quantity} {item.unit}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleAdjustQuantity(item, 1)}
-                          disabled={quantitySaving}
-                          title={`Increase ${item.name}`}
-                          aria-label={`Increase ${item.name}`}
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                  <td data-label="Price" style={{ padding: '1.25rem', color: 'var(--text-secondary)', minWidth: isEditing ? '130px' : undefined }}>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="input-field"
-                        value={editForm.estimatedUnitPrice}
-                        onChange={e => setEditValue('estimatedUnitPrice', e.target.value)}
-                        style={{ minHeight: 40, padding: '0.55rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
-                        aria-label="Edit unit price"
-                        placeholder="PHP"
-                      />
-                    ) : (
-                      <span>{formatPricePerUnit(item)}</span>
+                      `${formatQuantity(item.quantity)} ${item.unit}`
                     )}
                   </td>
                   <td data-label="Category" style={{ padding: '1.25rem', color: 'var(--text-tertiary)', minWidth: isEditing ? '170px' : undefined }}>
@@ -944,10 +934,13 @@ export default function Pantry() {
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     ) : (
-                      item.displayCategory || '--'
+                      <span className="pantry-category-pill">{item.category}</span>
                     )}
                   </td>
-                  <td data-label="Expires" style={{ padding: '1.25rem', minWidth: isEditing ? '170px' : undefined }}>
+                  <td data-label="Storage" style={{ padding: '1.25rem', color: 'var(--text-secondary)' }}>
+                    <span className="pantry-storage-pill">{item.storageSuggestion}</span>
+                  </td>
+                  <td data-label="Recipe status" style={{ padding: '1.25rem', minWidth: isEditing ? '170px' : undefined }}>
                     {isEditing ? (
                       <input
                         type="date"
@@ -957,12 +950,11 @@ export default function Pantry() {
                         style={{ minHeight: 40, padding: '0.55rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
                         aria-label="Edit expiration date"
                       />
-                    ) : item.expires ? (
-                      <span className={`badge pantry-expiry-badge badge-${expiryState}`}>
-                        {expiryStatusLabel}: {item.expires}
-                      </span>
                     ) : (
-                      <span style={{ color: 'var(--text-tertiary)' }}>No expiry date</span>
+                      <span className={`pantry-expiry-status badge-${statusState}`} title={item.expires || 'No expiration set'}>
+                        <strong>{item.statusInfo.label}</strong>
+                        <small>{item.statusInfo.detail}</small>
+                      </span>
                     )}
                     {isEditing && editError && (
                       <div style={{ marginTop: '0.45rem', color: '#fca5a5', fontSize: '0.78rem', whiteSpace: 'normal' }}>
@@ -1019,19 +1011,59 @@ export default function Pantry() {
             {items.length === 0 && (
               <tr>
                 <td colSpan="7" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  Your pantry is empty. Add your first ingredient to start generating recipes.
+                  Your pantry is currently empty. Scan a receipt or add items manually!
                 </td>
               </tr>
             )}
             {items.length > 0 && filteredItems.length === 0 && (
               <tr>
                 <td colSpan="7" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  No ingredients match your search or filters.
+                  No pantry items match the current search or filters.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
+          {items.length > 0 && (
+            <div className="pantry-table-actions pantry-actions-bar" style={{ padding: '1.5rem', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+            {genError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.9rem', flex: 1 }}>
+                <AlertTriangle size={16} /> {genError}
+              </div>
+            )}
+            {!genError && (
+              <div className="pantry-recipe-rule">
+                {recipeActionRule}
+              </div>
+            )}
+            <button
+              onClick={handleBatchDelete}
+              disabled={selectedItems.length === 0}
+              className="btn-danger"
+              style={{ padding: '0.9rem 1.5rem', opacity: selectedItems.length === 0 ? 0.6 : 1, cursor: selectedItems.length === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              <Trash2 size={18} /> Delete Selected ({selectedItems.length})
+            </button>
+            <button
+              onClick={() => handleGenerateRecipe('selected')}
+              disabled={loading || selectedItems.length === 0 || recipeReadySelectedCount === 0}
+              className="btn-primary"
+              style={{ padding: '0.9rem 1.5rem', opacity: selectedItems.length === 0 || recipeReadySelectedCount === 0 ? 0.6 : 1, cursor: selectedItems.length === 0 || recipeReadySelectedCount === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Sparkles size={18} style={{ animation: 'spin 2s linear infinite' }} /> Generating with AI...
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ChefHat size={18} /> Generate selected ({recipeReadySelectedCount})
+                </span>
+              )}
+            </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <ConfirmModal
@@ -1055,16 +1087,6 @@ export default function Pantry() {
       />
 
       <ConfirmModal
-        open={confirmBatchUsed}
-        title="Mark Selected as Used"
-        message={`Mark ${selectedItems.length} selected item${selectedItems.length !== 1 ? 's' : ''} as used? They will no longer appear in your available pantry.`}
-        confirmText="Mark Used"
-        variant="success"
-        onConfirm={confirmBatchMarkUsed}
-        onCancel={() => setConfirmBatchUsed(false)}
-      />
-
-      <ConfirmModal
         open={!!confirmEdit}
         title="Save Pantry Changes"
         message={`Save your changes to "${confirmEdit?.name}"?`}
@@ -1082,30 +1104,6 @@ export default function Pantry() {
         actionText={feedback?.actionText}
         onClose={closeFeedback}
       />
-
-      {loading && (
-        <div className="recipe-generating-backdrop" role="status" aria-live="polite" aria-label="Generating recipe">
-          <div className="recipe-generating-card">
-            <div className="recipe-generating-loader" aria-hidden="true">
-              <span className="recipe-generating-ring"></span>
-              <span className="recipe-generating-ring secondary"></span>
-              <ChefHat size={34} />
-              <span className="recipe-generating-steam steam-one"></span>
-              <span className="recipe-generating-steam steam-two"></span>
-              <span className="recipe-generating-steam steam-three"></span>
-            </div>
-            <div>
-              <h3>Generating recipe</h3>
-              <p>Checking pantry items, prices, and cooking steps.</p>
-            </div>
-            <div className="recipe-generating-progress" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {generatedRecipe && (
         <div className="recipe-modal-backdrop" style={{
@@ -1154,36 +1152,6 @@ export default function Pantry() {
                     </li>
                   ))}
                 </ul>
-                {generatedRecipe.costEstimate && (
-                  <div className="recipe-cost-panel">
-                    <h4><ReceiptText size={18} /> Estimated Cost</h4>
-                    <ul className="recipe-cost-list">
-                      {generatedRecipe.costEstimate.items?.map((item, idx) => (
-                        <li key={`${item.name}-${idx}`}>
-                          <span>
-                            {item.name}
-                            {!item.pantryIngredient && <em>Added</em>}
-                          </span>
-                          <strong>{formatCurrency(item.estimatedCost, generatedRecipe.costEstimate.currency)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="recipe-cost-total">
-                      <span>Total recipe</span>
-                      <strong>{formatCurrency(generatedRecipe.costEstimate.totalCost, generatedRecipe.costEstimate.currency)}</strong>
-                    </div>
-                    <div className="recipe-cost-total secondary">
-                      <span>Added items</span>
-                      <strong>{formatCurrency(generatedRecipe.costEstimate.addedIngredientCost, generatedRecipe.costEstimate.currency)}</strong>
-                    </div>
-                    {generatedRecipe.costEstimate.notes && (
-                      <p>{generatedRecipe.costEstimate.notes}</p>
-                    )}
-                    {generatedRecipe.costEstimate.sources?.length > 0 && (
-                      <p>Sources: {generatedRecipe.costEstimate.sources.map(source => source.title).join(', ')}</p>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div>

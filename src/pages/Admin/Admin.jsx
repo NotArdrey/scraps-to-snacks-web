@@ -1212,7 +1212,7 @@ function PantryTab({ items, setItems, households, userId, formatDate, panelStyle
             <label style={labelStyle}>Household</label>
             <select style={inputStyle} value={formData.householdId} onChange={e => set('householdId', e.target.value)} required>
               {householdOptions.map(h => (
-                <option key={h.household_id} value={h.household_id}>{h.household_id}</option>
+                <option key={`${h.household_id}-${h.user_id}`} value={h.household_id}>{h.household_id}</option>
               ))}
             </select>
           </div>

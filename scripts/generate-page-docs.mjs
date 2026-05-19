@@ -267,6 +267,102 @@ const pages = [
   },
 ];
 
+const documentationDate = 'May 9, 2026';
+
+const previousSystemUpdates = [
+  {
+    title: 'Secure Account Access and Recovery',
+    status: 'Implemented',
+    screenshots: ['Login', 'Register', 'Reset Password', 'Account'],
+    summary: 'The system supports guest registration, returning-user login, password recovery, and authenticated account management.',
+    discussion: 'This update established the user identity foundation. It separates guest-only routes from authenticated routes, gives users a recovery path when they lose access, and places account-level settings in one controlled area.',
+    documentation: 'The screenshots show the full access journey: sign in, create account, recover password, and manage account settings after login.',
+  },
+  {
+    title: 'Paid Subscription and Checkout Flow',
+    status: 'Implemented',
+    screenshots: ['Subscription', 'Payment Success', 'Payment Cancel'],
+    summary: 'The system includes paid plan selection, PayMongo checkout handling, and clear return screens for successful, pending, or canceled payment attempts.',
+    discussion: 'This update protects premium app areas behind subscription status while giving users a visible path to recover from checkout cancellation or delayed payment confirmation.',
+    documentation: 'The screenshots document plan selection, pending payment verification, and checkout cancellation recovery.',
+  },
+  {
+    title: 'Personalized Onboarding',
+    status: 'Implemented',
+    screenshots: ['Onboarding'],
+    summary: 'The onboarding flow collects diet preferences and allergy restrictions before users enter the pantry workflow.',
+    discussion: 'This update makes recipe and ingredient experiences more relevant because the system can apply preferences before generating suggestions or validating scanned food items.',
+    documentation: 'The screenshot captures the preference chips and the completion action used during first-run setup.',
+  },
+  {
+    title: 'Pantry Management and Magic Scan',
+    status: 'Implemented',
+    screenshots: ['Pantry', 'Magic Scan'],
+    summary: 'Users can manage household pantry items manually and start an AI-assisted image scanning workflow for ingredient capture.',
+    discussion: 'This update forms the core food-waste reduction workflow. The pantry keeps ingredient records organized, while Magic Scan reduces manual entry by allowing users to upload or capture food images.',
+    documentation: 'The screenshots show both the populated pantry workspace and the image upload entry point for AI scanning.',
+  },
+  {
+    title: 'Cookbook and Recipe Assistance',
+    status: 'Implemented',
+    screenshots: ['Cookbook'],
+    summary: 'The system stores saved recipes and provides a cookbook area for reviewing, editing, deleting, and getting recipe help.',
+    discussion: 'This update connects pantry ingredients to reusable cooking outcomes. Users can preserve generated recipes, review instructions, and keep practical meal ideas available after the first generation.',
+    documentation: 'The screenshot displays a populated cookbook state so saved recipes and actions are visible.',
+  },
+  {
+    title: 'Admin Management Console',
+    status: 'Implemented',
+    screenshots: ['Admin Dashboard', 'Admin Users', 'Admin Plans', 'Admin Pantry', 'Admin Recipes'],
+    summary: 'Admins have a dedicated console for system metrics, user records, subscription plans, pantry data, and recipes.',
+    discussion: 'This update gives operators a single place to review activity and maintain system data. It supports both monitoring and direct management of records used by the public app.',
+    documentation: 'The screenshots cover every admin sidebar section so the documentation includes the complete admin surface.',
+  },
+  {
+    title: 'Supabase Data and Payment Backend Hardening',
+    status: 'Implemented',
+    screenshots: ['Subscription', 'Payment Success', 'Admin Users'],
+    summary: 'Database migrations and Edge Functions support checkout sessions, subscription records, personal household setup, and safer admin user deletion flows.',
+    discussion: 'This update strengthens the data layer behind the visible screens. It keeps subscriptions, households, checkout attempts, and admin maintenance behavior aligned with the frontend routes.',
+    documentation: 'The related screenshots show the user-facing and admin-facing areas most directly supported by the backend changes.',
+  },
+];
+
+const latestSystemUpdate = {
+  date: documentationDate,
+  title: 'Visual System Documentation and Update Presentation',
+  feature: 'A complete presentation-ready documentation layer that explains previous updates, identifies the latest update, and pairs system screenshots with clear discussion.',
+  status: 'Added today',
+  screenshots: ['Admin Dashboard', 'Admin Recipes'],
+  purpose: 'This update turns the page screenshot bundle into a structured system presentation. It is designed for reviewers who need to understand what the system already has, what was added most recently, and how each screenshot proves or explains the feature.',
+  additions: [
+    'Added a Previous System Updates section with explanations for completed system features.',
+    'Added a Latest System Update section dated May 9, 2026.',
+    'Added a Screenshot and Documentation Coverage section so every screenshot has a labeled explanation.',
+    'Kept the detailed page-by-page documentation with route, access, user flow, detected page structure, notes, and full screenshots.',
+  ],
+  discussion: 'The newest update is documentation-focused rather than a new business workflow. It improves the system presentation by connecting screenshots to feature history, current functionality, and review requirements.',
+};
+
+const presentationRequirements = [
+  {
+    requirement: 'Previous System Updates',
+    evidence: 'Covered through grouped update summaries for authentication, checkout, onboarding, pantry, scanning, cookbook, admin, and backend hardening.',
+  },
+  {
+    requirement: 'Latest System Update',
+    evidence: `Documented as the ${latestSystemUpdate.title} update added on ${latestSystemUpdate.date}.`,
+  },
+  {
+    requirement: 'Screenshots and Documentation',
+    evidence: 'Every captured page screenshot is included in the detailed page sections and summarized in the coverage table.',
+  },
+  {
+    requirement: 'Clear Formatting',
+    evidence: 'The document uses labeled headings, tables, route metadata, user-flow notes, screenshot discussions, and export-ready HTML, DOC, and PDF output.',
+  },
+];
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -367,6 +463,188 @@ function markdownBullets(values) {
   return values.map(value => `  - ${value}`).join('\n');
 }
 
+function resultsByName(results) {
+  return new Map(results.map(result => [result.name, result]));
+}
+
+function screenshotLinksMarkdown(screenshots, resultMap) {
+  return screenshots
+    .map(name => {
+      const result = resultMap.get(name);
+      return result
+        ? `[${result.name}](./screenshots/${result.fileName})`
+        : name;
+    })
+    .join(', ');
+}
+
+function screenshotLinksHtml(screenshots, resultMap) {
+  return screenshots
+    .map(name => {
+      const result = resultMap.get(name);
+      return result
+        ? `<a href="./screenshots/${result.fileName}">${escapeHtml(result.name)}</a>`
+        : escapeHtml(name);
+    })
+    .join(', ');
+}
+
+function renderUpdatePresentationMarkdown(results) {
+  const resultMap = resultsByName(results);
+  const previousSections = previousSystemUpdates.map(update => `### ${update.title}
+
+- Status: ${update.status}
+- Related screenshots: ${screenshotLinksMarkdown(update.screenshots, resultMap)}
+- Update summary: ${update.summary}
+- Discussion: ${update.discussion}
+- Documentation notes: ${update.documentation}
+`).join('\n');
+
+  const latestScreenshotDiscussion = latestSystemUpdate.screenshots
+    .map(name => {
+      const result = resultMap.get(name);
+      if (!result) return `- ${name}: Screenshot reference unavailable.`;
+      return `- ${result.name}: ${result.purpose} ${result.notes}`;
+    })
+    .join('\n');
+
+  const coverageRows = results
+    .map((result, index) => (
+      `| ${index + 1} | [${result.name}](./screenshots/${result.fileName}) | ${result.purpose} | ${result.notes} |`
+    ))
+    .join('\n');
+
+  const requirementRows = presentationRequirements
+    .map(item => `| ${item.requirement} | ${item.evidence} |`)
+    .join('\n');
+
+  return `## Previous System Updates
+
+${previousSections}
+## Latest System Update
+
+- Date added: ${latestSystemUpdate.date}
+- Update title: ${latestSystemUpdate.title}
+- Status: ${latestSystemUpdate.status}
+- Feature added today: ${latestSystemUpdate.feature}
+- Purpose: ${latestSystemUpdate.purpose}
+- Related screenshots: ${screenshotLinksMarkdown(latestSystemUpdate.screenshots, resultMap)}
+
+### What Was Added Today
+
+${markdownBullets(latestSystemUpdate.additions)}
+
+### Latest Update Discussion
+
+${latestSystemUpdate.discussion}
+
+### Latest Update Screenshot Discussion
+
+${latestScreenshotDiscussion}
+
+## Screenshots and Documentation Coverage
+
+The table below labels every screenshot included in this documentation bundle and explains what each image demonstrates. Full-size screenshots and page-level discussions appear in the detailed sections after the page index.
+
+| # | Screenshot | What It Shows | Discussion |
+|---|---|---|---|
+${coverageRows}
+
+## Presentation Requirements Checklist
+
+| Requirement | Documentation Evidence |
+|---|---|
+${requirementRows}
+`;
+}
+
+function renderUpdatePresentationHtml(results) {
+  const resultMap = resultsByName(results);
+
+  const previousSections = previousSystemUpdates.map(update => `
+    <section class="presentation-card">
+      <h3>${escapeHtml(update.title)}</h3>
+      <dl>
+        <dt>Status</dt><dd>${escapeHtml(update.status)}</dd>
+        <dt>Screenshots</dt><dd>${screenshotLinksHtml(update.screenshots, resultMap)}</dd>
+      </dl>
+      <p><strong>Update summary:</strong> ${escapeHtml(update.summary)}</p>
+      <p><strong>Discussion:</strong> ${escapeHtml(update.discussion)}</p>
+      <p><strong>Documentation notes:</strong> ${escapeHtml(update.documentation)}</p>
+    </section>
+  `).join('');
+
+  const latestScreenshotDiscussion = latestSystemUpdate.screenshots
+    .map(name => {
+      const result = resultMap.get(name);
+      if (!result) return `<li><strong>${escapeHtml(name)}:</strong> Screenshot reference unavailable.</li>`;
+      return `<li><strong>${escapeHtml(result.name)}:</strong> ${escapeHtml(`${result.purpose} ${result.notes}`)}</li>`;
+    })
+    .join('');
+
+  const coverageRows = results.map((result, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td><a href="./screenshots/${result.fileName}">${escapeHtml(result.name)}</a></td>
+      <td>${escapeHtml(result.purpose)}</td>
+      <td>${escapeHtml(result.notes)}</td>
+    </tr>
+  `).join('');
+
+  const requirementRows = presentationRequirements.map(item => `
+    <tr>
+      <td>${escapeHtml(item.requirement)}</td>
+      <td>${escapeHtml(item.evidence)}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <section class="presentation-section">
+      <h2>Previous System Updates</h2>
+      ${previousSections}
+    </section>
+
+    <section class="presentation-section">
+      <h2>Latest System Update</h2>
+      <dl>
+        <dt>Date added</dt><dd>${escapeHtml(latestSystemUpdate.date)}</dd>
+        <dt>Update title</dt><dd>${escapeHtml(latestSystemUpdate.title)}</dd>
+        <dt>Status</dt><dd>${escapeHtml(latestSystemUpdate.status)}</dd>
+        <dt>Screenshots</dt><dd>${screenshotLinksHtml(latestSystemUpdate.screenshots, resultMap)}</dd>
+      </dl>
+      <p><strong>Feature added today:</strong> ${escapeHtml(latestSystemUpdate.feature)}</p>
+      <p><strong>Purpose:</strong> ${escapeHtml(latestSystemUpdate.purpose)}</p>
+      <h3>What Was Added Today</h3>
+      <ul>${latestSystemUpdate.additions.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+      <h3>Latest Update Discussion</h3>
+      <p>${escapeHtml(latestSystemUpdate.discussion)}</p>
+      <h3>Latest Update Screenshot Discussion</h3>
+      <ul>${latestScreenshotDiscussion}</ul>
+    </section>
+
+    <section class="presentation-section">
+      <h2>Screenshots and Documentation Coverage</h2>
+      <p>The table below labels every screenshot included in this documentation bundle and explains what each image demonstrates. Full-size screenshots and page-level discussions appear in the detailed sections after the page index.</p>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Screenshot</th><th>What It Shows</th><th>Discussion</th></tr>
+        </thead>
+        <tbody>${coverageRows}</tbody>
+      </table>
+    </section>
+
+    <section class="presentation-section">
+      <h2>Presentation Requirements Checklist</h2>
+      <table>
+        <thead>
+          <tr><th>Requirement</th><th>Documentation Evidence</th></tr>
+        </thead>
+        <tbody>${requirementRows}</tbody>
+      </table>
+    </section>
+  `;
+}
+
 function renderMarkdown(results) {
   const summaryRows = results
     .map((result, index) => (
@@ -407,6 +685,8 @@ ${result.notes}
 Each page section explains why the page exists, who can access it, what the user is expected to do, the important interface areas, and what Playwright detected on the screen during capture.
 
 The root route \`/\` is a redirect route: guests go to \`/login\`, while signed-in users are routed to the appropriate app area.
+
+${renderUpdatePresentationMarkdown(results)}
 
 ## Page Index
 
@@ -512,6 +792,8 @@ async function renderHtml(results, { embedImages = false } = {}) {
       vertical-align: top;
     }
     th { background: #f3f6fa; }
+    a { color: #4b3fb5; text-decoration: none; }
+    strong { color: #172033; }
     dl {
       display: grid;
       grid-template-columns: 140px 1fr;
@@ -544,6 +826,19 @@ async function renderHtml(results, { embedImages = false } = {}) {
       margin: 14px 0;
       font-size: 13px;
     }
+    .presentation-section {
+      margin: 20px 0 28px;
+    }
+    .presentation-card {
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .presentation-card h3 {
+      margin-top: 0;
+    }
   </style>
 </head>
 <body>
@@ -552,6 +847,8 @@ async function renderHtml(results, { embedImages = false } = {}) {
   </section>
 
   <p class="note">The root route <code>/</code> redirects guests to <code>/login</code> and signed-in users to the appropriate app area, so the screenshots below focus on the concrete routed screens.</p>
+
+  ${renderUpdatePresentationHtml(results)}
 
   <h2>Page Index</h2>
   <table>

@@ -1,5 +1,5 @@
 import React, { useState, useContext, useRef } from 'react';
-import { Camera, Check, AlertTriangle, Trash2, ShieldAlert, Upload } from 'lucide-react';
+import { Camera, Check, AlertTriangle, Trash2, ShieldAlert, Upload, PackageCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContextValue';
 import { usePantry } from '../hooks/usePantry';
@@ -8,20 +8,35 @@ import { scanIngredientsFromImage, validateIngredient } from '../services/ai';
 import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
 import { UNITS } from '../constants/categories';
-import { HERO_IMAGES } from '../constants/images';
+
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getFreshnessLabel(freshness) {
+  if (freshness === 'fresh') return 'Fresh';
+  if (freshness === 'good') return 'Good';
+  if (freshness === 'aging') return 'Aging';
+  if (freshness === 'questionable') return 'Questionable';
+  if (freshness === 'spoiled') return 'Spoiled';
+  return 'Unknown';
+}
+
+function getFreshnessTone(freshness) {
+  if (freshness === 'fresh' || freshness === 'good') return 'success';
+  if (freshness === 'aging') return 'warning';
+  if (freshness === 'questionable' || freshness === 'spoiled') return 'danger';
+  return 'neutral';
+}
 
 export default function MagicScan() {
   const navigate = useNavigate();
   const { user, householdId } = useContext(AppContext);
   const { addPantryItem } = usePantry(user, householdId);
-  const { activeDietNames, allergyTypes, userAllergies } = usePreferences(user);
+  const { activeAllergyNames, allergyDisplayNames, preferenceTags, recipePreferenceText } = usePreferences(user);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const prevPreviewRef = useRef(null);
-
-  const activeAllergyNames = allergyTypes
-    .filter(a => userAllergies.some(ua => ua.allergy_type_id === a.id))
-    .map(a => a.name);
 
   const [status, setStatus] = useState('idle');
   const [detections, setDetections] = useState([]);
@@ -35,12 +50,12 @@ export default function MagicScan() {
 
   if (!user || !householdId) {
     return (
-      <div className="hero-container">
-        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginTop: '3rem' }}>
-          <AlertTriangle size={48} color="var(--text-tertiary)" style={{ marginBottom: '1rem' }} />
-          <h3 style={{ margin: '0 0 0.5rem 0' }}>Sign in Required</h3>
-          <p style={{ color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>You need to be signed in with a household to use Magic Scan.</p>
-          <button onClick={() => navigate('/login')} className="btn-primary">Sign In</button>
+      <div className="magic-scan-page">
+        <div className="scan-empty-panel">
+          <AlertTriangle size={42} />
+          <h2>Sign in required</h2>
+          <p>You need to be signed in with a household to use Magic Scan.</p>
+          <button onClick={() => navigate('/login')} className="btn-primary">Sign in</button>
         </div>
       </div>
     );
@@ -55,7 +70,7 @@ export default function MagicScan() {
             freshnessScore: d.freshnessScore,
             condition: d.condition,
           };
-          const v = await validateIngredient(d.name, activeDietNames.join(', ') || 'None', activeAllergyNames, freshnessData);
+          const v = await validateIngredient(d.name, recipePreferenceText, activeAllergyNames, freshnessData);
           if (!v.isFood) return null;
           return {
             ...d,
@@ -106,7 +121,6 @@ export default function MagicScan() {
     setPreviewUrl(preview);
     prevPreviewRef.current = preview;
 
-    // Reset input so selecting the same file triggers onChange again
     e.target.value = '';
 
     try {
@@ -191,230 +205,283 @@ export default function MagicScan() {
     setDetections(prev => prev.filter(d => d.id !== id));
   };
 
+  const handleResetScan = () => {
+    setStatus('idle');
+    revokePreview();
+    setPreviewUrl(null);
+    setScanError(null);
+    setSaveError(null);
+    setFilteredCount(0);
+    setDetections([]);
+  };
+
+  const reviewCount = detections.filter(d => (
+    d.dietConflict ||
+    d.allergyConflict ||
+    d.freshness === 'spoiled' ||
+    d.freshness === 'questionable' ||
+    d.freshness === 'aging'
+  )).length;
+  const safeCount = Math.max(0, detections.length - reviewCount);
+  const scanStateLabel = status === 'scanning' ? 'Scanning' : status === 'results' ? 'Review' : 'Ready';
+
   return (
-    <div className="hero-container">
-      
-      <div className="hero-banner">
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          backgroundImage: `url("${HERO_IMAGES.magicScan}")`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          zIndex: 1
-        }} />
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          background: 'linear-gradient(to right, rgba(122, 94, 211, 0.8), rgba(var(--bg-rgb), 0.6))', // using our new brand gradients with transparency
-          zIndex: 2
-        }} />
-        <div className="hero-content">
-          <div className="hero-icon-box">
-            <Camera size={40} color="white" />
-          </div>
-          <div>
-            <h2 className="hero-title">Magic Scan</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'inherit' }}>
-              <p className="hero-subtitle">Instantly organize your fridge or grocery haul using AI image scanning.</p>
-              {activeDietNames.length > 0 && (
-                <span style={{ background: '#84cc16', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  Diet: {activeDietNames.join(', ')}
-                </span>
-              )}
-              {activeAllergyNames.length > 0 && (
-                <span style={{ background: '#f43f5e', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  Allergies: {activeAllergyNames.join(', ')}
-                </span>
-              )}
-            </div>
+    <div className="magic-scan-page">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+
+      <section className="scan-command-header" aria-labelledby="scan-title">
+        <div className="scan-command-icon" aria-hidden="true">
+          <Camera size={28} />
+        </div>
+        <div className="scan-command-copy">
+          <span className="scan-kicker">AI intake station</span>
+          <h1 id="scan-title">Magic Scan</h1>
+          <p>Review detected ingredients, freshness, and allergy conflicts before they enter the pantry.</p>
+          <div className="scan-chip-row" aria-label="Active recipe constraints">
+            {preferenceTags.length > 0 && (
+              <span>Preferences: {preferenceTags.slice(0, 4).join(', ')}</span>
+            )}
+            {allergyDisplayNames.length > 0 && (
+              <span className="danger">Avoid: {allergyDisplayNames.slice(0, 4).join(', ')}</span>
+            )}
+            {preferenceTags.length === 0 && allergyDisplayNames.length === 0 && (
+              <span>No recipe constraints set</span>
+            )}
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ width: '100%', margin: '0 auto', textAlign: 'center' }}>
       {scanError && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginTop: '2rem', color: '#ef4444', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-          <AlertTriangle size={16} /> {scanError}
+        <div className="scan-alert danger" role="alert">
+          <AlertTriangle size={18} /> {scanError}
         </div>
       )}
 
-      {status === 'idle' && (
-        <div className="glass-panel" style={{ padding: '4rem 2rem', marginTop: '3rem', borderStyle: 'dashed', borderWidth: '2px', cursor: 'pointer', transition: 'all var(--transition-fast)' }} onClick={() => fileInputRef.current?.click()} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--surface-border)'}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-          <div style={{ display: 'inline-flex', background: 'rgba(139, 92, 246, 0.1)', padding: '1.5rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
-            <Camera size={48} color="var(--primary-color)" />
-          </div>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem' }}>Upload or Capture Ingredients</h3>
-          <p style={{ color: 'var(--text-tertiary)', marginBottom: '2rem' }}>Choose an existing image or take a new photo of your fridge, pantry, or groceries.</p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="btn-primary">
-              <Upload size={18} /> Upload Image
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }} className="btn-secondary">
-              <Camera size={18} /> Take Photo
-            </button>
-          </div>
+      <section className="scan-stat-grid" aria-label="Scan overview">
+        <div className="scan-stat-card">
+          <span>Scan state</span>
+          <strong>{scanStateLabel}</strong>
+          <small>{status === 'results' ? `${pluralize(detections.length, 'item')} ready for review` : 'Waiting for image input'}</small>
         </div>
-      )}
-
-      {status === 'scanning' && (
-        <div className="glass-panel" style={{ padding: '4rem 2rem', marginTop: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {previewUrl && (
-            <img src={previewUrl} alt="Scanning..." style={{ width: '200px', height: '150px', objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', opacity: 0.7 }} />
-          )}
-          <div style={{ position: 'relative', width: '80px', height: '80px', marginBottom: '2rem' }}>
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid rgba(139, 92, 246, 0.2)' }}></div>
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid var(--primary-color)', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></div>
-            <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-            <Camera size={32} color="var(--primary-color)" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-          </div>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>Analyzing your image...</h3>
-          <p style={{ color: 'var(--text-tertiary)', margin: 0 }}>Detecting ingredients from your image.</p>
+        <div className="scan-stat-card">
+          <span>Detected food</span>
+          <strong>{detections.length}</strong>
+          <small>{filteredCount > 0 ? `${pluralize(filteredCount, 'non-food item')} filtered` : 'Only food items are saved'}</small>
         </div>
-      )}
+        <div className={`scan-stat-card ${reviewCount > 0 ? 'warning' : ''}`}>
+          <span>Needs review</span>
+          <strong>{reviewCount}</strong>
+          <small>Diet, allergy, or freshness flags</small>
+        </div>
+        <div className="scan-stat-card">
+          <span>Pantry-ready</span>
+          <strong>{safeCount}</strong>
+          <small>{status === 'results' ? 'No blocking warnings shown' : 'Appears after scanning'}</small>
+        </div>
+      </section>
 
-      {status === 'results' && (
-        <div className="glass-card magic-scan-results-card" style={{ marginTop: '3rem', textAlign: 'left', animation: 'slideUpFade var(--transition-slow) ease-out' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '0.5rem', borderRadius: '50%', display: 'flex' }}>
-              <Check size={20} color="var(--success-color)" />
-            </div>
-            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Scan Successful</h3>
+      <div className="scan-workspace">
+        <section className="scan-capture-panel" aria-labelledby="scan-capture-title">
+          <div className="scan-panel-heading">
+            <span>Image source</span>
+            <h2 id="scan-capture-title">{previewUrl ? 'Current scan' : 'Start a scan'}</h2>
+            <p>{previewUrl ? 'Preview stays here while detections are reviewed.' : 'Use a fridge, pantry, grocery, or leftover photo.'}</p>
           </div>
 
-          {previewUrl && (
-            <img src={previewUrl} alt="Scanned" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }} />
-          )}
-
-          <div style={{ background: 'var(--surface-active)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '2rem' }}>
-            {detections.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                <AlertTriangle size={32} color="var(--text-tertiary)" style={{ marginBottom: '0.75rem' }} />
-                <p style={{ margin: 0, fontSize: '0.95rem' }}>
-                  {filteredCount > 0
-                    ? `${filteredCount} detected item${filteredCount !== 1 ? 's were' : ' was'} filtered out as non-food. Try scanning a different image.`
-                    : 'No food ingredients were detected. Try scanning a different image.'}
-                </p>
-              </div>
+          <button type="button" className="scan-capture-dropzone" onClick={() => fileInputRef.current?.click()}>
+            {previewUrl ? (
+              <img src={previewUrl} alt="Selected ingredients" />
             ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {detections.map((d, index) => (
-                <li key={d.id} style={{ padding: '1rem', borderBottom: index < detections.length - 1 ? '1px solid var(--surface-border)' : 'none' }}>
-                  <div className="magic-scan-detection-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ fontWeight: '600', fontSize: '1.05rem' }}>{d.name}</span>
-                    <div className="magic-scan-detection-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span className="badge badge-success">
-                        {(d.confidence * 100).toFixed(0)}% Match
-                      </span>
-                      <span style={{
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '9999px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        background: d.freshness === 'fresh' ? 'rgba(16, 185, 129, 0.15)' :
-                                    d.freshness === 'good' ? 'rgba(59, 130, 246, 0.15)' :
-                                    d.freshness === 'aging' ? 'rgba(245, 158, 11, 0.15)' :
-                                    d.freshness === 'questionable' ? 'rgba(239, 68, 68, 0.15)' :
-                                    'rgba(220, 38, 38, 0.2)',
-                        color: d.freshness === 'fresh' ? '#10b981' :
-                               d.freshness === 'good' ? '#3b82f6' :
-                               d.freshness === 'aging' ? '#f59e0b' :
-                               d.freshness === 'questionable' ? '#ef4444' :
-                               '#dc2626',
-                      }}>
-                        {d.freshness === 'fresh' ? 'Fresh' :
-                         d.freshness === 'good' ? 'Good' :
-                         d.freshness === 'aging' ? 'Aging' :
-                         d.freshness === 'questionable' ? 'Questionable' :
-                         'Spoiled'}
-                      </span>
-                      <button onClick={() => removeDetection(d.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }} title="Remove">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="magic-scan-detection-fields" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.85rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <label style={{ color: 'var(--text-tertiary)' }}>Qty:</label>
-                      <input type="number" min="0.1" step="0.1" value={d.qty} onChange={e => updateDetection(d.id, 'qty', Number(e.target.value))} className="input-field" style={{ width: '60px', padding: '0.3rem 0.4rem', fontSize: '0.85rem' }} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <label style={{ color: 'var(--text-tertiary)' }}>Unit:</label>
-                      <select value={d.unit || 'pcs'} onChange={e => updateDetection(d.id, 'unit', e.target.value)} className="input-field magic-scan-unit-select">
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                    {d.category && (
-                      <span style={{ color: 'var(--text-tertiary)' }}>
-                        Category: <strong style={{ color: 'var(--text-secondary)' }}>{d.category}</strong>
-                      </span>
-                    )}
-                    {d.expiresAt && (
-                      <span style={{ color: 'var(--text-tertiary)' }}>
-                        Expires: <strong style={{ color: 'var(--text-secondary)' }}>{d.expiresAt}</strong>
-                      </span>
-                    )}
-                  </div>
-                  {(d.dietConflict || d.allergyConflict) && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#d97706', fontSize: '0.85rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-                      <AlertTriangle size={14} /> {d.warning || 'Conflicts with your diet or allergies'}
-                    </div>
-                  )}
-                  {(d.freshness === 'spoiled' || d.freshness === 'questionable') && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: d.freshness === 'spoiled' ? '#dc2626' : '#ef4444', fontSize: '0.85rem', background: d.freshness === 'spoiled' ? 'rgba(220,38,38,0.1)' : 'rgba(239,68,68,0.1)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-                      <ShieldAlert size={14} /> {d.freshness === 'spoiled' ? 'This item appears spoiled and should not be consumed.' : 'This item looks questionable — use within 1-2 days or discard.'}
-                      {d.condition && <span style={{ marginLeft: '0.25rem' }}>({d.condition})</span>}
-                    </div>
-                  )}
-                  {d.freshness === 'aging' && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f59e0b', fontSize: '0.85rem', background: 'rgba(245,158,11,0.08)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-                      <AlertTriangle size={14} /> This item is aging — use it soon.
-                      {d.condition && <span style={{ marginLeft: '0.25rem' }}>({d.condition})</span>}
-                    </div>
-                  )}
-                  {d.freshnessWarning && d.freshness !== 'spoiled' && d.freshness !== 'questionable' && d.freshness !== 'aging' && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#6b7280', fontSize: '0.85rem', background: 'rgba(107,114,128,0.08)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-                      <AlertTriangle size={14} /> {d.freshnessWarning}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+              <span>
+                <Camera size={44} />
+                <strong>Upload or capture ingredients</strong>
+                <small>JPG, PNG, or camera photo</small>
+              </span>
+            )}
+            {status === 'scanning' && (
+              <div className="scan-processing-overlay">
+                <Sparkles size={24} />
+                <strong>Analyzing image</strong>
+              </div>
+            )}
+          </button>
+
+          <div className="scan-capture-actions">
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-primary">
+              <Upload size={17} /> Upload image
+            </button>
+            <button type="button" onClick={() => cameraInputRef.current?.click()} className="btn-secondary">
+              <Camera size={17} /> Take photo
+            </button>
+          </div>
+        </section>
+
+        <aside className="scan-rule-panel" aria-label="Scan handling rules">
+          <div>
+            <span className="scan-kicker">Safety rules</span>
+            <h2>Pantry intake checks</h2>
+            <p>Detected items are validated as food, checked against preferences, and tagged with likely freshness.</p>
+          </div>
+          <div className="scan-rule-list">
+            <div>
+              <PackageCheck size={18} />
+              <span>Auto category and expiry estimates</span>
+            </div>
+            <div>
+              <ShieldAlert size={18} />
+              <span>Allergy and diet warnings stay visible</span>
+            </div>
+            <div>
+              <Check size={18} />
+              <span>Quantity and units remain editable</span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="scan-results-panel" aria-labelledby="scan-results-title">
+          <div className="scan-results-heading">
+            <div>
+              <span className="scan-kicker">Detection review</span>
+              <h2 id="scan-results-title">{status === 'results' ? `${detections.length} detected item${detections.length === 1 ? '' : 's'}` : 'No detections yet'}</h2>
+              <p>{status === 'results' ? `${safeCount} pantry-ready, ${reviewCount} needing attention.` : 'Scan results appear here after analysis.'}</p>
+            </div>
+            {status === 'results' && (
+              <button type="button" onClick={handleResetScan} className="btn-secondary">
+                <Camera size={17} /> Rescan
+              </button>
             )}
           </div>
 
-          {saveError && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#ef4444', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <AlertTriangle size={16} /> {saveError}
+          {status === 'idle' && (
+            <div className="scan-empty-panel compact">
+              <Camera size={34} />
+              <h3>Ready for an image</h3>
+              <p>Detections, freshness flags, and pantry fields will land in this review queue.</p>
             </div>
           )}
 
-          <div className="magic-scan-actions" style={{ display: 'flex', gap: '1rem' }}>
-            <button onClick={() => { setStatus('idle'); revokePreview(); setPreviewUrl(null); setScanError(null); setSaveError(null); setFilteredCount(0); }} className="btn-secondary" style={{ flex: 1 }}>
-              Rescan
-            </button>
-            <button onClick={handleSaveToPantry} disabled={saving || detections.length === 0} className="btn-primary" style={{ flex: 2, opacity: (saving || detections.length === 0) ? 0.7 : 1, cursor: detections.length === 0 ? 'not-allowed' : 'pointer' }}>
-              {saving ? 'Saving...' : <><Check size={18} /> Confirm & Save to Pantry</>}
-            </button>
-          </div>
-        </div>
-      )}
+          {status === 'scanning' && (
+            <div className="scan-empty-panel compact">
+              <Sparkles size={34} className="scan-spin" />
+              <h3>Scanning ingredients</h3>
+              <p>AI is reading the image and checking pantry safety rules.</p>
+            </div>
+          )}
+
+          {status === 'results' && detections.length === 0 && (
+            <div className="scan-empty-panel compact">
+              <AlertTriangle size={34} />
+              <h3>No food detected</h3>
+              <p>
+                {filteredCount > 0
+                  ? `${filteredCount} detected item${filteredCount !== 1 ? 's were' : ' was'} filtered out as non-food.`
+                  : 'Try a clearer image with visible ingredients.'}
+              </p>
+            </div>
+          )}
+
+          {status === 'results' && detections.length > 0 && (
+            <>
+              <ul className="scan-detection-list">
+                {detections.map((d) => {
+                  const preferenceWarning = d.dietConflict || d.allergyConflict;
+                  const freshnessTone = getFreshnessTone(d.freshness);
+                  return (
+                    <li key={d.id} className={`scan-detection-card ${preferenceWarning || freshnessTone === 'danger' ? 'needs-review' : ''}`}>
+                      <div className="scan-detection-top">
+                        <div>
+                          <span>Detected item</span>
+                          <strong>{d.name}</strong>
+                        </div>
+                        <div className="scan-detection-actions">
+                          <span className="scan-pill success">{(d.confidence * 100).toFixed(0)}% match</span>
+                          <span className={`scan-pill ${freshnessTone}`}>{getFreshnessLabel(d.freshness)}</span>
+                          <button type="button" onClick={() => removeDetection(d.id)} className="scan-icon-button danger" title="Remove" aria-label={`Remove ${d.name}`}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="scan-detection-fields">
+                        <label>
+                          <span>Qty</span>
+                          <input type="number" min="0.1" step="0.1" value={d.qty} onChange={e => updateDetection(d.id, 'qty', Number(e.target.value))} />
+                        </label>
+                        <label>
+                          <span>Unit</span>
+                          <select value={d.unit || 'pcs'} onChange={e => updateDetection(d.id, 'unit', e.target.value)}>
+                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </label>
+                        <label>
+                          <span>Category</span>
+                          <output>{d.category || 'Uncategorized'}</output>
+                        </label>
+                        <label>
+                          <span>Expires</span>
+                          <output>{d.expiresAt || 'No estimate'}</output>
+                        </label>
+                      </div>
+
+                      {preferenceWarning && (
+                        <div className="scan-inline-alert warning">
+                          <AlertTriangle size={15} /> {d.warning || 'Conflicts with your diet or allergies'}
+                        </div>
+                      )}
+                      {(d.freshness === 'spoiled' || d.freshness === 'questionable') && (
+                        <div className="scan-inline-alert danger">
+                          <ShieldAlert size={15} />
+                          {d.freshness === 'spoiled' ? 'This item appears spoiled and should not be consumed.' : 'This item looks questionable - use within 1-2 days or discard.'}
+                          {d.condition && <span>({d.condition})</span>}
+                        </div>
+                      )}
+                      {d.freshness === 'aging' && (
+                        <div className="scan-inline-alert warning">
+                          <AlertTriangle size={15} /> This item is aging - use it soon.
+                          {d.condition && <span>({d.condition})</span>}
+                        </div>
+                      )}
+                      {d.freshnessWarning && d.freshness !== 'spoiled' && d.freshness !== 'questionable' && d.freshness !== 'aging' && (
+                        <div className="scan-inline-alert neutral">
+                          <AlertTriangle size={15} /> {d.freshnessWarning}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {saveError && (
+                <div className="scan-alert danger" role="alert">
+                  <AlertTriangle size={18} /> {saveError}
+                </div>
+              )}
+
+              <div className="scan-results-actions">
+                <button type="button" onClick={handleResetScan} className="btn-secondary">
+                  Rescan
+                </button>
+                <button type="button" onClick={handleSaveToPantry} disabled={saving || detections.length === 0} className="btn-primary">
+                  {saving ? 'Saving...' : <><Check size={18} /> Save to pantry</>}
+                </button>
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
       <ConfirmModal

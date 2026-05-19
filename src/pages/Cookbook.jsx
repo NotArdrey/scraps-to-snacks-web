@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
-import { Book, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus, ReceiptText } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Book, Calendar, Trash2, Edit2, Save, X, Flame, Plus, Minus, ChefHat } from 'lucide-react';
 import { AppContext } from '../AppContextValue';
 import { useRecipes } from '../hooks/useRecipes';
 import ConfirmModal from '../components/ConfirmModal';
@@ -7,14 +8,9 @@ import FeedbackModal from '../components/FeedbackModal';
 import BrandIcon from '../components/BrandIcon';
 import CookbookChatbot from '../components/CookbookChatbot';
 import LoadingPanel from '../components/LoadingPanel';
-import { HERO_IMAGES } from '../constants/images';
 
-function formatCurrency(value, currency = 'PHP') {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 export default function Cookbook() {
@@ -178,48 +174,66 @@ export default function Cookbook() {
     return <LoadingPanel title="Loading cookbook" message="Fetching your saved recipes." />;
   }
 
+  const totalIngredients = recipes.reduce((count, recipe) => count + (recipe.ingredients?.length || 0), 0);
+  const totalSteps = recipes.reduce((count, recipe) => count + (recipe.instructions?.length || 0), 0);
+  const recipesWithCalories = recipes.filter(recipe => recipe.nutrition?.cals).length;
+  const latestRecipeDate = recipes[0]?.date || 'No saves yet';
+
   return (
-    <div className="hero-container">
-      
-      <div className="hero-banner">
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          backgroundImage: `url("${HERO_IMAGES.cookbook}")`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          zIndex: 1
-        }} />
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.2))',
-          zIndex: 2
-        }} />
-        <div className="hero-content">
-          <div className="hero-icon-box">
-            <Book size={40} color="white" />
-          </div>
-          <div>
-            <h2 className="hero-title">My Cookbook</h2>
-            <p className="hero-subtitle">Your saved AI recipes and cooking history.</p>
+    <div className="cookbook-page">
+      <section className="cookbook-command-header" aria-labelledby="cookbook-title">
+        <div className="cookbook-command-icon" aria-hidden="true">
+          <Book size={28} />
+        </div>
+        <div className="cookbook-command-copy">
+          <span className="cookbook-kicker">Recipe library</span>
+          <h1 id="cookbook-title">Cookbook</h1>
+          <p>Saved AI recipes stay editable, searchable by eye, and ready for kitchen decisions.</p>
+          <div className="cookbook-chip-row">
+            <span>{pluralize(recipes.length, 'saved recipe')}</span>
+            <span>{pluralize(selectedIds.length, 'selected recipe')}</span>
+            {editingId && <span className="warning">Editing in progress</span>}
           </div>
         </div>
-      </div>
+      </section>
+
+      <section className="cookbook-stat-grid" aria-label="Cookbook overview">
+        <div className="cookbook-stat-card">
+          <span>Total recipes</span>
+          <strong>{recipes.length}</strong>
+          <small>{latestRecipeDate}</small>
+        </div>
+        <div className="cookbook-stat-card">
+          <span>Ingredients filed</span>
+          <strong>{totalIngredients}</strong>
+          <small>Across saved recipes</small>
+        </div>
+        <div className="cookbook-stat-card">
+          <span>Instruction steps</span>
+          <strong>{totalSteps}</strong>
+          <small>Editable cooking flow</small>
+        </div>
+        <div className="cookbook-stat-card">
+          <span>Nutrition data</span>
+          <strong>{recipesWithCalories}</strong>
+          <small>{pluralize(recipesWithCalories, 'recipe')} with calories</small>
+        </div>
+      </section>
 
       {recipes.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-          <div style={{ marginBottom: '1rem', opacity: 0.5 }}>
+        <section className="cookbook-empty-panel">
+          <div aria-hidden="true">
             <BrandIcon size={56} />
           </div>
-          <h3 style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>Your cookbook is empty</h3>
-          <p style={{ color: 'var(--text-tertiary)' }}>Go to your Pantry to select ingredients and generate your first custom recipe!</p>
-        </div>
+          <h2>Your cookbook is empty</h2>
+          <p>Generate a recipe from safe pantry items, then save it here for editing and reuse.</p>
+          <Link to="/pantry" className="btn-primary">
+            <ChefHat size={17} /> Open pantry
+          </Link>
+        </section>
       ) : (
         <>
-        {recipes.length > 0 && (
-          <div className="cookbook-toolbar">
+          <section className="cookbook-toolbar" aria-label="Cookbook batch actions">
             <label className="cookbook-select-all">
               <input
                 type="checkbox"
@@ -227,198 +241,178 @@ export default function Cookbook() {
                 onChange={handleSelectAll}
                 className="cookbook-checkbox"
               />
-              <span>Select All</span>
+              <span>Select all recipes</span>
             </label>
+            <div className="cookbook-toolbar-summary">
+              {selectedIds.length > 0 ? `${pluralize(selectedIds.length, 'recipe')} selected` : 'No recipes selected'}
+            </div>
             {selectedIds.length > 0 && (
               <button onClick={handleBatchDelete} className="btn-danger cookbook-batch-delete">
-                <Trash2 size={16} /> Delete Selected ({selectedIds.length})
+                <Trash2 size={16} /> Delete selected
               </button>
             )}
-          </div>
-        )}
-        <div className="grid-container cookbook-grid">
-          {recipes.map(recipe => (
-            <article key={recipe.id} className={`glass-card cookbook-card${editingId === recipe.id ? ' editing' : ''}`}>
+          </section>
 
-              <label className="cookbook-card-select" title="Select recipe">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(recipe.id)}
-                  onChange={() => handleToggleSelect(recipe.id)}
-                  className="cookbook-checkbox"
-                />
-              </label>
-
-              <div className="cookbook-card-actions">
-                {editingId === recipe.id ? (
-                  <>
-                    <button onClick={() => setEditingId(null)} className="btn-secondary cookbook-icon-button" title="Cancel" disabled={savingId === recipe.id}>
-                      <X size={16} />
-                    </button>
-                    <button onClick={() => handleSaveEdit(recipe)} className="btn-primary cookbook-icon-button" title="Save" disabled={savingId === recipe.id || !editForm.title.trim()}>
-                      <Save size={16} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => handleEditClick(recipe)} className="btn-secondary cookbook-icon-button" title="Edit">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={() => handleDelete(recipe)} className="btn-danger cookbook-icon-button" title="Delete">
-                      <Trash2 size={16} />
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {editingId === recipe.id ? (
-                <div className="cookbook-card-header cookbook-card-header-editing">
-                  <label className="cookbook-field-label" htmlFor={`recipe-title-${recipe.id}`}>Recipe title</label>
+          <div className="grid-container cookbook-grid">
+            {recipes.map(recipe => (
+              <article key={recipe.id} className={`glass-card cookbook-card${editingId === recipe.id ? ' editing' : ''}`}>
+                <label className="cookbook-card-select" title="Select recipe">
                   <input
-                    id={`recipe-title-${recipe.id}`}
-                    type="text"
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-                    className="input-field cookbook-title-input"
-                    placeholder="Recipe title"
+                    type="checkbox"
+                    checked={selectedIds.includes(recipe.id)}
+                    onChange={() => handleToggleSelect(recipe.id)}
+                    className="cookbook-checkbox"
+                    aria-label={`Select ${recipe.title}`}
                   />
-                </div>
-              ) : (
-                <div className="cookbook-card-header">
-                  <h3 className="cookbook-card-title">{recipe.title}</h3>
-                </div>
-              )}
+                </label>
 
-              <div className="cookbook-meta">
-                <span className="cookbook-meta-item"><Calendar size={16} /> Saved: {recipe.date}</span>
-                {recipe.nutrition && recipe.nutrition.cals && (
-                  <span className="cookbook-meta-item cookbook-calories">
-                    <Flame size={16} />
-                    <span>Calories: {recipe.nutrition.cals} kcal</span>
-                  </span>
-                )}
-                {recipe.costEstimate && (
-                  <span className="cookbook-meta-item cookbook-cost-meta">
-                    <ReceiptText size={16} />
-                    <span>Est. cost: {formatCurrency(recipe.costEstimate.totalCost, recipe.costEstimate.currency)}</span>
-                  </span>
-                )}
-              </div>
+                <div className="cookbook-card-actions">
+                  {editingId === recipe.id ? (
+                    <>
+                      <button onClick={() => setEditingId(null)} className="btn-secondary cookbook-icon-button" title="Cancel" disabled={savingId === recipe.id}>
+                        <X size={16} />
+                      </button>
+                      <button onClick={() => handleSaveEdit(recipe)} className="btn-primary cookbook-icon-button" title="Save" disabled={savingId === recipe.id || !editForm.title.trim()}>
+                        <Save size={16} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleEditClick(recipe)} className="btn-secondary cookbook-icon-button" title="Edit">
+                        <Edit2 size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(recipe)} className="btn-danger cookbook-icon-button" title="Delete">
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
+                </div>
 
-              <div className={`cookbook-details-panel${editingId === recipe.id ? ' cookbook-details-panel-editing' : ''}${(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) ? ' cookbook-details-panel-empty' : ''}`}>
                 {editingId === recipe.id ? (
-                  <>
-                    <div className="cookbook-edit-section">
-                      <h4 className="cookbook-edit-heading">
-                        Ingredients
-                        <button type="button" onClick={addIngredient} className="btn-secondary cookbook-add-button" title="Add ingredient">
-                          <Plus size={14} />
-                          <span>Add</span>
-                        </button>
-                      </h4>
-                      {editForm.ingredients.map((ing, idx) => (
-                        <div key={idx} className="cookbook-edit-row">
-                          <input
-                            type="text"
-                            value={ing}
-                            onChange={(e) => updateIngredient(idx, e.target.value)}
-                            className="input-field cookbook-edit-input"
-                            placeholder="e.g., 2 cups flour"
-                          />
-                          <button type="button" onClick={() => removeIngredient(idx)} className="cookbook-remove-button" title="Remove ingredient">
-                            <Minus size={16} />
-                          </button>
-                        </div>
-                      ))}
-                      {editForm.ingredients.length === 0 && (
-                        <p className="cookbook-empty-edit">No ingredients yet.</p>
-                      )}
-                    </div>
-                    <div className="cookbook-edit-section">
-                      <h4 className="cookbook-edit-heading">
-                        Instructions
-                        <button type="button" onClick={addInstruction} className="btn-secondary cookbook-add-button" title="Add instruction">
-                          <Plus size={14} />
-                          <span>Add</span>
-                        </button>
-                      </h4>
-                      {editForm.instructions.map((inst, idx) => (
-                        <div key={idx} className="cookbook-edit-row cookbook-instruction-row">
-                          <span className="cookbook-step-number">{idx + 1}.</span>
-                          <textarea
-                            value={inst}
-                            onChange={(e) => updateInstruction(idx, e.target.value)}
-                            className="input-field cookbook-edit-input cookbook-edit-textarea"
-                            rows={3}
-                            placeholder={`Step ${idx + 1}...`}
-                          />
-                          <button type="button" onClick={() => removeInstruction(idx)} className="cookbook-remove-button" title="Remove instruction">
-                            <Minus size={16} />
-                          </button>
-                        </div>
-                      ))}
-                      {editForm.instructions.length === 0 && (
-                        <p className="cookbook-empty-edit">No instructions yet.</p>
-                      )}
-                    </div>
-                    <div className="cookbook-edit-footer">
-                      <button type="button" onClick={() => setEditingId(null)} className="btn-secondary" disabled={savingId === recipe.id}>
-                        <X size={16} /> Cancel
-                      </button>
-                      <button type="button" onClick={() => handleSaveEdit(recipe)} className="btn-primary" disabled={savingId === recipe.id || !editForm.title.trim()}>
-                        <Save size={16} /> {savingId === recipe.id ? 'Saving' : 'Save changes'}
-                      </button>
-                    </div>
-                  </>
+                  <div className="cookbook-card-header cookbook-card-header-editing">
+                    <label className="cookbook-field-label" htmlFor={`recipe-title-${recipe.id}`}>Recipe title</label>
+                    <input
+                      id={`recipe-title-${recipe.id}`}
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      className="input-field cookbook-title-input"
+                      placeholder="Recipe title"
+                    />
+                  </div>
                 ) : (
-                  <>
-                {recipe.ingredients && recipe.ingredients.length > 0 && (
-                  <section className="cookbook-section">
-                    <h4 className="cookbook-section-heading">Ingredients</h4>
-                    <ul className="cookbook-list">
-                      {recipe.ingredients.map((ing, idx) => (
-                        <li key={idx}>{ing}</li>
-                      ))}
-                    </ul>
-                  </section>
+                  <div className="cookbook-card-header">
+                    <span className="cookbook-card-kicker">Saved recipe</span>
+                    <h3 className="cookbook-card-title">{recipe.title}</h3>
+                  </div>
                 )}
-                {recipe.instructions && recipe.instructions.length > 0 && (
-                  <section className="cookbook-section">
-                    <h4 className="cookbook-section-heading">Instructions</h4>
-                    <ol className="cookbook-list cookbook-steps">
-                      {recipe.instructions.map((inst, idx) => (
-                        <li key={idx}>{inst}</li>
-                      ))}
-                    </ol>
-                  </section>
-                )}
-                {recipe.costEstimate && (
-                  <section className="cookbook-section cookbook-cost-section">
-                    <h4 className="cookbook-section-heading">Estimated Cost</h4>
-                    <ul className="cookbook-cost-list">
-                      {recipe.costEstimate.items?.map((item, idx) => (
-                        <li key={`${recipe.id}-cost-${idx}`}>
-                          <span>{item.name}{!item.pantryIngredient ? ' (added)' : ''}</span>
-                          <strong>{formatCurrency(item.estimatedCost, recipe.costEstimate.currency)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="cookbook-cost-total">
-                      <span>Total recipe</span>
-                      <strong>{formatCurrency(recipe.costEstimate.totalCost, recipe.costEstimate.currency)}</strong>
-                    </div>
-                  </section>
-                )}
-                {(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) && (
-                  <p className="cookbook-empty-state">No detailed instructions saved.</p>
-                )}
-                  </>
-                )}
-              </div>
 
-            </article>
-          ))}
-        </div>
+                <div className="cookbook-meta">
+                  <span className="cookbook-meta-item"><Calendar size={16} /> Saved: {recipe.date}</span>
+                  {recipe.nutrition?.cals && (
+                    <span className="cookbook-meta-item cookbook-calories">
+                      <Flame size={16} />
+                      <span>{recipe.nutrition.cals} kcal</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className={`cookbook-details-panel${editingId === recipe.id ? ' cookbook-details-panel-editing' : ''}${(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) ? ' cookbook-details-panel-empty' : ''}`}>
+                  {editingId === recipe.id ? (
+                    <>
+                      <div className="cookbook-edit-section">
+                        <h4 className="cookbook-edit-heading">
+                          Ingredients
+                          <button type="button" onClick={addIngredient} className="btn-secondary cookbook-add-button" title="Add ingredient">
+                            <Plus size={14} />
+                            <span>Add</span>
+                          </button>
+                        </h4>
+                        {editForm.ingredients.map((ing, idx) => (
+                          <div key={idx} className="cookbook-edit-row">
+                            <input
+                              type="text"
+                              value={ing}
+                              onChange={(e) => updateIngredient(idx, e.target.value)}
+                              className="input-field cookbook-edit-input"
+                              placeholder="e.g., 2 cups flour"
+                            />
+                            <button type="button" onClick={() => removeIngredient(idx)} className="cookbook-remove-button" title="Remove ingredient">
+                              <Minus size={16} />
+                            </button>
+                          </div>
+                        ))}
+                        {editForm.ingredients.length === 0 && (
+                          <p className="cookbook-empty-edit">No ingredients yet.</p>
+                        )}
+                      </div>
+                      <div className="cookbook-edit-section">
+                        <h4 className="cookbook-edit-heading">
+                          Instructions
+                          <button type="button" onClick={addInstruction} className="btn-secondary cookbook-add-button" title="Add instruction">
+                            <Plus size={14} />
+                            <span>Add</span>
+                          </button>
+                        </h4>
+                        {editForm.instructions.map((inst, idx) => (
+                          <div key={idx} className="cookbook-edit-row cookbook-instruction-row">
+                            <span className="cookbook-step-number">{idx + 1}.</span>
+                            <textarea
+                              value={inst}
+                              onChange={(e) => updateInstruction(idx, e.target.value)}
+                              className="input-field cookbook-edit-input cookbook-edit-textarea"
+                              rows={3}
+                              placeholder={`Step ${idx + 1}...`}
+                            />
+                            <button type="button" onClick={() => removeInstruction(idx)} className="cookbook-remove-button" title="Remove instruction">
+                              <Minus size={16} />
+                            </button>
+                          </div>
+                        ))}
+                        {editForm.instructions.length === 0 && (
+                          <p className="cookbook-empty-edit">No instructions yet.</p>
+                        )}
+                      </div>
+                      <div className="cookbook-edit-footer">
+                        <button type="button" onClick={() => setEditingId(null)} className="btn-secondary" disabled={savingId === recipe.id}>
+                          <X size={16} /> Cancel
+                        </button>
+                        <button type="button" onClick={() => handleSaveEdit(recipe)} className="btn-primary" disabled={savingId === recipe.id || !editForm.title.trim()}>
+                          <Save size={16} /> {savingId === recipe.id ? 'Saving' : 'Save changes'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {recipe.ingredients && recipe.ingredients.length > 0 && (
+                        <section className="cookbook-section">
+                          <h4 className="cookbook-section-heading">Ingredients</h4>
+                          <ul className="cookbook-list">
+                            {recipe.ingredients.map((ing, idx) => (
+                              <li key={idx}>{ing}</li>
+                            ))}
+                          </ul>
+                        </section>
+                      )}
+                      {recipe.instructions && recipe.instructions.length > 0 && (
+                        <section className="cookbook-section">
+                          <h4 className="cookbook-section-heading">Instructions</h4>
+                          <ol className="cookbook-list cookbook-steps">
+                            {recipe.instructions.map((inst, idx) => (
+                              <li key={idx}>{inst}</li>
+                            ))}
+                          </ol>
+                        </section>
+                      )}
+                      {(!recipe.ingredients || recipe.ingredients.length === 0) && (!recipe.instructions || recipe.instructions.length === 0) && (
+                        <p className="cookbook-empty-state">No detailed instructions saved.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
         </>
       )}
 

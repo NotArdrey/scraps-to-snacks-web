@@ -1,18 +1,23 @@
 import { useContext, useRef, useState } from 'react';
-import { User, LogOut, Mail, Lock, Eye, EyeOff, ChevronRight, CreditCard, Settings } from 'lucide-react';
+import { User, LogOut, Mail, Lock, Eye, EyeOff, ChevronRight, CreditCard, Settings, ShieldCheck, CalendarDays } from 'lucide-react';
 import { AppContext } from '../AppContextValue';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
 import FeedbackModal from '../components/FeedbackModal';
-import { HERO_IMAGES } from '../constants/images';
 import { formatDate } from '../utils/formatters';
+
+function getPlanStatusLabel(status) {
+  if (status === 'active') return 'Active';
+  if (status === 'trialing') return 'Trial';
+  return 'None';
+}
 
 export default function Account() {
   const { user, subscription } = useContext(AppContext);
   const navigate = useNavigate();
 
-  const [editingField, setEditingField] = useState(null); // 'email' | 'password' | null
+  const [editingField, setEditingField] = useState(null);
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg] = useState(null);
@@ -163,6 +168,7 @@ export default function Account() {
 
   const planName = subscription?.subscription_plans?.display_name || (subscription ? 'Active subscription' : 'No active subscription');
   const planStatus = subscription?.status || 'none';
+  const planStatusLabel = getPlanStatusLabel(planStatus);
   const subscriptionStartsAt = subscription?.starts_at ? formatDate(subscription.starts_at) : null;
   const subscriptionEndsAt = subscription?.ends_at ? formatDate(subscription.ends_at) : null;
   const subscriptionPeriod = subscriptionStartsAt && subscriptionEndsAt
@@ -170,261 +176,207 @@ export default function Account() {
     : subscriptionStartsAt
       ? `Started ${subscriptionStartsAt}`
       : null;
-
-  // Shared styles
-  const panelStyle = {
-    background: 'var(--bg-card)',
-    borderRadius: '24px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-    overflow: 'hidden',
-    border: '1px solid var(--border-color)'
-  };
-
-  const rowStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '1.25rem 1.75rem',
-    cursor: 'pointer',
-    transition: 'background 0.15s',
-  };
-
-  const dividerStyle = {
-    height: '1px',
-    background: 'var(--border-color)',
-    margin: '0 1.75rem',
-  };
-
-  const rowIconWrap = (bg) => ({
-    width: '40px', height: '40px', borderRadius: '50%',
-    background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  });
-
-  const editLinkStyle = {
-    color: '#7a5ed3', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer',
-    background: 'none', border: 'none', padding: 0, transition: 'color 0.15s',
-  };
-
-  const inputStyle = {
-    width: '100%', padding: '0.8rem 1rem', borderRadius: '12px',
-    border: '1px solid var(--border-color)', background: 'var(--bg-main)',
-    fontSize: '0.95rem', color: 'var(--theme-text-main)', outline: 'none', transition: 'border-color 0.2s',
-  };
-
-  const saveBtnStyle = {
-    padding: '0.7rem 1.75rem',
-    background: '#7a5ed3',
-    color: '#fff', border: 'none', borderRadius: '9999px',
-    fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem',
-  };
-
-  const cancelBtnStyle = {
-    padding: '0.7rem 1.75rem',
-    background: 'transparent', border: '1px solid var(--border-color)',
-    color: 'var(--theme-text-muted)', borderRadius: '9999px',
-    fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem',
-  };
-
-  const msgStyle = (type) => ({
-    background: type === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-    border: `1px solid ${type === 'error' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
-    borderRadius: '10px', padding: '0.7rem 1rem', marginBottom: '1rem',
-    color: type === 'error' ? '#ef4444' : '#10b981', fontSize: '0.875rem',
-  });
+  const accountEmail = user?.email || 'Loading...';
+  const accountInitial = (user?.email?.[0] || 'S').toUpperCase();
 
   return (
-    <div className="account-page" style={{ maxWidth: '680px', margin: '3rem auto' }}>
-      {/* Hero Banner */}
-      <div className="account-hero" style={{ position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem', boxShadow: 'var(--shadow-md)' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url("${HERO_IMAGES.account}")`, backgroundPosition: 'center', backgroundSize: 'cover', zIndex: 1 }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.3))', zIndex: 2 }} />
-        <div className="account-hero-content" style={{ position: 'relative', zIndex: 3, padding: '3.5rem 2.5rem', color: 'white', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.25rem', borderRadius: '50%', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            <User size={36} color="white" />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 0.25rem 0', color: 'white' }}>My Account</h2>
-            <p style={{ fontSize: '1.1rem', color: 'var(--theme-text-muted)', margin: 0 }}>Manage your profile and settings</p>
+    <div className="account-hub-page">
+      <section className="account-command-header" aria-labelledby="account-title">
+        <div className="account-command-icon" aria-hidden="true">
+          <User size={28} />
+        </div>
+        <div className="account-command-copy">
+          <span className="account-kicker">Profile settings</span>
+          <h1 id="account-title">Account</h1>
+          <p>Manage sign-in details, subscription status, and recipe preferences from one settings hub.</p>
+          <div className="account-chip-row">
+            <span>{accountEmail}</span>
+            <span className={planStatus === 'active' || planStatus === 'trialing' ? 'success' : ''}>{planStatusLabel}</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Settings Panel */}
-      <div className="account-panel" style={panelStyle}>
-
-        {/* Email Row */}
-        <div
-          className="account-row"
-          style={rowStyle}
-          onClick={() => editingField !== 'email' && openEdit('email')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-            <div style={rowIconWrap('rgba(122, 94, 211, 0.15)')}>
-              <Mail size={20} color="#7a5ed3" />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Email Address</div>
-              <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email || 'Loading...'}</div>
-            </div>
-          </div>
-          <button style={editLinkStyle} onClick={(e) => { e.stopPropagation(); openEdit('email'); }}>Edit</button>
+      <section className="account-overview-grid" aria-label="Account overview">
+        <div className="account-stat-card">
+          <span>Email</span>
+          <strong>{accountEmail}</strong>
+          <small>{editingField === 'email' ? 'Editing email' : 'Confirmed by Supabase auth'}</small>
         </div>
-
-        {/* Email Edit Form */}
-        {editingField === 'email' && (
-          <div className="account-edit-form" style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
-            {emailMsg && <div style={msgStyle(emailMsg.type)}>{emailMsg.text}</div>}
-            <form onSubmit={requestChangeEmail}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Email</label>
-                <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter new email address" style={inputStyle} required autoFocus />
-              </div>
-              <div className="account-form-actions" style={{ display: 'flex', gap: '0.75rem' }}>
-                <button type="submit" disabled={emailLoading} style={{ ...saveBtnStyle, opacity: emailLoading ? 0.7 : 1 }}>
-                  {emailLoading ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button type="button" onClick={closeEdit} style={cancelBtnStyle}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div style={dividerStyle} />
-
-        {/* Password Row */}
-        <div
-          className="account-row"
-          style={rowStyle}
-          onClick={() => editingField !== 'password' && openEdit('password')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <div style={rowIconWrap('rgba(157, 132, 232, 0.15)')}>
-              <Lock size={20} color="#9d84e8" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Password</div>
-              <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>••••••••</div>
-            </div>
-          </div>
-          <button style={editLinkStyle} onClick={(e) => { e.stopPropagation(); openEdit('password'); }}>Edit</button>
+        <div className={`account-stat-card ${planStatus === 'active' || planStatus === 'trialing' ? 'success' : 'warning'}`}>
+          <span>Plan status</span>
+          <strong>{planStatusLabel}</strong>
+          <small>{planName}</small>
         </div>
+        <div className="account-stat-card">
+          <span>Subscription period</span>
+          <strong>{subscriptionEndsAt || 'Open'}</strong>
+          <small>{subscriptionPeriod || 'No billing window available'}</small>
+        </div>
+        <div className="account-stat-card">
+          <span>Security</span>
+          <strong>{editingField === 'password' ? 'Editing' : 'Protected'}</strong>
+          <small>Password changes require confirmation</small>
+        </div>
+      </section>
 
-        {/* Password Edit Form */}
-        {editingField === 'password' && (
-          <div className="account-edit-form" style={{ padding: '0 1.75rem 1.5rem 4.75rem' }}>
-            {passwordMsg && <div style={msgStyle(passwordMsg.type)}>{passwordMsg.text}</div>}
-            <form onSubmit={requestChangePassword}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>New Password</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 6 characters"
-                    style={{ ...inputStyle, paddingRight: '3rem' }}
-                    required minLength={6} autoFocus
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+      <div className="account-settings-layout">
+        <section className="account-settings-panel" aria-labelledby="account-settings-title">
+          <div className="account-panel-heading">
+            <span className="account-kicker">Settings</span>
+            <h2 id="account-settings-title">Sign-in and preferences</h2>
+            <p>Update only the field you need, then confirm the change.</p>
+          </div>
+
+          <div
+            className={`account-setting-row ${editingField === 'email' ? 'active' : ''}`}
+            onClick={() => editingField !== 'email' && openEdit('email')}
+          >
+            <div className="account-row-main">
+              <span className="account-row-icon">
+                <Mail size={20} />
+              </span>
+              <span>
+                <small>Email address</small>
+                <strong>{accountEmail}</strong>
+              </span>
+            </div>
+            <button type="button" className="account-inline-action" onClick={(e) => { e.stopPropagation(); openEdit('email'); }}>Edit</button>
+          </div>
+
+          {editingField === 'email' && (
+            <div className="account-edit-form">
+              {emailMsg && <div className={`account-message ${emailMsg.type}`}>{emailMsg.text}</div>}
+              <form onSubmit={requestChangeEmail}>
+                <label className="account-field">
+                  <span>New email</span>
+                  <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Enter new email address" className="input-field" required autoFocus />
+                </label>
+                <div className="account-form-actions">
+                  <button type="submit" disabled={emailLoading} className="btn-primary">
+                    {emailLoading ? 'Saving...' : 'Save changes'}
                   </button>
+                  <button type="button" onClick={closeEdit} className="btn-secondary">Cancel</button>
                 </div>
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '0.4rem' }}>Confirm New Password</label>
-                <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" style={inputStyle} required minLength={6} />
-              </div>
-              <div className="account-form-actions" style={{ display: 'flex', gap: '0.75rem' }}>
-                <button type="submit" disabled={passwordLoading} style={{ ...saveBtnStyle, opacity: passwordLoading ? 0.7 : 1 }}>
-                  {passwordLoading ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button type="button" onClick={closeEdit} style={cancelBtnStyle}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div style={dividerStyle} />
-
-        {/* Subscription Row */}
-        <div
-          className="account-row"
-          style={rowStyle}
-          onClick={() => navigate('/subscription')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <div style={rowIconWrap('rgba(132, 204, 22, 0.1)')}>
-              <CreditCard size={20} color="#84cc16" />
+              </form>
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Subscription</div>
-              <div className="account-subscription-status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>{planName}</span>
-                <span style={{
-                  padding: '0.1rem 0.5rem', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase',
-                  background: planStatus === 'active' ? 'rgba(16, 185, 129, 0.1)' : planStatus === 'trialing' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(100, 116, 139, 0.1)',
-                  color: planStatus === 'active' ? '#10b981' : planStatus === 'trialing' ? '#f59e0b' : '#8b8a96',
-                }}>
-                  {planStatus === 'active' ? 'Active' : planStatus === 'trialing' ? 'Trial' : 'None'}
-                </span>
-              </div>
-              {subscriptionPeriod && (
-                <div style={{ fontSize: '0.82rem', color: 'var(--theme-text-muted)', marginTop: '0.25rem', fontWeight: 500 }}>
-                  {subscriptionPeriod}
+          )}
+
+          <div
+            className={`account-setting-row ${editingField === 'password' ? 'active' : ''}`}
+            onClick={() => editingField !== 'password' && openEdit('password')}
+          >
+            <div className="account-row-main">
+              <span className="account-row-icon amber">
+                <Lock size={20} />
+              </span>
+              <span>
+                <small>Password</small>
+                <strong>Password saved</strong>
+              </span>
+            </div>
+            <button type="button" className="account-inline-action" onClick={(e) => { e.stopPropagation(); openEdit('password'); }}>Edit</button>
+          </div>
+
+          {editingField === 'password' && (
+            <div className="account-edit-form">
+              {passwordMsg && <div className={`account-message ${passwordMsg.type}`}>{passwordMsg.text}</div>}
+              <form onSubmit={requestChangePassword}>
+                <label className="account-field">
+                  <span>New password</span>
+                  <div className="account-password-field">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      className="input-field"
+                      required
+                      minLength={6}
+                      autoFocus
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="account-visibility-button" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </label>
+                <label className="account-field">
+                  <span>Confirm new password</span>
+                  <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" className="input-field" required minLength={6} />
+                </label>
+                <div className="account-form-actions">
+                  <button type="submit" disabled={passwordLoading} className="btn-primary">
+                    {passwordLoading ? 'Saving...' : 'Save changes'}
+                  </button>
+                  <button type="button" onClick={closeEdit} className="btn-secondary">Cancel</button>
                 </div>
-              )}
+              </form>
             </div>
+          )}
+
+          <div className="account-setting-row navigates" onClick={() => navigate('/subscription')}>
+            <div className="account-row-main">
+              <span className="account-row-icon green">
+                <CreditCard size={20} />
+              </span>
+              <span>
+                <small>Subscription</small>
+                <strong>{planName}</strong>
+                {subscriptionPeriod && <em>{subscriptionPeriod}</em>}
+              </span>
+            </div>
+            <ChevronRight size={20} />
           </div>
-          <ChevronRight size={20} color="#6b7280" />
-        </div>
 
-        <div style={dividerStyle} />
+          <div className="account-setting-row navigates" onClick={() => navigate('/onboarding')}>
+            <div className="account-row-main">
+              <span className="account-row-icon">
+                <Settings size={20} />
+              </span>
+              <span>
+                <small>Diet and allergies</small>
+                <strong>Manage preferences</strong>
+              </span>
+            </div>
+            <ChevronRight size={20} />
+          </div>
 
-        {/* Diet & Allergies Row */}
-        <div
-          className="account-row"
-          style={rowStyle}
-          onClick={() => navigate('/onboarding')}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <div style={rowIconWrap('rgba(122, 94, 211, 0.15)')}>
-              <Settings size={20} color="#7a5ed3" />
+          <button type="button" className="account-signout-row" onClick={handleLogout}>
+            <span className="account-row-main">
+              <span className="account-row-icon danger">
+                <LogOut size={20} />
+              </span>
+              <span>
+                <strong>Sign out</strong>
+              </span>
+            </span>
+          </button>
+        </section>
+
+        <aside className="account-profile-panel" aria-label="Account summary">
+          <div className="account-profile-avatar">{accountInitial}</div>
+          <div>
+            <span className="account-kicker">Signed in as</span>
+            <h2>{accountEmail}</h2>
+            <p>{planName}</p>
+          </div>
+          <div className="account-profile-list">
+            <div>
+              <ShieldCheck size={18} />
+              <span>Password protected</span>
             </div>
             <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>Diet & Allergies</div>
-              <div style={{ fontSize: '1rem', color: 'var(--theme-text-main)', fontWeight: '500' }}>Manage preferences</div>
-            </div>
-          </div>
-          <ChevronRight size={20} color="#6b7280" />
-        </div>
-
-        <div style={dividerStyle} />
-
-        {/* Sign Out Row */}
-        <div
-          className="account-row"
-          style={{ ...rowStyle, cursor: 'pointer' }}
-          onClick={handleLogout}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.03)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <div className="account-row-main" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <div style={rowIconWrap('rgba(239, 68, 68, 0.1)')}>
-              <LogOut size={20} color="#ef4444" />
+              <CalendarDays size={18} />
+              <span>{subscriptionPeriod || 'Subscription dates unavailable'}</span>
             </div>
             <div>
-              <div style={{ fontSize: '1rem', color: '#ef4444', fontWeight: '600' }}>Sign Out</div>
+              <Settings size={18} />
+              <span>Preferences sync with Pantry and Magic Scan</span>
             </div>
           </div>
-        </div>
+          <button type="button" onClick={() => navigate('/onboarding')} className="btn-secondary">
+            <Settings size={17} /> Preferences
+          </button>
+        </aside>
       </div>
 
       <ConfirmModal
