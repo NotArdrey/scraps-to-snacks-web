@@ -1,12 +1,47 @@
 import { supabase } from '../lib/supabase';
 
+const CATEGORY_KEYWORDS = [
+  { category: 'Fruits', keywords: ['apple', 'banana', 'grape', 'orange', 'mango', 'berry', 'fruit'] },
+  { category: 'Vegetables', keywords: ['spinach', 'tomato', 'onion', 'garlic', 'carrot', 'lettuce', 'kale', 'pepper', 'mushroom'] },
+  { category: 'Meat', keywords: ['chicken', 'beef', 'pork', 'turkey', 'ham', 'sausage', 'bacon'] },
+  { category: 'Seafood', keywords: ['fish', 'shrimp', 'crab', 'tuna', 'salmon', 'shellfish'] },
+  { category: 'Protein', keywords: ['egg', 'tofu', 'tempeh'] },
+  { category: 'Dairy', keywords: ['milk', 'cheese', 'butter', 'cream', 'yogurt'] },
+  { category: 'Grains', keywords: ['rice', 'pasta', 'bread', 'flour', 'oats', 'noodle', 'cereal'] },
+  { category: 'Spices', keywords: ['salt', 'pepper', 'paprika', 'cumin', 'cinnamon', 'spice'] },
+  { category: 'Beverages', keywords: ['juice', 'coffee', 'tea', 'soda', 'water'] },
+  { category: 'Condiments', keywords: ['sauce', 'ketchup', 'mustard', 'vinegar', 'soy sauce', 'mayonnaise'] },
+  { category: 'Baking', keywords: ['sugar', 'yeast', 'baking powder', 'cocoa'] },
+  { category: 'Frozen', keywords: ['frozen'] },
+  { category: 'Canned', keywords: ['canned', 'can '] },
+];
+
+function titleCaseIngredientName(name) {
+  const cleanName = name?.trim().replace(/\s+/g, ' ');
+  if (!cleanName) return '';
+
+  const lower = cleanName.toLowerCase();
+  if (lower === 'egg' || lower === 'eggs') return 'Eggs';
+
+  return lower.replace(/\b[a-z]/g, letter => letter.toUpperCase());
+}
+
+export function inferIngredientCategory(name) {
+  const lowerName = name?.toLowerCase() || '';
+  const match = CATEGORY_KEYWORDS.find(({ keywords }) => (
+    keywords.some(keyword => lowerName.includes(keyword))
+  ));
+  return match?.category || null;
+}
+
 function firstRow(data) {
   return Array.isArray(data) ? data[0] || null : data || null;
 }
 
 export async function findOrCreateIngredient(name, unit, category) {
-  const cleanName = name?.trim();
+  const cleanName = titleCaseIngredientName(name);
   if (!cleanName) return null;
+  const finalCategory = category || inferIngredientCategory(cleanName);
 
   const { data: existingIngredients, error: findError } = await supabase
     .from('ingredients')
@@ -23,7 +58,7 @@ export async function findOrCreateIngredient(name, unit, category) {
 
   if (!ingredient) {
     const insertData = { canonical_name: cleanName, default_unit: unit || 'pcs' };
-    if (category) insertData.category = category;
+    if (finalCategory) insertData.category = finalCategory;
     const { data: newIngredients, error: insertError } = await supabase
       .from('ingredients')
       .insert(insertData)
@@ -56,12 +91,12 @@ function mapPantryItem(item) {
   return {
     id: item.id,
     ingredientId: item.ingredients.id,
-    name: item.ingredients.canonical_name,
+    name: titleCaseIngredientName(item.ingredients.canonical_name),
     quantity: Number(item.quantity),
     unit: item.unit || 'pcs',
     expires: item.expires_at ? item.expires_at.split('T')[0] : null,
     status: item.status,
-    category: item.ingredients.category,
+    category: item.ingredients.category || inferIngredientCategory(item.ingredients.canonical_name),
   };
 }
 
@@ -99,11 +134,12 @@ export async function insertPantryItem(householdId, userId, { name, quantity, un
 }
 
 export async function updatePantryItem(itemId, userId, { name, quantity, unit, category, expiresAt }) {
-  const cleanName = name?.trim();
+  const cleanName = titleCaseIngredientName(name);
   if (!cleanName) throw new Error('Ingredient name is required.');
 
   const cleanUnit = unit || 'pcs';
-  const ingredient = await findOrCreateIngredient(cleanName, cleanUnit, category);
+  const finalCategory = category || inferIngredientCategory(cleanName);
+  const ingredient = await findOrCreateIngredient(cleanName, cleanUnit, finalCategory);
   if (!ingredient) throw new Error('Failed to find or create ingredient.');
 
   const { error: ingredientError } = await supabase
@@ -111,7 +147,7 @@ export async function updatePantryItem(itemId, userId, { name, quantity, unit, c
     .update({
       canonical_name: cleanName,
       default_unit: cleanUnit,
-      category: category || null,
+      category: finalCategory || null,
     })
     .eq('id', ingredient.id);
 

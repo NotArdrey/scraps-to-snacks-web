@@ -39,6 +39,8 @@
       vertical-align: top;
     }
     th { background: #f3f6fa; }
+    a { color: #4b3fb5; text-decoration: none; }
+    strong { color: #172033; }
     dl {
       display: grid;
       grid-template-columns: 140px 1fr;
@@ -71,6 +73,19 @@
       margin: 14px 0;
       font-size: 13px;
     }
+    .presentation-section {
+      margin: 20px 0 28px;
+    }
+    .presentation-card {
+      border: 1px solid #d9e1ec;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .presentation-card h3 {
+      margin-top: 0;
+    }
   </style>
 </head>
 <body>
@@ -79,6 +94,261 @@
   </section>
 
   <p class="note">The root route <code>/</code> redirects guests to <code>/login</code> and signed-in users to the appropriate app area, so the screenshots below focus on the concrete routed screens.</p>
+
+  
+    <section class="presentation-section">
+      <h2>Previous System Updates</h2>
+      
+    <section class="presentation-card">
+      <h3>Secure Account Access and Recovery</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/01-login.png">Login</a>, <a href="./screenshots/02-register.png">Register</a>, <a href="./screenshots/03-reset-password.png">Reset Password</a>, <a href="./screenshots/11-account.png">Account</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> The system supports guest registration, returning-user login, password recovery, and authenticated account management.</p>
+      <p><strong>Discussion:</strong> This update established the user identity foundation. It separates guest-only routes from authenticated routes, gives users a recovery path when they lose access, and places account-level settings in one controlled area.</p>
+      <p><strong>Documentation notes:</strong> The screenshots show the full access journey: sign in, create account, recover password, and manage account settings after login.</p>
+    </section>
+  
+    <section class="presentation-card">
+      <h3>Paid Subscription and Checkout Flow</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/04-subscription.png">Subscription</a>, <a href="./screenshots/05-payment-success.png">Payment Success</a>, <a href="./screenshots/06-payment-cancel.png">Payment Cancel</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> The system includes paid plan selection, PayMongo checkout handling, and clear return screens for successful, pending, or canceled payment attempts.</p>
+      <p><strong>Discussion:</strong> This update protects premium app areas behind subscription status while giving users a visible path to recover from checkout cancellation or delayed payment confirmation.</p>
+      <p><strong>Documentation notes:</strong> The screenshots document plan selection, pending payment verification, and checkout cancellation recovery.</p>
+    </section>
+  
+    <section class="presentation-card">
+      <h3>Personalized Onboarding</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/07-onboarding.png">Onboarding</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> The onboarding flow collects diet preferences and allergy restrictions before users enter the pantry workflow.</p>
+      <p><strong>Discussion:</strong> This update makes recipe and ingredient experiences more relevant because the system can apply preferences before generating suggestions or validating scanned food items.</p>
+      <p><strong>Documentation notes:</strong> The screenshot captures the preference chips and the completion action used during first-run setup.</p>
+    </section>
+  
+    <section class="presentation-card">
+      <h3>Pantry Management and Magic Scan</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/08-pantry.png">Pantry</a>, <a href="./screenshots/09-magic-scan.png">Magic Scan</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> Users can manage household pantry items manually and start an AI-assisted image scanning workflow for ingredient capture.</p>
+      <p><strong>Discussion:</strong> This update forms the core food-waste reduction workflow. The pantry keeps ingredient records organized, while Magic Scan reduces manual entry by allowing users to upload or capture food images.</p>
+      <p><strong>Documentation notes:</strong> The screenshots show both the populated pantry workspace and the image upload entry point for AI scanning.</p>
+    </section>
+  
+    <section class="presentation-card">
+      <h3>Cookbook and Recipe Assistance</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/10-cookbook.png">Cookbook</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> The system stores saved recipes and provides a cookbook area for reviewing, editing, deleting, and getting recipe help.</p>
+      <p><strong>Discussion:</strong> This update connects pantry ingredients to reusable cooking outcomes. Users can preserve generated recipes, review instructions, and keep practical meal ideas available after the first generation.</p>
+      <p><strong>Documentation notes:</strong> The screenshot displays a populated cookbook state so saved recipes and actions are visible.</p>
+    </section>
+  
+    <section class="presentation-card">
+      <h3>Admin Management Console</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/12-admin-dashboard.png">Admin Dashboard</a>, <a href="./screenshots/13-admin-users.png">Admin Users</a>, <a href="./screenshots/14-admin-plans.png">Admin Plans</a>, <a href="./screenshots/15-admin-pantry.png">Admin Pantry</a>, <a href="./screenshots/16-admin-recipes.png">Admin Recipes</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> Admins have a dedicated console for system metrics, user records, subscription plans, pantry data, and recipes.</p>
+      <p><strong>Discussion:</strong> This update gives operators a single place to review activity and maintain system data. It supports both monitoring and direct management of records used by the public app.</p>
+      <p><strong>Documentation notes:</strong> The screenshots cover every admin sidebar section so the documentation includes the complete admin surface.</p>
+    </section>
+  
+    <section class="presentation-card">
+      <h3>Supabase Data and Payment Backend Hardening</h3>
+      <dl>
+        <dt>Status</dt><dd>Implemented</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/04-subscription.png">Subscription</a>, <a href="./screenshots/05-payment-success.png">Payment Success</a>, <a href="./screenshots/13-admin-users.png">Admin Users</a></dd>
+      </dl>
+      <p><strong>Update summary:</strong> Database migrations and Edge Functions support checkout sessions, subscription records, personal household setup, and safer admin user deletion flows.</p>
+      <p><strong>Discussion:</strong> This update strengthens the data layer behind the visible screens. It keeps subscriptions, households, checkout attempts, and admin maintenance behavior aligned with the frontend routes.</p>
+      <p><strong>Documentation notes:</strong> The related screenshots show the user-facing and admin-facing areas most directly supported by the backend changes.</p>
+    </section>
+  
+    </section>
+
+    <section class="presentation-section">
+      <h2>Latest System Update</h2>
+      <dl>
+        <dt>Date added</dt><dd>May 9, 2026</dd>
+        <dt>Update title</dt><dd>Visual System Documentation and Update Presentation</dd>
+        <dt>Status</dt><dd>Added today</dd>
+        <dt>Screenshots</dt><dd><a href="./screenshots/12-admin-dashboard.png">Admin Dashboard</a>, <a href="./screenshots/16-admin-recipes.png">Admin Recipes</a></dd>
+      </dl>
+      <p><strong>Feature added today:</strong> A complete presentation-ready documentation layer that explains previous updates, identifies the latest update, and pairs system screenshots with clear discussion.</p>
+      <p><strong>Purpose:</strong> This update turns the page screenshot bundle into a structured system presentation. It is designed for reviewers who need to understand what the system already has, what was added most recently, and how each screenshot proves or explains the feature.</p>
+      <h3>What Was Added Today</h3>
+      <ul><li>Added a Previous System Updates section with explanations for completed system features.</li><li>Added a Latest System Update section dated May 9, 2026.</li><li>Added a Screenshot and Documentation Coverage section so every screenshot has a labeled explanation.</li><li>Kept the detailed page-by-page documentation with route, access, user flow, detected page structure, notes, and full screenshots.</li></ul>
+      <h3>Latest Update Discussion</h3>
+      <p>The newest update is documentation-focused rather than a new business workflow. It improves the system presentation by connecting screenshots to feature history, current functionality, and review requirements.</p>
+      <h3>Latest Update Screenshot Discussion</h3>
+      <ul><li><strong>Admin Dashboard:</strong> Admin landing section for high-level metrics and operational shortcuts. This is the default admin section shown when an admin opens the /admin route.</li><li><strong>Admin Recipes:</strong> Admin recipe-maintenance section reached from the Recipes item in the sidebar. This section documents the final sidebar destination that was missing from the earlier admin capture.</li></ul>
+    </section>
+
+    <section class="presentation-section">
+      <h2>Screenshots and Documentation Coverage</h2>
+      <p>The table below labels every screenshot included in this documentation bundle and explains what each image demonstrates. Full-size screenshots and page-level discussions appear in the detailed sections after the page index.</p>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Screenshot</th><th>What It Shows</th><th>Discussion</th></tr>
+        </thead>
+        <tbody>
+    <tr>
+      <td>1</td>
+      <td><a href="./screenshots/01-login.png">Login</a></td>
+      <td>Public sign-in screen for returning users.</td>
+      <td>This page is the main entry point for existing users. Error and notice alerts appear above the form after login or password-reset actions.</td>
+    </tr>
+  
+    <tr>
+      <td>2</td>
+      <td><a href="./screenshots/02-register.png">Register</a></td>
+      <td>Public account creation and paid plan selection flow.</td>
+      <td>The visual documentation uses seeded plan data so the page can be captured even without a live Supabase subscription_plans table.</td>
+    </tr>
+  
+    <tr>
+      <td>3</td>
+      <td><a href="./screenshots/03-reset-password.png">Reset Password</a></td>
+      <td>Password recovery screen shown from a valid recovery link.</td>
+      <td>The screenshot is captured with recovery parameters so the form is enabled instead of showing an expired-link state.</td>
+    </tr>
+  
+    <tr>
+      <td>4</td>
+      <td><a href="./screenshots/04-subscription.png">Subscription</a></td>
+      <td>Plan selection page for authenticated users without active access.</td>
+      <td>This capture shows the pre-subscription state because it is the most important gated access screen.</td>
+    </tr>
+  
+    <tr>
+      <td>5</td>
+      <td><a href="./screenshots/05-payment-success.png">Payment Success</a></td>
+      <td>PayMongo return page while payment confirmation is pending.</td>
+      <td>The screenshot intentionally shows the pending state because it is visible before automatic verification or redirect completes.</td>
+    </tr>
+  
+    <tr>
+      <td>6</td>
+      <td><a href="./screenshots/06-payment-cancel.png">Payment Cancel</a></td>
+      <td>Checkout cancellation page with retry and plan navigation.</td>
+      <td>This screen prevents users from feeling stuck after leaving the external payment provider.</td>
+    </tr>
+  
+    <tr>
+      <td>7</td>
+      <td><a href="./screenshots/07-onboarding.png">Onboarding</a></td>
+      <td>Diet and allergy preference setup before entering the app.</td>
+      <td>The app reuses this route later as a preferences editor, but this capture shows the first-run onboarding version.</td>
+    </tr>
+  
+    <tr>
+      <td>8</td>
+      <td><a href="./screenshots/08-pantry.png">Pantry</a></td>
+      <td>Household pantry management and recipe generation workspace.</td>
+      <td>This is the core productivity page for reducing food waste. Mock pantry data includes varied expiration dates to show table badges and actions.</td>
+    </tr>
+  
+    <tr>
+      <td>9</td>
+      <td><a href="./screenshots/09-magic-scan.png">Magic Scan</a></td>
+      <td>Image upload and camera entry point for ingredient scanning.</td>
+      <td>The screenshot captures the idle upload state. Detection results appear after a user chooses an image.</td>
+    </tr>
+  
+    <tr>
+      <td>10</td>
+      <td><a href="./screenshots/10-cookbook.png">Cookbook</a></td>
+      <td>Saved AI recipes and cookbook management.</td>
+      <td>Mock saved recipes are included so the documentation shows the populated cookbook state instead of the empty state.</td>
+    </tr>
+  
+    <tr>
+      <td>11</td>
+      <td><a href="./screenshots/11-account.png">Account</a></td>
+      <td>Profile, password, subscription, preferences, and sign-out controls.</td>
+      <td>This page acts as the navigation hub for account-level settings and billing/preferences management.</td>
+    </tr>
+  
+    <tr>
+      <td>12</td>
+      <td><a href="./screenshots/12-admin-dashboard.png">Admin Dashboard</a></td>
+      <td>Admin landing section for high-level metrics and operational shortcuts.</td>
+      <td>This is the default admin section shown when an admin opens the /admin route.</td>
+    </tr>
+  
+    <tr>
+      <td>13</td>
+      <td><a href="./screenshots/13-admin-users.png">Admin Users</a></td>
+      <td>Admin user-management section reached from the Users item in the sidebar.</td>
+      <td>This section is not a separate React Router page; it is a sidebar-driven tab inside Admin, so the documentation labels it as an admin section.</td>
+    </tr>
+  
+    <tr>
+      <td>14</td>
+      <td><a href="./screenshots/14-admin-plans.png">Admin Plans</a></td>
+      <td>Admin plan-management section reached from the Plans item in the sidebar.</td>
+      <td>These plan records feed the public registration and subscription pages, so this section is part of the app configuration surface.</td>
+    </tr>
+  
+    <tr>
+      <td>15</td>
+      <td><a href="./screenshots/15-admin-pantry.png">Admin Pantry</a></td>
+      <td>Admin pantry-inspection section reached from the Pantry item in the sidebar.</td>
+      <td>This admin section supports operational review of household pantry data and is separate from the user-facing Pantry page.</td>
+    </tr>
+  
+    <tr>
+      <td>16</td>
+      <td><a href="./screenshots/16-admin-recipes.png">Admin Recipes</a></td>
+      <td>Admin recipe-maintenance section reached from the Recipes item in the sidebar.</td>
+      <td>This section documents the final sidebar destination that was missing from the earlier admin capture.</td>
+    </tr>
+  </tbody>
+      </table>
+    </section>
+
+    <section class="presentation-section">
+      <h2>Presentation Requirements Checklist</h2>
+      <table>
+        <thead>
+          <tr><th>Requirement</th><th>Documentation Evidence</th></tr>
+        </thead>
+        <tbody>
+    <tr>
+      <td>Previous System Updates</td>
+      <td>Covered through grouped update summaries for authentication, checkout, onboarding, pantry, scanning, cookbook, admin, and backend hardening.</td>
+    </tr>
+  
+    <tr>
+      <td>Latest System Update</td>
+      <td>Documented as the Visual System Documentation and Update Presentation update added on May 9, 2026.</td>
+    </tr>
+  
+    <tr>
+      <td>Screenshots and Documentation</td>
+      <td>Every captured page screenshot is included in the detailed page sections and summarized in the coverage table.</td>
+    </tr>
+  
+    <tr>
+      <td>Clear Formatting</td>
+      <td>The document uses labeled headings, tables, route metadata, user-flow notes, screenshot discussions, and export-ready HTML, DOC, and PDF output.</td>
+    </tr>
+  </tbody>
+      </table>
+    </section>
+  
 
   <h2>Page Index</h2>
   <table>
@@ -507,8 +777,8 @@
         <ul><li>Sidebar remains visible so admins can move between dashboard sections.</li><li>Users table lists account identity, role, subscription status, plan information, and account dates.</li><li>Row actions expose editing and deletion controls for individual user records.</li><li>Role and subscription controls help admins correct access or support account issues.</li></ul>
         <h3>Detected Page Structure</h3>
         <dl>
-          <dt>Key headings</dt><dd>None detected</dd>
-          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out</dd>
+          <dt>Key headings</dt><dd>Users</dd>
+          <dt>Visible buttons/actions</dt><dd>Dashboard, Users, Plans, Pantry, Recipes, Light Mode, Sign Out, Clean Auth Mismatches</dd>
           <dt>Inputs/selects</dt><dd>None detected</dd>
         </dl>
         <h3>Documentation Notes</h3>

@@ -6,6 +6,7 @@ const CATEGORIES = [
   "Vegetables",
   "Meat",
   "Seafood",
+  "Protein",
   "Dairy",
   "Grains",
   "Spices",

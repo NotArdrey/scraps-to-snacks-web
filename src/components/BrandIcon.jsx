@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 export default function BrandIcon({ size = 36 }) {
+  const uid = useId().replace(/:/g, '');
+  const bgId = `brand-bg-${uid}`;
+  const leafId = `brand-leaf-${uid}`;
+  const warmId = `brand-warm-${uid}`;
+
   return (
     <svg
       width={size}
@@ -12,50 +17,61 @@ export default function BrandIcon({ size = 36 }) {
       style={{ display: 'inline-block', flexShrink: 0 }}
     >
       <defs>
-        <linearGradient id="brand-icon-bg" x1="10" y1="8" x2="55" y2="58" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#7a5ed3" />
-          <stop offset="1" stopColor="#10b981" />
+        <linearGradient id={bgId} x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#20291d" />
+          <stop offset="1" stopColor="#10130f" />
         </linearGradient>
-        <linearGradient id="brand-icon-leaf" x1="26" y1="14" x2="44" y2="34" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#d9f99d" />
-          <stop offset="1" stopColor="#ffffff" />
+        <linearGradient id={leafId} x1="20" y1="17" x2="43" y2="41" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#35c184" />
+          <stop offset="1" stopColor="#3d9b63" />
+        </linearGradient>
+        <linearGradient id={warmId} x1="41" y1="14" x2="52" y2="27" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#f2b544" />
+          <stop offset="1" stopColor="#e4572e" />
         </linearGradient>
       </defs>
-      <rect width="64" height="64" rx="16" fill="url(#brand-icon-bg)" />
+      <rect x="3" y="3" width="58" height="58" rx="10" fill={`url(#${bgId})`} />
+      <rect x="3.75" y="3.75" width="56.5" height="56.5" rx="9.25" stroke="#f7f8f2" strokeOpacity="0.14" strokeWidth="1.5" />
       <path
-        d="M18 34.5h28c0 8.1-6.1 14.5-14 14.5s-14-6.4-14-14.5Z"
+        d="M16 34.5h32c-1 10.3-7.8 17-16 17s-15-6.7-16-17Z"
+        fill="#f7f8f2"
+      />
+      <path
+        d="M15 33.2c0-2.6 2.1-4.7 4.7-4.7h24.6c2.6 0 4.7 2.1 4.7 4.7v1.6H15v-1.6Z"
         fill="#ffffff"
       />
       <path
-        d="M16 33.5c0-2.2 1.8-4 4-4h24c2.2 0 4 1.8 4 4v1H16v-1Z"
-        fill="#f5f3ff"
-      />
-      <path
-        d="M23 38.8c2 3 5.3 4.7 9 4.7 3.8 0 7.1-1.7 9.1-4.7"
-        stroke="#7a5ed3"
-        strokeWidth="2.5"
+        d="M24 39.4c2.1 2.5 4.8 3.8 8 3.8s5.9-1.3 8-3.8"
+        stroke="#3d9b63"
+        strokeWidth="2.75"
         strokeLinecap="round"
-        opacity="0.28"
+        opacity="0.36"
       />
       <path
-        d="M32 29.5c-1.1-8 3.4-14.3 11.4-16.5 1.1 7.6-3.4 14.8-11.4 16.5Z"
-        fill="url(#brand-icon-leaf)"
+        d="M30.4 29.2c-3.3-6.7-1-13.7 6-18.2 3.7 7.1 1.4 14.5-6 18.2Z"
+        fill={`url(#${leafId})`}
       />
       <path
-        d="M32.1 29.1c1.8-4.7 5.2-8.6 10.3-11.5"
-        stroke="#10b981"
-        strokeWidth="2"
+        d="M31.1 28.2c1.2-4.5 3-8.1 5.5-10.9"
+        stroke="#eaffdf"
+        strokeWidth="2.1"
         strokeLinecap="round"
-        opacity="0.75"
+        opacity="0.64"
       />
       <path
-        d="M21.5 20.5c3.7.4 6.9 3.5 7.5 7.4-4.1.2-7.4-2.8-7.5-7.4Z"
-        fill="#ffffff"
-        opacity="0.72"
+        d="M22 24.5c3.6-.1 6.6 2.3 7.7 6-4.2.7-7.4-1.9-7.7-6Z"
+        fill="#3d9b63"
       />
       <path
-        d="m48.5 12.5 1.4 3 3.1.5-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.5-3.1-2.2-2.2 3.1-.5 1.4-3Z"
-        fill="#fbbf24"
+        d="M18 27c-.3-5.4 3.2-9.1 9-9.8"
+        stroke="#f2b544"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray="0.1 6"
+      />
+      <path
+        d="m46.3 13.5 1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5 1.6-3.3Z"
+        fill={`url(#${warmId})`}
       />
     </svg>
   );
