@@ -157,7 +157,7 @@ test('admin pantry items support create, read, update, and delete', async ({ pag
   await modal.locator('input').nth(1).fill('8');
   await modal.locator('select').nth(1).selectOption('cups');
   await modal.locator('select').nth(2).selectOption('Grains');
-  await modal.locator('input').nth(2).fill('2026-07-05');
+  await modal.locator('input[type="date"]').fill('2026-07-05');
   await modal.locator('button[type="submit"]').click();
   await dismissFeedback(page);
 
