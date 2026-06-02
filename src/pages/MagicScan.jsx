@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useCallback, useEffect, useRef } from 'react';
 import { Camera, Check, AlertTriangle, Trash2, ShieldAlert, Upload, PackageCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContextValue';
@@ -41,6 +41,9 @@ export default function MagicScan() {
   const { activeAllergyNames, allergyDisplayNames, preferenceTags, recipePreferenceText } = usePreferences(user);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const cameraVideoRef = useRef(null);
+  const cameraCanvasRef = useRef(null);
+  const cameraStreamRef = useRef(null);
   const prevPreviewRef = useRef(null);
 
   const [status, setStatus] = useState('idle');
@@ -48,10 +51,38 @@ export default function MagicScan() {
   const [saving, setSaving] = useState(false);
   const [scanError, setScanError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [filteredCount, setFilteredCount] = useState(0);
   const [feedback, setFeedback] = useState(null);
+
+  const stopCamera = useCallback(() => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(track => track.stop());
+      cameraStreamRef.current = null;
+    }
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+
+    setCameraActive(false);
+    setCameraReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (!cameraActive || !cameraVideoRef.current || !cameraStreamRef.current) return;
+
+    const video = cameraVideoRef.current;
+    video.srcObject = cameraStreamRef.current;
+    video.play().catch(() => {
+      setScanError('Camera preview could not start. Please try Take photo again or upload an image.');
+    });
+  }, [cameraActive]);
+
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
   if (!user || !householdId) {
     return (
@@ -105,16 +136,13 @@ export default function MagicScan() {
     }
   };
 
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processImageFile = async (file) => {
     if (!file.type.startsWith('image/')) {
       setScanError('Please upload an image file.');
-      e.target.value = '';
       return;
     }
 
+    stopCamera();
     setStatus('scanning');
     setScanError(null);
     setDetections([]);
@@ -125,8 +153,6 @@ export default function MagicScan() {
     const preview = URL.createObjectURL(file);
     setPreviewUrl(preview);
     prevPreviewRef.current = preview;
-
-    e.target.value = '';
 
     try {
       const base64 = await fileToBase64(file);
@@ -147,6 +173,69 @@ export default function MagicScan() {
       setScanError(err.message);
       setStatus('idle');
     }
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await processImageFile(file);
+    e.target.value = '';
+  };
+
+  const handleStartCamera = async () => {
+    setScanError(null);
+    setSaveError(null);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+
+      revokePreview();
+      setPreviewUrl(null);
+      setDetections([]);
+      setFilteredCount(0);
+      cameraStreamRef.current = stream;
+      setCameraActive(true);
+    } catch {
+      setScanError('Camera access was blocked or unavailable. You can still choose a photo from your device.');
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const handleCapturePhoto = () => {
+    const video = cameraVideoRef.current;
+    const canvas = cameraCanvasRef.current;
+
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      setScanError('Camera is still starting. Please try again in a moment.');
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        setScanError('Could not capture a photo. Please try again.');
+        return;
+      }
+
+      const file = new File([blob], `magic-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      await processImageFile(file);
+    }, 'image/jpeg', 0.92);
   };
 
   const handleSaveToPantry = () => {
@@ -212,6 +301,7 @@ export default function MagicScan() {
 
   const handleResetScan = () => {
     setStatus('idle');
+    stopCamera();
     revokePreview();
     setPreviewUrl(null);
     setScanError(null);
@@ -307,8 +397,25 @@ export default function MagicScan() {
             <p>{previewUrl ? 'Preview stays here while detections are reviewed.' : 'Use a fridge, pantry, grocery, or leftover photo.'}</p>
           </div>
 
-          <button type="button" className="scan-capture-dropzone" onClick={() => fileInputRef.current?.click()}>
-            {previewUrl ? (
+          <button
+            type="button"
+            className={`scan-capture-dropzone ${cameraActive ? 'camera-active' : ''}`}
+            onClick={() => {
+              if (!cameraActive) fileInputRef.current?.click();
+            }}
+          >
+            {cameraActive ? (
+              <span className="scan-camera-preview">
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  onLoadedMetadata={() => setCameraReady(true)}
+                  aria-label="Camera preview"
+                />
+              </span>
+            ) : previewUrl ? (
               <img src={previewUrl} alt="Selected ingredients" />
             ) : (
               <span>
@@ -324,14 +431,28 @@ export default function MagicScan() {
               </div>
             )}
           </button>
+          <canvas ref={cameraCanvasRef} className="scan-camera-canvas" aria-hidden="true" />
 
           <div className="scan-capture-actions">
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-primary">
-              <Upload size={17} /> Upload image
-            </button>
-            <button type="button" onClick={() => cameraInputRef.current?.click()} className="btn-secondary">
-              <Camera size={17} /> Take photo
-            </button>
+            {cameraActive ? (
+              <>
+                <button type="button" onClick={handleCapturePhoto} className="btn-primary" disabled={!cameraReady || status === 'scanning'}>
+                  <Camera size={17} /> Capture photo
+                </button>
+                <button type="button" onClick={stopCamera} className="btn-secondary">
+                  Close camera
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-primary">
+                  <Upload size={17} /> Upload image
+                </button>
+                <button type="button" onClick={handleStartCamera} className="btn-secondary">
+                  <Camera size={17} /> Take photo
+                </button>
+              </>
+            )}
           </div>
         </section>
 
