@@ -15,6 +15,7 @@ import {
 } from '../../services/admin';
 import { formatPlanPrice } from '../../services/subscription';
 import { AppContext } from '../../AppContextValue';
+import { supabase } from '../../lib/supabase';
 import BrandIcon from '../../components/BrandIcon';
 import ConfirmModal from '../../components/ConfirmModal';
 import FeedbackModal from '../../components/FeedbackModal';
@@ -45,24 +46,61 @@ export default function Admin() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [statsData, usersData, plansData, pantryData, recipesData, householdData] = await Promise.all([
-      fetchAdminStats(), fetchAllUsers(), fetchAllPlans(),
-      fetchAllPantryItems(), fetchAllRecipes(), fetchAllHouseholds(),
+  const loadData = useCallback(async ({ showLoading = false } = {}) => {
+    if (showLoading) setLoading(true);
+
+    const results = await Promise.allSettled([
+      fetchAdminStats(),
+      fetchAllUsers(),
+      fetchAllPlans(),
+      fetchAllPantryItems(),
+      fetchAllRecipes(),
+      fetchAllHouseholds(),
     ]);
-    setStats(statsData);
-    setUsers(usersData);
-    setPlans(plansData);
-    setPantryItems(pantryData);
-    setRecipes(recipesData);
-    setHouseholds(householdData);
-    setLoading(false);
+
+    const [statsResult, usersResult, plansResult, pantryResult, recipesResult, householdsResult] = results;
+
+    if (statsResult.status === 'fulfilled') setStats(statsResult.value);
+    if (usersResult.status === 'fulfilled') setUsers(usersResult.value);
+    if (plansResult.status === 'fulfilled') setPlans(plansResult.value);
+    if (pantryResult.status === 'fulfilled') setPantryItems(pantryResult.value);
+    if (recipesResult.status === 'fulfilled') setRecipes(recipesResult.value);
+    if (householdsResult.status === 'fulfilled') setHouseholds(householdsResult.value);
+
+    const failedResult = results.find(result => result.status === 'rejected');
+    if (failedResult) {
+      console.error('Admin dashboard fetch failed:', failedResult.reason);
+      setFeedback({
+        title: 'Dashboard refresh incomplete',
+        message: 'Some admin data could not be refreshed. Please try again.',
+        variant: 'error',
+      });
+    }
+
+    if (showLoading) setLoading(false);
   }, []);
 
   useEffect(() => {
-    const timeoutId = setTimeout(loadData, 0);
+    const timeoutId = setTimeout(() => loadData({ showLoading: true }), 0);
     return () => clearTimeout(timeoutId);
+  }, [loadData]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-dashboard-live-data')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_user_profiles' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pantry_items' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ingredients' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recipe_ingredients' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'household_members' }, () => loadData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [loadData]);
 
   const handleTogglePlan = async (planId, currentActive) => {
@@ -168,7 +206,7 @@ export default function Admin() {
       </aside>
 
       <main className="admin-main">
-        {activeTab === 'stats' && <StatsTab stats={stats} users={users} plans={plans} pantryItems={pantryItems} recipes={recipes} onNavigate={openTab} onAction={triggerAction} onRefresh={loadData} />}
+        {activeTab === 'stats' && <StatsTab stats={stats} users={users} plans={plans} pantryItems={pantryItems} recipes={recipes} onNavigate={openTab} onAction={triggerAction} onRefresh={() => loadData({ showLoading: true })} />}
         {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} plans={plans} currentUserId={user?.id} formatDate={formatDate} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} />}
         {activeTab === 'plans' && <PlansTab plans={plans} setPlans={setPlans} onToggle={handleTogglePlan} badgeStyle={badgeStyle} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'plans' ? pendingAction : null} />}
         {activeTab === 'pantry' && <PantryTab items={pantryItems} setItems={setPantryItems} households={households} userId={user?.id} formatDate={formatDate} panelStyle={panelStyle} thStyle={thStyle} tdStyle={tdStyle} showConfirm={showConfirm} showFeedback={showFeedback} pendingAction={pendingAction?.tabKey === 'pantry' ? pendingAction : null} />}
