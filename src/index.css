@@ -6099,6 +6099,15 @@ input[type="checkbox"]:checked {
   margin: 0;
 }
 
+.pantry-controls input {
+  padding-inline: 0.95rem;
+}
+
+.pantry-controls select {
+  padding: 0 2.5rem 0 0.95rem !important;
+  background-position: right 0.95rem center !important;
+}
+
 .pantry-row:hover,
 .pantry-row.selected {
   background: var(--surface-hover) !important;

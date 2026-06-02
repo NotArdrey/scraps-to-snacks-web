@@ -13,6 +13,11 @@ function pluralize(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function normalizeScanUnit(unit) {
+  const normalizedUnit = String(unit || '').trim().toLowerCase();
+  return UNITS.find(option => option.toLowerCase() === normalizedUnit) || 'pcs';
+}
+
 function getFreshnessLabel(freshness) {
   if (freshness === 'fresh') return 'Fresh';
   if (freshness === 'good') return 'Good';
@@ -81,7 +86,7 @@ export default function MagicScan() {
             allergyConflict: v.allergyConflict || false,
             warning: v.warning || null,
             freshnessWarning: v.freshnessWarning || null,
-            unit: 'pcs',
+            unit: normalizeScanUnit(v.suggestedUnit),
           };
         } catch {
           return { ...d, category: null, expiresAt: null, dietConflict: false, allergyConflict: false, warning: null, freshnessWarning: null, unit: 'pcs' };

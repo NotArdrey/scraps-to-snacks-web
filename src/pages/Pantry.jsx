@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useContext } from 'react';
+import React, { useEffect, useMemo, useState, useContext, useRef } from 'react';
 import { Plus, Trash2, ChefHat, Sparkles, Save, Flame, X, AlertTriangle, ShieldCheck, Pencil, Check, Search, Filter, CalendarDays, PackageCheck, ShieldAlert, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../AppContextValue';
@@ -151,6 +151,58 @@ function getStorageSuggestion(category) {
   return 'Pantry';
 }
 
+function matchesAnyTerm(value, terms) {
+  const normalized = ` ${String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
+  return terms.some(term => normalized.includes(` ${term} `));
+}
+
+function inferIngredientUnit(name, category) {
+  const lowerName = String(name || '').toLowerCase();
+
+  if (/\b(kilograms?|kilos?|kg)\b/.test(lowerName)) return 'kg';
+  if (/\b(grams?|g)\b/.test(lowerName)) return 'g';
+  if (/\b(pounds?|lbs?|lb)\b/.test(lowerName)) return 'lbs';
+  if (/\b(ounces?|oz)\b/.test(lowerName)) return 'oz';
+  if (/\b(liters?|litres?|l)\b/.test(lowerName)) return 'L';
+  if (/\b(milliliters?|millilitres?|ml)\b/.test(lowerName)) return 'mL';
+  if (/\b(cups?)\b/.test(lowerName)) return 'cups';
+  if (/\b(tablespoons?|tbsp)\b/.test(lowerName)) return 'tbsp';
+  if (/\b(teaspoons?|tsp)\b/.test(lowerName)) return 'tsp';
+
+  if (matchesAnyTerm(name, [
+    'milk', 'juice', 'water', 'soda', 'oil', 'vinegar', 'sauce', 'ketchup',
+    'mustard', 'mayonnaise', 'broth', 'stock', 'wine', 'cream', 'yogurt',
+    'coconut milk', 'soy milk', 'almond milk',
+  ])) return 'L';
+
+  if (matchesAnyTerm(name, [
+    'salt', 'pepper', 'paprika', 'cumin', 'cinnamon', 'oregano', 'basil',
+    'thyme', 'turmeric', 'chili', 'cayenne', 'seasoning', 'spice',
+    'baking powder', 'baking soda', 'yeast', 'cocoa', 'gelatin',
+  ])) return 'g';
+
+  if (matchesAnyTerm(name, [
+    'rice', 'flour', 'sugar', 'pasta', 'noodles', 'oats', 'cereal',
+    'beans', 'lentils', 'quinoa', 'cornmeal', 'breadcrumbs',
+  ])) return 'kg';
+
+  if (matchesAnyTerm(name, [
+    'chicken', 'beef', 'pork', 'turkey', 'fish', 'salmon', 'tuna',
+    'shrimp', 'crab', 'meat', 'bacon', 'sausage',
+  ])) return 'kg';
+
+  if (category === 'Beverages' || category === 'Condiments') return 'L';
+  if (category === 'Spices') return 'g';
+  if (['Grains', 'Baking', 'Meat', 'Seafood'].includes(category)) return 'kg';
+
+  return 'pcs';
+}
+
+function normalizePantryUnit(unit) {
+  const normalizedUnit = String(unit || '').trim().toLowerCase();
+  return UNITS.find(option => option.toLowerCase() === normalizedUnit) || null;
+}
+
 function formatQuantity(quantity) {
   return Number.isInteger(quantity) ? quantity : Number(quantity).toFixed(1).replace(/\.0$/, '');
 }
@@ -169,6 +221,8 @@ export default function Pantry() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemUnit, setNewItemUnit] = useState('pcs');
+  const [newItemUnitTouched, setNewItemUnitTouched] = useState(false);
+  const [unitSuggestionLoading, setUnitSuggestionLoading] = useState(false);
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemExpires, setNewItemExpires] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
@@ -191,6 +245,7 @@ export default function Pantry() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortMode, setSortMode] = useState('expires-asc');
+  const unitSuggestionRequestRef = useRef(0);
 
   const allergyTerms = useMemo(() => (
     [...new Set(
@@ -333,6 +388,35 @@ export default function Pantry() {
     });
   }, [items]);
 
+  useEffect(() => {
+    if (newItemUnitTouched) return;
+    const inferredCategory = newItemCategory || inferIngredientCategory(newItemName);
+    setNewItemUnit(inferIngredientUnit(newItemName, inferredCategory));
+  }, [newItemCategory, newItemName, newItemUnitTouched]);
+
+  const handleSuggestUnit = async () => {
+    const trimmedName = newItemName.trim();
+    if (!trimmedName || newItemUnitTouched) return;
+
+    const requestId = unitSuggestionRequestRef.current + 1;
+    unitSuggestionRequestRef.current = requestId;
+    setUnitSuggestionLoading(true);
+
+    try {
+      const validation = await validateIngredient(trimmedName, recipePreferenceText, activeAllergyNames);
+      const suggestedUnit = normalizePantryUnit(validation?.suggestedUnit);
+
+      if (requestId !== unitSuggestionRequestRef.current || newItemUnitTouched || !suggestedUnit) return;
+      setNewItemUnit(suggestedUnit);
+    } catch {
+      // Keep the local unit guess if AI unit suggestion is unavailable.
+    } finally {
+      if (requestId === unitSuggestionRequestRef.current) {
+        setUnitSuggestionLoading(false);
+      }
+    }
+  };
+
   const handleAddItem = async (e) => {
     e.preventDefault();
     if (!newItemName) return;
@@ -352,10 +436,13 @@ export default function Pantry() {
       const finalName = validation.correctedName || newItemName;
       const finalCategory = newItemCategory || validation.category || null;
       const finalExpiry = newItemExpires || validation.estimatedExpiryDate || null;
+      const finalUnit = newItemUnitTouched
+        ? newItemUnit
+        : normalizePantryUnit(validation.suggestedUnit) || inferIngredientUnit(finalName, finalCategory);
       const itemData = {
         name: finalName,
         quantity: newItemQuantity,
-        unit: newItemUnit,
+        unit: finalUnit,
         category: finalCategory,
         expiresAt: finalExpiry,
       };
@@ -391,9 +478,12 @@ export default function Pantry() {
   };
 
   const resetForm = () => {
+    unitSuggestionRequestRef.current += 1;
     setNewItemName('');
     setNewItemQuantity(1);
     setNewItemUnit('pcs');
+    setNewItemUnitTouched(false);
+    setUnitSuggestionLoading(false);
     setNewItemCategory('');
     setNewItemExpires('');
   };
@@ -699,15 +789,15 @@ export default function Pantry() {
           <div className="pantry-add-fields">
             <div className="input-container" style={{ flex: 2, minWidth: '180px', margin: 0 }}>
               <label htmlFor="add-item" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Ingredient Name</label>
-              <input type="text" id="add-item" className="input-field" placeholder="E.g., apples, eggs, red grapes..." value={newItemName} onChange={e => { setNewItemName(e.target.value); setAddError(null); }} />
+              <input type="text" id="add-item" className="input-field" placeholder="E.g., apples, eggs, red grapes..." value={newItemName} onChange={e => { unitSuggestionRequestRef.current += 1; setUnitSuggestionLoading(false); setNewItemName(e.target.value); setAddError(null); }} onBlur={handleSuggestUnit} />
             </div>
             <div className="input-container" style={{ flex: '0 0 88px', minWidth: '88px', margin: 0 }}>
               <label htmlFor="add-qty" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Qty</label>
               <input type="number" id="add-qty" className="input-field" min="0.1" step="0.1" value={newItemQuantity} onChange={e => setNewItemQuantity(Math.max(0.1, Number(e.target.value) || 0.1))} />
             </div>
             <div className="input-container" style={{ flex: '0 0 100px', minWidth: '100px', margin: 0 }}>
-              <label htmlFor="add-unit" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>Unit</label>
-              <select id="add-unit" className="input-field" value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}>
+              <label htmlFor="add-unit" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block', fontWeight: '500' }}>{unitSuggestionLoading ? 'Unit...' : 'Unit'}</label>
+              <select id="add-unit" className="input-field" value={newItemUnit} onChange={e => { unitSuggestionRequestRef.current += 1; setUnitSuggestionLoading(false); setNewItemUnit(e.target.value); setNewItemUnitTouched(true); }}>
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>

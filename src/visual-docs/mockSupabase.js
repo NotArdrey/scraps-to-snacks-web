@@ -281,6 +281,14 @@ function inferMockCategory(name) {
   return categoryMap.find(({ keywords }) => keywords.some(keyword => lowerName.includes(keyword)))?.category || 'Other';
 }
 
+function inferMockUnit(name) {
+  const lowerName = name?.toLowerCase() || '';
+  if (['milk', 'juice', 'water', 'oil', 'vinegar', 'sauce'].some(keyword => lowerName.includes(keyword))) return 'L';
+  if (['salt', 'pepper', 'spice', 'cinnamon', 'paprika'].some(keyword => lowerName.includes(keyword))) return 'g';
+  if (['rice', 'flour', 'pasta', 'chicken', 'beef', 'pork', 'fish'].some(keyword => lowerName.includes(keyword))) return 'kg';
+  return 'pcs';
+}
+
 function ingredientById(ingredientId) {
   return ingredients.find(ingredient => ingredient.id === ingredientId) || null;
 }
@@ -904,6 +912,7 @@ function mockValidateIngredient(payload = {}) {
     isFood,
     correctedName: name,
     category: inferMockCategory(name),
+    suggestedUnit: isFood ? inferMockUnit(name) : null,
     estimatedExpiryDate: '2026-06-30',
     dietConflict: false,
     allergyConflict,

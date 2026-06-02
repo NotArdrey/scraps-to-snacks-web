@@ -20,6 +20,8 @@ const CATEGORIES = [
   "Other",
 ];
 
+const UNITS = ["pcs", "kg", "g", "lbs", "oz", "L", "mL", "cups", "tbsp", "tsp"];
+
 const GROQ_API_URL = Deno.env.get("GROQ_API_URL") ?? "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_DEFAULT_MODEL = Deno.env.get("GROQ_DEFAULT_MODEL") ?? "llama-3.3-70b-versatile";
 const GROQ_VISION_MODEL = Deno.env.get("GROQ_VISION_MODEL") ?? "meta-llama/llama-4-scout-17b-16e-instruct";
@@ -281,6 +283,12 @@ function roundMoney(value: unknown, fallback = 0) {
 
 function normalizeConfidence(value: unknown) {
   return value === "high" || value === "medium" || value === "low" ? value : "low";
+}
+
+function normalizeSuggestedUnit(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalizedValue = value.trim().toLowerCase();
+  return UNITS.find((unit) => unit.toLowerCase() === normalizedValue) ?? null;
 }
 
 function normalizeCostSources(value: unknown) {
@@ -676,11 +684,19 @@ Also check if this ingredient conflicts with the user's diet or allergies. For e
 
 Also estimate a typical expiration date for this ingredient based on average shelf life when stored properly. Use today's date (${today}) as the purchase date. For example: fresh meat ~3-5 days, milk ~7-10 days, eggs ~3-4 weeks, canned goods ~1-2 years, fresh fruits/vegetables ~5-10 days, spices ~6 months, etc.${freshness ? " IMPORTANT: Adjust the expiry date based on the visual freshness assessment provided above." : ""}
 
+Also suggest the best unit for tracking this pantry item. Choose exactly one supported unit from: ${UNITS.join(", ")}.
+Use practical pantry inventory units, not recipe-only units:
+- Use pcs for countable items like eggs, apples, onions, cans, packs, bottles, loaves, and packaged items.
+- Use kg or g for bulk solids like meat, seafood, rice, flour, sugar, pasta, cheese blocks, spices, and baking ingredients.
+- Use L or mL for liquids like milk, juice, water, oil, vinegar, sauces, broth, and beverages.
+- Use cups, tbsp, or tsp only when the item name itself implies that measuring unit.
+
 Return a JSON object:
 {
   "isFood": true or false,
   "correctedName": "Properly capitalized ingredient name (or null if not food)",
   "category": "one of: ${CATEGORIES.join(", ")} (or null if not food)",
+  "suggestedUnit": "one of: ${UNITS.join(", ")} (or null if not food)",
   "estimatedExpiryDate": "YYYY-MM-DD format estimated expiration date adjusted for visual condition (or null if not food)",
   "freshnessWarning": "Brief warning about food condition if freshness is 'aging', 'questionable', or 'spoiled' (or null if fresh/good)",
   "dietConflict": true or false (whether it conflicts with the user's diet),
@@ -689,10 +705,15 @@ Return a JSON object:
   "reason": "Brief reason if rejected as not food"
 }`;
 
-  return await callGroq([
+  const result = await callGroq([
     { role: "system", content: "You are a food ingredient validation assistant. Always respond with valid JSON." },
     { role: "user", content: prompt },
   ]);
+  const normalizedResult = result && typeof result === "object" ? result as Record<string, unknown> : {};
+  return {
+    ...normalizedResult,
+    suggestedUnit: normalizeSuggestedUnit(normalizedResult.suggestedUnit),
+  };
 }
 
 async function scanIngredientsFromText(payload: Record<string, unknown>) {
