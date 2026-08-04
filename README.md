@@ -1,16 +1,40 @@
-# React + Vite
+# Scraps to Snacks Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Scraps to Snacks Web is a React application that helps users identify available food, generate recipes, and estimate ingredient or meal costs. AI requests are handled through a Supabase Edge Function so provider credentials are not exposed to the browser.
 
-Currently, two official plugins are available:
+## Implemented features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Pantry and ingredient workflows
+- Text- and image-assisted recipe generation
+- Structured recipe responses with ingredient, instruction, and cost information
+- Invalid-output detection, request limits, timeout handling, and provider-error normalization
+- Optional web-assisted price research
+- Supabase authentication and application data
+- Responsive routed React interface
+- Page-documentation screenshot tooling and Playwright development dependency
 
-## React Compiler
+## Technology
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 and React Router
+- Vite 8
+- Supabase JavaScript client and Edge Functions
+- Groq-compatible text and vision models
+- Lucide React
 
-## Expanding the ESLint configuration
+## Local development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
+
+Configure only the public Supabase URL and publishable/anonymous key in the browser environment. Keep model-provider keys, Supabase service-role credentials, and any web-search provider secrets in Supabase Edge Function secret storage.
+
+## Verification
+
+```bash
+npm run lint
+npm run build
+```
+
+The AI backend is located under `supabase/functions/ai`. Generated food and price information should be reviewed for allergies, food safety, current local pricing, and dietary requirements.
